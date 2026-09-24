@@ -24,5 +24,6 @@
     "fast-check": "^3.23.0",
     "ajv": "8.20.0",
     "@types/node": "^26.6.2"
-  }
+  },
+  "license": "MIT"
 }

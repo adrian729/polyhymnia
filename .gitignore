@@ -11,3 +11,5 @@ tools/*/dist/
 # notation-font/dist/ is a committed asset (woff2 + metadata), not build junk.
 packages/notation-font/.venv/
 packages/notation-font/vendor/
+
+.claude/scheduled_tasks.lock
