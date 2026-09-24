@@ -1,0 +1,11 @@
+node_modules/
+*.tsbuildinfo
+.DS_Store
+
+apps/web/dist/
+packages/notation-react/dist/
+packages/notation-core/dist/
+
+# notation-font/dist/ is a committed asset (woff2 + metadata), not build junk.
+packages/notation-font/.venv/
+packages/notation-font/vendor/
