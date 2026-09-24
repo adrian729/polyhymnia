@@ -1,5 +1,5 @@
 {
-  "name": "@earmaster/web",
+  "name": "@polyhymnia/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@earmaster/notation-react": "workspace:*",
+    "@polyhymnia/notation-react": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

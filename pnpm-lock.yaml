@@ -14,7 +14,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@earmaster/notation-react':
+      '@polyhymnia/notation-react':
         specifier: workspace:*
         version: link:../../packages/notation-react
       react:
@@ -40,7 +40,23 @@ importers:
         specifier: ^6.0.0
         version: 6.4.3
 
-  packages/notation-core:
+  packages/notation-engine:
+    dependencies:
+      '@polyhymnia/notation-model':
+        specifier: workspace:*
+        version: link:../notation-model
+    devDependencies:
+      fast-check:
+        specifier: ^3.23.0
+        version: 3.23.2
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(jsdom@25.0.1)
+
+  packages/notation-model:
     devDependencies:
       fast-check:
         specifier: ^3.23.0
@@ -54,9 +70,12 @@ importers:
 
   packages/notation-react:
     dependencies:
-      '@earmaster/notation-core':
+      '@polyhymnia/notation-engine':
         specifier: workspace:*
-        version: link:../notation-core
+        version: link:../notation-engine
+      '@polyhymnia/notation-model':
+        specifier: workspace:*
+        version: link:../notation-model
     devDependencies:
       '@testing-library/react':
         specifier: ^16.0.0

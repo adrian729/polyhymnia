@@ -76,7 +76,7 @@ type PlaybackView =
   | { mode: 'manual' };   // driven entirely via the imperative handle
 ```
 
-`notes` is the common case — a `Set` membership check while emitting, `data-em-playing="true"` on matches. Costs nothing (a chord-ID quiz playing four notes is the whole feature). `cursor` is continuous playback; `highlightActive: true` derives `activeIds` from `timemap.activeAt(tick)` so the caller never maintains both.
+`notes` is the common case — a `Set` membership check while emitting, `data-pn-playing="true"` on matches. Costs nothing (a chord-ID quiz playing four notes is the whole feature). `cursor` is continuous playback; `highlightActive: true` derives `activeIds` from `timemap.activeAt(tick)` so the caller never maintains both.
 
 `positionAtTick` interpolates piecewise-linearly between column x positions, timed so the cursor reaches column *i* exactly when it sounds — NOT time-proportional, since spacing follows the power law in `engraving.md` and proportional motion would drift off the noteheads for mixed durations.
 
@@ -100,4 +100,4 @@ None of these create/remove/reparent DOM nodes: the cursor `<g>` is created and 
 
 ## Presentation
 
-CSS only. The component emits `<g data-em-cursor><rect/></g>` spanning the staff height — it doesn't decide line vs. band vs. glow vs. off. `mode:'notes'` only sets `data-em-playing` — styling is entirely the app's call (`architecture.md` theming contract).
+CSS only. The component emits `<g data-pn-cursor><rect/></g>` spanning the staff height — it doesn't decide line vs. band vs. glow vs. off. `mode:'notes'` only sets `data-pn-playing` — styling is entirely the app's call (`architecture.md` theming contract).

@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import '@earmaster/notation-react/styles.css';
+import '@polyhymnia/notation-react/styles.css';
 import './app.css';
 import { App } from './App.js';
 

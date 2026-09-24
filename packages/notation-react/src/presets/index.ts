@@ -1,4 +1,4 @@
-// `@earmaster/notation-react/presets` — tree-shaken out when unused (interface.md).
+// `@polyhymnia/notation-react/presets` — tree-shaken out when unused (interface.md).
 
 export { ChordReveal } from './ChordReveal.js';
 export type { ChordRevealProps } from './ChordReveal.js';

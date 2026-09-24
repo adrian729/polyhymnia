@@ -111,7 +111,7 @@ type DurationToken = `${'b'|'w'|'h'|'q'|'8'|'16'|'32'|'64'}${''|'.'|'..'}`;     
 Example:
 
 ```ts
-import { score, measure, note, chord } from '@earmaster/notation-core/build';
+import { score, measure, note, chord } from '@polyhymnia/notation-model/build';
 
 const doc = score({ clef: 'treble' },
   measure(chord([note('C4', 'q'), note('E4', 'q'), note('G4', 'q')])),
@@ -123,7 +123,7 @@ const doc = score({ clef: 'treble' },
 
 ## Presets
 
-`@earmaster/notation-react/presets` — separate export path, tree-shaken out if unused. Thin wrappers around `<Notation>` + builders for the single-exercise case — not a scoped feature of their own (`README.md`), just sugar over the builder API above.
+`@polyhymnia/notation-react/presets` — separate export path, tree-shaken out if unused. Thin wrappers around `<Notation>` + builders for the single-exercise case — not a scoped feature of their own (`README.md`), just sugar over the builder API above.
 
 ```ts
 interface ChordRevealProps { pitches: readonly PitchToken[]; clef: ClefSpec['kind']; duration?: DurationToken | Duration }   // default 'q'

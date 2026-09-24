@@ -2,14 +2,9 @@
 
 import { useMemo } from 'react';
 import type { CSSProperties, JSX } from 'react';
-import { chord, measure, note, score } from '@earmaster/notation-core';
-import type {
-  ClefSpec,
-  Duration,
-  DurationToken,
-  LayoutResult,
-  PitchToken,
-} from '@earmaster/notation-core';
+import { chord, measure, note, score } from '@polyhymnia/notation-model';
+import type { ClefSpec, Duration, DurationToken, PitchToken } from '@polyhymnia/notation-model';
+import type { LayoutResult } from '@polyhymnia/notation-engine';
 import { Notation } from '../Notation.js';
 import { fittingMeter, durationKey } from './shared.js';
 

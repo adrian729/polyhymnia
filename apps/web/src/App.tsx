@@ -9,9 +9,9 @@ import {
   rest,
   score,
   wholeBarRest,
-} from '@earmaster/notation-react';
-import type { ClefSpec, ScoreDoc } from '@earmaster/notation-react';
-import { ChordReveal, IntervalReveal, ScaleReveal } from '@earmaster/notation-react/presets';
+} from '@polyhymnia/notation-react';
+import type { ClefSpec, ScoreDoc } from '@polyhymnia/notation-react';
+import { ChordReveal, IntervalReveal, ScaleReveal } from '@polyhymnia/notation-react/presets';
 import { Example } from './Example.js';
 
 // --- raw-builder documents --------------------------------------------------
@@ -84,9 +84,9 @@ const UNDERFULL: ScoreDoc = score({ clef: 'treble' }, measure(note('C4', 'q')));
 export function App() {
   return (
     <main>
-      <h1>Earmaster notation — renderer gallery</h1>
+      <h1>Polyhymnia notation — renderer gallery</h1>
       <p className="lede">
-        Every stave below is <code>@earmaster/notation-core</code>&rsquo;s{' '}
+        Every stave below is <code>@polyhymnia/notation-engine</code>&rsquo;s{' '}
         <code>layoutScore()</code> rendered by <code>&lt;Notation&gt;</code>: SVG in staff-space
         units, glyphs from the subsetted Bravura build, no colour anywhere but the
         stylesheet. Beams, ties, slurs and tuplets are later pipeline stages — eighth notes
@@ -250,7 +250,7 @@ export function App() {
         slurs (<code>paths</code> is empty), tuplet brackets, second voices, and every
         interactive affordance — pointer hit-testing, the playback cursor and the
         <code> Notation.Interaction</code>/<code>Notation.Playback</code> compound children.
-        Those land with the core stages behind them.
+        Those land with the engine stages behind them.
       </footer>
     </main>
   );

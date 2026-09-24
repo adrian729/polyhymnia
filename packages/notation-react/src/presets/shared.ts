@@ -2,8 +2,8 @@
 // feature of its own — it is the arithmetic the three thin wrappers would otherwise
 // each repeat.
 
-import { durationToRational, parseDuration } from '@earmaster/notation-core';
-import type { Duration, DurationToken, KeySpec, Pitch, TimeSpec } from '@earmaster/notation-core';
+import { durationToRational, parseDuration } from '@polyhymnia/notation-model';
+import type { Duration, DurationToken, KeySpec, Pitch, TimeSpec } from '@polyhymnia/notation-model';
 
 /**
  * A meter that exactly fits `count` notes of `duration`, so a reveal is one full bar:

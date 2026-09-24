@@ -4,7 +4,8 @@ node_modules/
 
 apps/web/dist/
 packages/notation-react/dist/
-packages/notation-core/dist/
+packages/notation-model/dist/
+packages/notation-engine/dist/
 
 # notation-font/dist/ is a committed asset (woff2 + metadata), not build junk.
 packages/notation-font/.venv/

@@ -1,5 +1,6 @@
 packages:
-  - packages/notation-core
+  - packages/notation-model
+  - packages/notation-engine
   - packages/notation-react
   - apps/web
 allowBuilds:

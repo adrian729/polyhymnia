@@ -1,13 +1,14 @@
 import { createRef } from 'react';
 import { render, cleanup } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { layoutScore, measure, note, rest, score } from '@earmaster/notation-core';
-import type { NoteId } from '@earmaster/notation-core';
+import { layoutScore } from '@polyhymnia/notation-engine';
+import { measure, note, rest, score } from '@polyhymnia/notation-model';
+import type { NoteId } from '@polyhymnia/notation-model';
 import { Notation } from '../src/Notation.js';
 import type { NotationHandle } from '../src/Notation.js';
 import { ScaleReveal } from '../src/presets/ScaleReveal.js';
 import { scalePitches, fittingMeter } from '../src/presets/shared.js';
-import { parsePitch } from '@earmaster/notation-core';
+import { parsePitch } from '@polyhymnia/notation-model';
 
 afterEach(cleanup);
 
@@ -33,7 +34,7 @@ describe('<Notation>', () => {
       `${layout.viewBox.x} ${layout.viewBox.y} ${layout.viewBox.w} ${layout.viewBox.h}`,
     );
     expect(svg.getAttribute('role')).toBe('img');
-    expect(svg.classList.contains('em-notation')).toBe(true);
+    expect(svg.classList.contains('pn-notation')).toBe(true);
   });
 
   it('summarizes the score in the root aria-label', () => {
@@ -48,7 +49,7 @@ describe('<Notation>', () => {
     const layout = layoutScore(doc);
     const { container } = render(<Notation score={doc} />);
 
-    const heads = [...container.querySelectorAll('[data-em="notehead"]')];
+    const heads = [...container.querySelectorAll('[data-pn="notehead"]')];
     const expected = layout.glyphs.filter((g) => g.cls === 'notehead');
     expect(heads).toHaveLength(expected.length);
     expect(expected).not.toHaveLength(0);
@@ -66,7 +67,7 @@ describe('<Notation>', () => {
     // treble glyph — not an arbitrary character that happens to be there.
     expect(heads[0]!.textContent!.codePointAt(0)).toBe(NOTEHEAD_BLACK);
     expect(
-      container.querySelector('[data-em="clef"]')!.textContent!.codePointAt(0),
+      container.querySelector('[data-pn="clef"]')!.textContent!.codePointAt(0),
     ).toBe(TREBLE_CLEF);
   });
 
@@ -75,10 +76,10 @@ describe('<Notation>', () => {
     const layout = layoutScore(doc);
     const { container } = render(<Notation score={doc} />);
 
-    const groups = [...container.querySelectorAll('[data-em="element"]')];
+    const groups = [...container.querySelectorAll('[data-pn="element"]')];
     expect(groups.length).toBe(Object.keys(layout.elements).length);
     for (const group of groups) {
-      const id = group.getAttribute('data-em-el') as NoteId;
+      const id = group.getAttribute('data-pn-el') as NoteId;
       expect(group.getAttribute('aria-label')).toBe(layout.elements[id]!.label);
     }
     expect(groups[0]!.getAttribute('aria-label')).toBe('C 4, quarter note, measure 1');
@@ -86,9 +87,9 @@ describe('<Notation>', () => {
 
   it('draws the five staff lines and the barlines as rects, never with a hardcoded color', () => {
     const { container } = render(<Notation score={simpleScore()} />);
-    const lines = [...container.querySelectorAll('[data-em="staff-line"]')];
+    const lines = [...container.querySelectorAll('[data-pn="staff-line"]')];
     expect(lines).toHaveLength(5);
-    expect(container.querySelectorAll('[data-em="barline"]').length).toBeGreaterThan(0);
+    expect(container.querySelectorAll('[data-pn="barline"]').length).toBeGreaterThan(0);
     for (const node of container.querySelectorAll('svg *')) {
       const fill = node.getAttribute('fill');
       expect(fill === null || fill === 'currentColor').toBe(true);
@@ -107,7 +108,7 @@ describe('<Notation>', () => {
       <Notation score={simpleScore()} className="wide" style={{ width: '400px' }} />,
     );
     const svg = container.querySelector('svg')!;
-    expect(svg.getAttribute('class')).toBe('em-notation wide');
+    expect(svg.getAttribute('class')).toBe('pn-notation wide');
     expect(svg.style.width).toBe('400px');
   });
 });
@@ -176,7 +177,7 @@ describe('presets', () => {
     const { container } = render(
       <ScaleReveal root="A3" scale="melodicMinor" clef="bass" descending />,
     );
-    expect(container.querySelectorAll('[data-em="notehead"]')).toHaveLength(8);
-    expect(container.querySelectorAll('[data-em="rest"]')).toHaveLength(0);
+    expect(container.querySelectorAll('[data-pn="notehead"]')).toHaveLength(8);
+    expect(container.querySelectorAll('[data-pn="rest"]')).toHaveLength(0);
   });
 });

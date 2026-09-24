@@ -2,7 +2,7 @@
 // and the filtered metadata JSON so they can't drift apart (font.md).
 export const SOURCE_FONT = 'Bravura.otf';
 export const SOURCE_VERSION = '1.482';
-export const RENAMED_FAMILY = 'EarmasterNotation';
+export const RENAMED_FAMILY = 'PolyhymniaNotation';
 
 // name -> codepoint, resolved against the SMuFL glyphnames.json registry.
 export const GLYPHS: Record<string, string> = {

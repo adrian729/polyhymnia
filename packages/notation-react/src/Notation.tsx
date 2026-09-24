@@ -7,24 +7,23 @@
 
 import { useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import type { CSSProperties, JSX, Ref } from 'react';
-import { layoutScore } from '@earmaster/notation-core';
+import { layoutScore } from '@polyhymnia/notation-engine';
 import type {
   ElementBox,
   GlyphRun,
   LayoutResult,
   NotationOptions,
-  NoteId,
   RectShape,
-  ScoreDoc,
   TimeMap,
   ViewBox,
-} from '@earmaster/notation-core';
+} from '@polyhymnia/notation-engine';
+import type { NoteId, ScoreDoc } from '@polyhymnia/notation-model';
 
 /**
  * The imperative handle (interface.md "## Imperative handle").
  *
  * Only the three methods backed by code that exists return a value. `hitTest`,
- * `setPlaybackTick`, `animateCursor` and `focus` need core's `query/hitTest.ts` and the
+ * `setPlaybackTick`, `animateCursor` and `focus` need the engine's `query/hitTest.ts` and the
  * playback cursor, neither of which is written yet, so they are typed `never` and throw:
  * a caller finds out at compile time, and at the latest loudly at runtime, rather than
  * against a silent no-op that looks like a layout bug.
@@ -34,7 +33,7 @@ export interface NotationHandle {
   getTimeMap(): TimeMap;
   /** Serializes the mounted `<svg>`, standalone (xmlns added), for export or snapshots. */
   exportSVG(): string;
-  /** @throws always — no core `hitTest` yet (roadmap.md Phase 3+). */
+  /** @throws always — no engine `hitTest` yet (roadmap.md Phase 3+). */
   hitTest(point: { x: number; y: number }): never;
   /** @throws always — no playback cursor yet (roadmap.md Phase 3+). */
   setPlaybackTick(tick: number): never;
@@ -90,32 +89,32 @@ export function Notation({
   return (
     <svg
       ref={svgRef}
-      className={classNames('em-notation', className)}
+      className={classNames('pn-notation', className)}
       style={style}
       viewBox={viewBoxAttr(layout.viewBox)}
       role="img"
       aria-label={describeScore(layout)}
     >
-      <g data-em="rules">
+      <g data-pn="rules">
         {layout.rects.map((r, i) => (
           <Rect key={`r${i}`} shape={r} />
         ))}
       </g>
       {/* Ties and slurs are pipeline stage 10; `paths` is always empty today. The layer
           exists so their arrival is a map over data, not a change of DOM shape. */}
-      <g data-em="curves">
+      <g data-pn="curves">
         {layout.paths.map((p, i) => (
           <path
             key={`p${i}`}
             d={p.d}
-            data-em={p.cls}
-            data-em-el={p.el}
+            data-pn={p.cls}
+            data-pn-el={p.el}
             fill="currentColor"
             stroke="none"
           />
         ))}
       </g>
-      <g data-em="glyphs" fontSize={GLYPH_FONT_SIZE}>
+      <g data-pn="glyphs" fontSize={GLYPH_FONT_SIZE}>
         {groupGlyphs(layout.glyphs).map((group, i) =>
           group.el === undefined ? (
             group.glyphs.map((g, j) => <Glyph key={`g${i}-${j}`} glyph={g} />)
@@ -127,8 +126,8 @@ export function Notation({
               key={`g${i}`}
               role="img"
               aria-label={layout.elements[group.el]?.label ?? group.el}
-              data-em="element"
-              data-em-el={group.el}
+              data-pn="element"
+              data-pn-el={group.el}
             >
               {group.glyphs.map((g, j) => (
                 <Glyph key={`g${i}-${j}`} glyph={g} />
@@ -153,8 +152,8 @@ function Rect({ shape }: { shape: RectShape }): JSX.Element {
       transform={
         shape.rot ? `rotate(${shape.rot} ${shape.x} ${shape.y})` : undefined
       }
-      data-em={shape.cls}
-      data-em-el={shape.el}
+      data-pn={shape.cls}
+      data-pn-el={shape.el}
       fill="currentColor"
       stroke="none"
     />
@@ -166,8 +165,8 @@ function Glyph({ glyph }: { glyph: GlyphRun }): JSX.Element {
     <text
       x={glyph.x}
       y={glyph.y}
-      data-em={glyph.cls}
-      data-em-el={glyph.el}
+      data-pn={glyph.cls}
+      data-pn-el={glyph.el}
       fill="currentColor"
       stroke="none"
     >

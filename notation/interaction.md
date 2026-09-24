@@ -2,7 +2,7 @@
 
 ## Hit-testing
 
-Hybrid: per-element `<g>` for existing elements (exact) + one overlay `<rect>` per system for empty space, both resolved through one core `hitTest()` function — pure, no DOM geometry, runs in Node (entered only via the real function signature, `roadmap.md`).
+Hybrid: per-element `<g>` for existing elements (exact) + one overlay `<rect>` per system for empty space, both resolved through one engine `hitTest()` function — pure, no DOM geometry, runs in Node (entered only via the real function signature, `roadmap.md`).
 
 Rejected: an invisible `<rect>` per (slot × staff position) — a 4-measure 16th grid with ±4 ledger positions is ≈1,700 nodes: DOM bloat, reconciliation cost, and the rects fight real elements for pointer events.
 
@@ -76,7 +76,7 @@ Phase 1: `mode:'insert'`, handle `insertNote`, ignore everything else. Every oth
 | --- | --- |
 | Pitch/duration/accidental edit | New intent members; a menu or keyboard handler produces them |
 | Delete | `deleteElements` intent |
-| Multi-select | `selection` prop + `selectElements` intent; render `[data-em-selected]`, CSS does the rest |
+| Multi-select | `selection` prop + `selectElements` intent; render `[data-pn-selected]`, CSS does the rest |
 | Drag | pointerdown → track → pointermove resolves a live `hitTest` → `moveElements` on pointerup; needs a `ghost?: {pitch, slot}` preview prop, no layout re-run |
 | Keyboard nav | `navigate` intent + `focusedId` prop + `tabIndex` on element `<g>`s |
 | Context menu | `contextMenu` intent carries client coords; app renders its own menu |
@@ -85,7 +85,7 @@ Phase 1: `mode:'insert'`, handle `insertNote`, ignore everything else. Every oth
 
 ## Applying intents
 
-`applyIntent` ships as a separate `notation-core` export, not wired into `<Notation>` — the quiz layer can reject an edit (wrong answer, locked measure) without fighting the renderer.
+`applyIntent` ships as a separate `notation-engine` export, not wired into `<Notation>` — the quiz layer can reject an edit (wrong answer, locked measure) without fighting the renderer.
 
 ```ts
 interface ApplyOptions { allowMeasureGrowth?: boolean }   // default false — see spliceVoice step 6

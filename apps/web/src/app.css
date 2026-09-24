@@ -59,7 +59,7 @@ p.note {
 }
 
 /* The renderer's own sizing hook: an sp-unit viewBox scaled by one width. */
-.example .em-notation {
+.example .pn-notation {
   width: 100%;
 }
 

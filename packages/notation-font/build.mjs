@@ -24,7 +24,7 @@ const sourceOtf = path.join(vendor, SOURCE_FONT);
 const sourceJson = path.join(vendor, 'Bravura.json');
 const preRename = path.join(dist, '_prerename.otf');
 const finalOtf = path.join(dist, '_renamed.otf');
-const finalWoff2 = path.join(dist, 'earmaster-notation.woff2');
+const finalWoff2 = path.join(dist, 'polyhymnia-notation.woff2');
 const finalMetadata = path.join(dist, 'metadata.json');
 
 // 1. Subset — same manifest.UNICODE_RANGES drives this and the metadata filter below.
@@ -56,3 +56,5 @@ copyFileSync(path.join(vendor, 'OFL.txt'), path.join(dist, 'OFL.txt'));
 copyFileSync(path.join(here, 'NOTICE.txt'), path.join(dist, 'NOTICE.txt'));
 
 console.log(`Built ${finalWoff2} + ${finalMetadata} (${Object.keys(GLYPHS).length} glyphs).`);
+
+await import('./sync.mjs');

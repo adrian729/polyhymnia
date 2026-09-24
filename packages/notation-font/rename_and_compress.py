@@ -13,6 +13,8 @@ font = TTFont(src)
 cff = font['CFF ']
 top_dict = cff.cff.topDictIndex[0]
 top_dict.rawDict['FontName'] = family
+top_dict.rawDict['FullName'] = family
+top_dict.rawDict['FamilyName'] = family
 cff.cff.fontNames = [family]
 
 name = font['name']

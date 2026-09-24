@@ -1,5 +1,5 @@
 {
-  "name": "@earmaster/notation-react",
+  "name": "@polyhymnia/notation-react",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -21,7 +21,8 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
-    "@earmaster/notation-core": "workspace:*"
+    "@polyhymnia/notation-engine": "workspace:*",
+    "@polyhymnia/notation-model": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

@@ -4,31 +4,42 @@
 
 ```
 packages/
-  notation-core/          # pure TS, zero deps, no DOM in tsconfig lib — runs in Node
-    src/model/             types.ts rational.ts duration.ts pitch.ts ids.ts
-    src/font/               metadata.ts engravingDefaults.ts glyphs.ts   (name -> codepoint)
+  notation-model/          # @polyhymnia/notation-model — pure TS, zero deps, no DOM in tsconfig lib
+    src/model/              types.ts tokens.ts rational.ts duration.ts pitch.ts ids.ts
+    src/build/               score.ts note.ts duration-tokens.ts pitch-tokens.ts   (interface.md builders, also at `/build`)
+    test/
+  notation-engine/         # @polyhymnia/notation-engine — pure TS, depends on notation-model only, no DOM — runs in Node
+    src/options.ts           NotationOptions, DEFAULT_OPTIONS
+    src/font/                metadata.ts metadata.json engravingDefaults.ts glyphs.ts   (name -> codepoint)
     src/layout/
       normalize.ts temporal.ts accidentals.ts grouping.ts
       vertical.ts horizontal.ts break.ts justify.ts beams.ts curves.ts emit.ts
       index.ts              # layoutScore()
     src/query/               hitTest.ts slots.ts timemap.ts
-    src/build/                score.ts note.ts duration-tokens.ts pitch-tokens.ts   (interface.md builders)
-    src/apply/                 applyIntent.ts spliceVoice.ts fillRests.ts   (interaction.md)
-    test/ + test/__golden__/
-  notation-react/            # peer: react ^19
+    src/apply/                applyIntent.ts spliceVoice.ts fillRests.ts   (interaction.md)
+    assets/                   polyhymnia-notation.woff2 OFL.txt NOTICE.txt   (exported as `./assets/*`)
+    test/
+  notation-react/            # depends on notation-model + notation-engine; peer: react ^19
     src/  Notation.tsx  Interaction.tsx  Playback.tsx  context.ts  usePointerIntents.ts  useNotationHandle.ts  index.ts
     src/presets/               ChordReveal.tsx  IntervalReveal.tsx  ScaleReveal.tsx
     styles/notation.css        # default theme, all custom properties
+    styles/polyhymnia-notation.woff2   # synced from notation-font
   notation-font/                # build-time only, never in the runtime dep tree
-    manifest.ts build.mjs dist/
-apps/web/                        # imports @earmaster/notation-react only
+    manifest.ts build.mjs sync.mjs dist/
+apps/web/                        # imports @polyhymnia/notation-react only
 ```
 
-Enforcement: `notation-core/tsconfig.json` excludes `"DOM"` from `lib`, has no `react` dependency. Any DOM or React reference is a compile error on the day it's written.
+Dependency direction: `notation-model` ← `notation-engine` ← `notation-react` ← `apps/web`. Each layer depends only on the layers to its left.
 
-`notation-font` is build-time-only — the app imports `.woff2`/`metadata.json` as assets; fontTools/Python never appear in `npm install`.
+- `notation-model` — the data model (`ScoreDoc` and its parts, `Rational`, durations, pitches, ids) and the builders. No dependencies at all.
+- `notation-engine` — font metrics, the layout pipeline, `query/` (timemap) and `apply/` (edits), plus `NotationOptions`. Its output, `LayoutResult`, is the renderer-agnostic contract: a future Vue (or any other) rendering package depends on `notation-model` + `notation-engine` exactly as `notation-react` does, and reimplements only the rendering layer.
+- `notation-react` — the React rendering layer. Its public facade re-exports the builders and the layout types, so an app still needs this one dependency only.
 
-Extraction to a published package later: set `name`/`version`/`repository`, write a README, `"sideEffects": false`. No code moves — the split already exists.
+Enforcement: no lint script — the package manifests and tsconfigs are the enforcement. pnpm's strict `node_modules` means a package can only import what its `package.json` declares, so `notation-model` (no dependencies) cannot reach the engine (relative-path imports across packages are not blocked by pnpm; there are none, and review keeps it that way), and `notation-engine` (depends on `notation-model` only) cannot reach React. Both `tsconfig.json`s exclude `"DOM"` from `lib`, so any DOM or React reference in either is a compile error on the day it's written.
+
+`notation-font` is build-time-only — fontTools/Python never appear in `npm install`. `build.mjs` writes to `notation-font/dist/` and then runs `sync.mjs` (also runnable alone as `node sync.mjs`), which copies byte-identical files to where the runtime packages read them: `metadata.json` → `notation-engine/src/font/`, the `.woff2` + `OFL.txt` + `NOTICE.txt` → `notation-engine/assets/`, and the `.woff2` → `notation-react/styles/`.
+
+Extraction to published packages later: set `name`/`version`/`repository`, write a README, `"sideEffects": false`. No code moves — the three-way split already exists.
 
 ## Pipeline
 
@@ -85,7 +96,7 @@ Beams are `RectShape` with `rot` (a rotated rect approximates a beam's parallelo
 
 ## Coordinate system
 
-- Unit: staff space (`sp`) = gap between adjacent staff lines. All layout math in `sp`, no pixels in the core.
+- Unit: staff space (`sp`) = gap between adjacent staff lines. All layout math in `sp`, no pixels in the engine.
 - SMuFL: 1 em = 4 sp. `<text font-size="4">` in an sp-unit viewBox renders glyphs at correct size, no magic constants.
 - Zoom/print/responsive sizing = CSS problems (a single `viewBox` mapping), not layout problems.
 
@@ -128,11 +139,11 @@ Clef change: restated at the new measure, same barline-adjacent placement as a k
 No color in the layout engine, ever. Every node: `fill/stroke="currentColor"` + stable `data-*` attributes; CSS decides the rest.
 
 ```css
-.em-notation { color: var(--em-ink, currentColor); }
-.em-notation [data-em="staff-line"]      { color: var(--em-staff, #999); }
-.em-notation [data-em-selected]          { color: var(--em-selected, #0969da); }
-.em-notation [data-em-playing="true"]    { color: var(--em-playing, #0969da); }
-.em-notation [data-em-cursor]            { fill: var(--em-cursor, #0969da); opacity: var(--em-cursor-opacity, .25); }
+.pn-notation { color: var(--pn-ink, currentColor); }
+.pn-notation [data-pn="staff-line"]      { color: var(--pn-staff, #999); }
+.pn-notation [data-pn-selected]          { color: var(--pn-selected, #0969da); }
+.pn-notation [data-pn-playing="true"]    { color: var(--pn-playing, #0969da); }
+.pn-notation [data-pn-cursor]            { fill: var(--pn-cursor, #0969da); opacity: var(--pn-cursor-opacity, .25); }
 ```
 
 Playback indicator visual form is explicitly not decided here — see `playback.md`.
@@ -146,12 +157,12 @@ export function Notation({ score, options, children, className, ...rest }: Notat
   const layout = useMemo(() => layoutScore(score, options), [score, options]);
   const { interaction, playback } = extractBehaviors(children);   // interface.md compound children
   return (
-    <svg className={cx('em-notation', className)} viewBox={vb(layout.viewBox)} role="img"
+    <svg className={cx('pn-notation', className)} viewBox={vb(layout.viewBox)} role="img"
          aria-label={describeScore(layout)} {...pointerHandlers(layout, interaction)}>
-      <g data-em="rules">  {layout.rects .map(r => <rect key={r.cls+r.x+r.y} {...rectProps(r)} />)}</g>
-      <g data-em="curves"> {layout.paths .map(p => <path key={p.cls+p.d.length} d={p.d} />)}</g>
-      <g data-em="glyphs"> {layout.glyphs.map(g => <text key={g.el ?? g.cp+':'+g.x} x={g.x} y={g.y}
-                                fontSize={4} data-em-el={g.el}>{String.fromCodePoint(g.cp)}</text>)}</g>
+      <g data-pn="rules">  {layout.rects .map(r => <rect key={r.cls+r.x+r.y} {...rectProps(r)} />)}</g>
+      <g data-pn="curves"> {layout.paths .map(p => <path key={p.cls+p.d.length} d={p.d} />)}</g>
+      <g data-pn="glyphs"> {layout.glyphs.map(g => <text key={g.el ?? g.cp+':'+g.x} x={g.x} y={g.y}
+                                fontSize={4} data-pn-el={g.el}>{String.fromCodePoint(g.cp)}</text>)}</g>
       <PlaybackLayer layout={layout} playback={playback} />
     </svg>
   );

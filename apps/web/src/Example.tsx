@@ -3,7 +3,7 @@
 
 import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { Diagnostic, LayoutResult } from '@earmaster/notation-react';
+import type { Diagnostic, LayoutResult } from '@polyhymnia/notation-react';
 
 interface ExampleProps {
   title: string;

@@ -6,7 +6,7 @@ Integration only — no isolated-function unit tests. Every test enters through 
 
 - **Golden-file (primary):** full pipeline, `ScoreDoc` → `LayoutResult`, snapshot the result (3-decimal rounded), not SVG strings — an SVG diff fires on attribute-order noise, a `LayoutResult` diff only on real geometry moves and shows what moved. Corpus, one `ScoreDoc` fixture each (~25 items, doubles as the dev gallery): scale in treble/bass, all 15 keys × 4 clefs (60 combinations — batched as one parameterized fixture, catches the tenor octave-placement irregularity), 4-note chord w/ 3 accidentals + cautionary/courtesy cases, ledger lines ±4, straight 8ths (beaming), 16ths (secondary beams), mixed 16-8-16 (hooks), 6/8 vs 3/4 (same total duration, different beat grouping), triplets beamed/unbeamed, beam-slope edge cases (flat/clamped), tie across a barline, tie across a system break, slur over a leap, 2 voices with a second, whole-bar rest in 3/4, whole-bar rest in 9/8 (unrepresentable-capacity case, data-model.md), dotted note on a line, mid-score clef/meter change, 8-measure line break, pickup measure.
 - **Property (fast-check):** same entry point (`layoutScore()` on generated full `ScoreDoc`s), invariants over the whole output: column x strictly increasing per system; no hitbox overlap within a voice; `Σ durations == capacity` per measure (or a diagnostic); `hitTest(centerOf(box)) === box` round-trip for every element; slot x-bands tile with no gap/overlap.
-- **Rendering (RTL):** the real `<Notation>` component, real DOM — one `<g>` per note, `aria-label` correctness, click → expected intent, `activeIds` → `data-em-playing`.
+- **Rendering (RTL):** the real `<Notation>` component, real DOM — one `<g>` per note, `aria-label` correctness, click → expected intent, `activeIds` → `data-pn-playing`.
 - **Dev gallery route:** full golden-file corpus, multiple sizes, both themes — where engraving mistakes get caught, by eye.
 - **Dev-only side-by-side vs. abcjs** (dev dependency, never shipped): same corpus through both, visual reference not assertion — catches "this looks subtly wrong" that no automated test surfaces.
 - **Deferred:** Playwright screenshot diffing — add once output stabilizes (Phase 5); earlier, it fails on every intentional change.
@@ -15,7 +15,7 @@ Integration only — no isolated-function unit tests. Every test enters through 
 
 | Phase | Scope | Done when | Est. |
 | --- | --- | --- | --- |
-| 0 — Skeleton | Workspace split, DOM-excluded core tsconfig, font build script (subset → rename → metadata filter). `<Staff>` renders 5 lines + clef at fixed position. | Compiles; fails on any `document` reference in `notation-core`. | 1 day |
+| 0 — Skeleton | Workspace split, DOM-excluded model/engine tsconfigs, font build script (subset → rename → metadata filter). `<Staff>` renders 5 lines + clef at fixed position. | Compiles; fails on any `document` reference in `notation-model` or `notation-engine`. | 1 day |
 | 1 — Pitch + click-to-insert | Data model, `Rational`, single measure/voice, noteheads/accidentals/ledger/stems/flags/rests/dots. Fixed-width spacing (no justify yet). `hitTest` + slots + `insertNote`. Golden-file tests. | Reveal any 1–4 note chord/interval; click an empty staff to add a note. | 3–4 days |
 | 2 — Real scores | Key/time signatures, barlines, multi-measure, spring/rod spacing + justify, greedy breaking. Timemap export, `mode:'notes'`. | 8-measure melody in any key lays out and highlights note-by-note against the audio engine. | 4–5 days |
 | 3 — Rhythm | Beat grouping, beam geometry + secondaries + hooks, single-level tuplets, `mode:'cursor'` (WAAPI + rAF). | Rhythmic dictation displays; cursor tracks playback without drift. | 4–5 days |
@@ -26,7 +26,7 @@ Integration only — no isolated-function unit tests. Every test enters through 
 
 **Not on the roadmap** (deferred features, `README.md`): grand staff, cross-staff beaming, nested tuplets, grace notes, dynamics, articulations, lyrics, chord symbols, multi-page.
 
-## Per-feature LOC estimate (core + react, excl. tests)
+## Per-feature LOC estimate (model + engine + react, excl. tests)
 
 | Feature | LOC | Subtlety |
 | --- | --- | --- |

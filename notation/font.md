@@ -18,7 +18,7 @@ Font choice is a build-time swap, not lock-in: Leland/Petaluma are SMuFL-complia
 
 OFL-FAQ 2.6: subsetting a web font is modification; a modified font "would not normally allow the use of RFNs." Our 61-glyph subset does not preserve Functional Equivalence (the full character inventory), so:
 
-- The subsetted font ships under a **renamed family** — CFF `fontName` + name IDs 1/4/6/16 rewritten to `EarmasterNotation` at build time. `pyftsubset --name-IDs=''` empties the `name` table but leaves CFF `fontName` unchanged — the rename needs an explicit build step or this is a silent compliance bug.
+- The subsetted font ships under a **renamed family** — CFF `FontName`/`FullName`/`FamilyName` + name IDs 1/4/6/16 rewritten to `PolyhymniaNotation` at build time. `pyftsubset --name-IDs=''` empties the `name` table but leaves the CFF top-dict names (`Bravura`) unchanged — the rename needs an explicit build step or this is a silent compliance bug.
 - Ship `OFL.txt` + copyright/authorship notice + upstream pointer alongside.
 - Renamed `font-family` also avoids a real bug: a system-installed Bravura of a different version could otherwise resolve under `font-family: Bravura`, silently mismatching our metadata's advance widths.
 
@@ -64,10 +64,10 @@ Metadata (advance widths, bboxes, anchors) filtered to the 61-glyph set: 7,210 B
 pyftsubset Bravura.otf \
   --unicodes="U+E044,U+E050,U+E052,U+E053,U+E05C,U+E062,U+E064,U+E065,U+E080-E08B,U+E0A0,U+E0A2-E0A4,\
 U+E1E7,U+E240-E247,U+E260-E264,U+E26A,U+E26B,U+E4CE,U+E4D1,U+E4E2-E4E9,U+E880-E88A" \
-  --output-file=earmaster-notation.woff2 --flavor=woff2 \
+  --output-file=polyhymnia-notation.woff2 --flavor=woff2 \
   --no-hinting --desubroutinize \
   --drop-tables+=GSUB,GPOS,BASE,JSTF,DSIG --name-IDs='' --notdef-outline
-# then: rename CFF fontName + name IDs 1/4/6/16 -> "EarmasterNotation"
+# then: rename CFF FontName/FullName/FamilyName + name IDs 1/4/6/16 -> "PolyhymniaNotation"
 ```
 
 Same manifest drives both the WOFF2 and the filtered metadata JSON — they can't drift apart.

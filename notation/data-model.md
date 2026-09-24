@@ -1,6 +1,6 @@
 # Data model
 
-The component owns its own representation — no ABC, no MusicXML, no engine DSL in the core. A second renderer, or a MusicXML/MIDI export, is an adapter at the edge, not a restructuring.
+The component owns its own representation — no ABC, no MusicXML, no layout-engine DSL in the model. A second renderer, or a MusicXML/MIDI export, is an adapter at the edge, not a restructuring.
 
 ## Types
 
