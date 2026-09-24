@@ -1,0 +1,8 @@
+This font is a modified subset of Bravura 1.482, (c) Steinberg Media
+Technologies GmbH, https://github.com/steinbergmedia/bravura, licensed
+under the SIL Open Font License 1.1 (see OFL.txt in this directory).
+
+Modification: subsetted to 58 glyphs (see manifest.ts in this package) and
+renamed to "EarmasterNotation" per OFL-FAQ 2.6 (subsetting does not preserve
+Functional Equivalence, so the Reserved Font Name may not be retained on the
+modified font).
