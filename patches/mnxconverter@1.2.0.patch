@@ -1,0 +1,27 @@
+diff --git a/package.json b/package.json
+index fc00a6b7a700bf531afc9dcafc7aed3943f5f908..05c3096c5bf71e0616c347a74a5162cd17aef809 100644
+--- a/package.json
++++ b/package.json
+@@ -2,11 +2,11 @@
+   "name": "mnxconverter",
+   "version": "1.2.0",
+   "description": "Music XML - MNX converter",
+-  "main": "./lib/esm/index.js",
++  "main": "./lib/cjs/src/index.js",
+   "exports": {
+     ".": {
+-      "import": "./lib/esm/index.js",
+-      "require": "./lib/cjs/index.js"
++      "import": "./lib/cjs/src/index.js",
++      "require": "./lib/cjs/src/index.js"
+     }
+   },
+   "files": [
+@@ -130,5 +130,6 @@
+     "@xmldom/xmldom": "^0.9.10",
+     "fraction.js": "^4.3.7",
+     "xpath": "^0.0.34"
+-  }
++  },
++  "types": "./lib/cjs/src/index.d.ts"
+ }

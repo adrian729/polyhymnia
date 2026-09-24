@@ -1,0 +1,29 @@
+{
+  "name": "@polyhymnia/musicxml-to-mnx",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "musicxml-to-mnx": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "convert": "node ./dist/cli.js"
+  },
+  "dependencies": {
+    "@polyhymnia/notation-model": "workspace:*",
+    "@polyhymnia/notation-engine": "workspace:*",
+    "mnxconverter": "1.2.0",
+    "ajv": "8.20.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "@types/node": "^26.6.2"
+  }
+}

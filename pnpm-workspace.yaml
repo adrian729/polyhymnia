@@ -3,5 +3,8 @@ packages:
   - packages/notation-engine
   - packages/notation-react
   - apps/web
+  - tools/*
 allowBuilds:
   esbuild: true
+patchedDependencies:
+  mnxconverter@1.2.0: patches/mnxconverter@1.2.0.patch
