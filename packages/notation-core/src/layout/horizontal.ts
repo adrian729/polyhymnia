@@ -194,6 +194,17 @@ function buildColumns(
     const rightWidth = members.reduce((max, e) => Math.max(max, e.rightWidth), 0);
     const rodWidth = leftWidth + rightWidth + ROD_PADDING;
     const idealWidth = ctx.base * (spanTicks / ctx.divisions) ** ctx.k;
+    // `justify` places this column's notehead at `xStart + leftWidth` (the accidental
+    // block sits before it) but the *next* column's `xStart` only advances by `width`.
+    // If `width` were just `idealWidth`, this column's own `leftWidth` would widen the
+    // gap before its notehead but silently steal the same amount from the gap after it —
+    // backwards, since an accidental needs room before its note, never after. Looking
+    // ahead to the next column's `leftWidth` here keeps the notehead-to-notehead spring
+    // at its full `idealWidth` regardless of which side's accidental caused the stretch.
+    const nextLeftWidth = byTick
+      .get(ticks[i + 1] ?? -1)
+      ?.reduce((max, e) => Math.max(max, e.leftWidth), 0) ?? 0;
+    const springWidth = idealWidth + Math.max(0, leftWidth - nextLeftWidth);
     return {
       staffIndex: ctx.staffIndex,
       measureIndex: ctx.measureIndex,
@@ -205,8 +216,13 @@ function buildColumns(
       rightWidth,
       rodWidth,
       idealWidth,
-      width: Math.max(rodWidth, idealWidth),
-      stretch: Math.max(0, idealWidth - rodWidth) + EPS_STRETCH,
+      width: Math.max(rodWidth, springWidth),
+      // Stretch capacity during `justify` is duration-proportional only, never reduced
+      // by this column's own rod requirement — a rod is a floor on natural width, not a
+      // penalty on how much slack a column earns when the system is stretched wider.
+      // (Using `springWidth - rodWidth` here previously starved an accidental-bearing
+      // column of its fair share of slack, unevenly compressing the gap right after it.)
+      stretch: idealWidth + EPS_STRETCH,
       xStart: 0,
       x: 0,
     } satisfies LayoutColumn;
