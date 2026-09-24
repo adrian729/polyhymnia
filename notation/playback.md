@@ -4,13 +4,16 @@ The component never touches `AudioContext`, never schedules, never owns a clock.
 
 ## Timemap: the shared source of truth
 
-The temporal pass already computes exact onset ticks for every element (`architecture.md` pipeline stage 2) — needed anyway for beat grouping, tuplet scaling, and measure validation. Exposing it costs nothing. The alternative — an audio engine independently walking `ScoreDoc` to compute its own onsets — means two implementations of dotted-note arithmetic, tuplet scaling, tie merging, and pickup-measure handling, which will disagree exactly on the material worth drilling most.
+The temporal pass already computes exact onset ticks for every element (`architecture.md` pipeline stage 2) — needed anyway for tuplet scaling and measure validation. Exposing it costs nothing. The alternative — an audio engine independently walking the MNX document to compute its own onsets — means two implementations of dotted-note arithmetic, tuplet scaling, tie merging, and pickup-measure handling, which will disagree exactly on the material worth drilling most.
 
 ```ts
 interface TimeMapEntry {
   // one row per chord/note/rest; `ids` holds every member NoteId — length 1 for a note/rest,
-  // length N for a chord. Mirrors ElementBox's per-member addressing (architecture.md) so
-  // `activeAt`/`byId` resolve to the same ids the rendered <g>s are keyed by.
+  // length N for a chord. Every id is an MNX id (mnx.md's ID rule): the document's own `id`
+  // when present, else the engine's deterministic positional id. Mirrors ElementBox's
+  // per-member addressing (architecture.md) so `activeAt`/`byId` resolve to the same ids
+  // the rendered <g>s are keyed by — an app driving playback highlight off content it
+  // authored itself must give that content real MNX ids to get a stable target here.
   ids: readonly NoteId[]; tick: number; durationTicks: number;    // tie-merged: a tied pair is ONE entry
   measureIndex: number; voice: 0|1;
   systemIndex: number; x: number; y: number;           // sp coords — cursor placement, scroll-into-view
@@ -57,12 +60,14 @@ function frame() {
 
 ## Tempo
 
-Lives in `ScoreDoc`, not the audio engine — a metronome mark is notation data.
+Lives in the MNX document, not the audio engine — a metronome mark is notation data. `global.measures[i].tempos[]` (`mnx.md`) is the source; `normalize.ts` resolves each entry's `location.fraction` (an offset from that measure's start) to an absolute tick and its `value` to a beat-unit note value, producing the engine's own `TempoMap` (`layout/records.ts`):
 
 ```ts
-interface TempoEvent { tick: number; bpm: number; beatUnit?: DurationBase }   // default 'quarter'
+interface TempoEvent { tick: number; bpm: number; beatUnit?: NoteValueSpec }   // beatUnit default: a quarter note
 type TempoMap = readonly TempoEvent[];    // piecewise-constant; ramps deferred
 ```
+
+A `tempos` entry whose `value` uses a note-value base the engine doesn't support falls back to a quarter-note beat unit + `mnx-unsupported` (`mnx.md`).
 
 `tickToSeconds` = a prefix-sum lookup over the tempo map, O(log n).
 

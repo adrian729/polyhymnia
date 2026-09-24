@@ -4,38 +4,43 @@
 
 ```
 packages/
-  notation-model/          # @polyhymnia/notation-model — pure TS, zero deps, no DOM in tsconfig lib
-    src/model/              types.ts tokens.ts rational.ts duration.ts pitch.ts ids.ts
-    src/build/               score.ts note.ts duration-tokens.ts pitch-tokens.ts   (interface.md builders, also at `/build`)
+  notation-model/          # @polyhymnia/notation-model — thin MNX layer, pure TS, zero deps, no DOM in tsconfig lib
+    schema/                  mnx-schema.json  examples/<52 files>  SOURCE   (mnx.md)
+    scripts/                 mnx-update.mjs  gen-mnx-types.mjs
+    src/mnx/                 types.ts (generated)  read.ts  time.ts  pitch.ts  rational.ts  index.ts
     test/
   notation-engine/         # @polyhymnia/notation-engine — pure TS, depends on notation-model only, no DOM — runs in Node
     src/options.ts           NotationOptions, DEFAULT_OPTIONS
     src/font/                metadata.ts metadata.json engravingDefaults.ts glyphs.ts   (name -> codepoint)
     src/layout/
-      normalize.ts temporal.ts accidentals.ts grouping.ts
+      records.ts             flat engine-internal types: Pitch, Duration/NoteValueSpec, ClefSpec, KeySpec, TimeSpec, TempoEvent...
+      normalize.ts            the only stage that reads MnxDocument — emits NormalizedElement/NormalizedGap
+      temporal.ts             onset/duration ticks — emits TemporalElement, never reads MnxDocument
+      accidentals.ts grouping.ts
       vertical.ts horizontal.ts break.ts justify.ts beams.ts curves.ts emit.ts
-      index.ts              # layoutScore()
+      index.ts              # layoutScore(doc: MnxDocument, options)
     src/query/               hitTest.ts slots.ts timemap.ts
     src/apply/                applyIntent.ts spliceVoice.ts fillRests.ts   (interaction.md)
     assets/                   polyhymnia-notation.woff2 OFL.txt NOTICE.txt   (exported as `./assets/*`)
-    test/
+    test/                     fixtures/ (MNX JSON), conformance.test.ts, schema.test.ts, mnx-mapping.test.ts
   notation-react/            # depends on notation-model + notation-engine; peer: react ^19
     src/  Notation.tsx  Interaction.tsx  Playback.tsx  context.ts  usePointerIntents.ts  useNotationHandle.ts  index.ts
-    src/presets/               ChordReveal.tsx  IntervalReveal.tsx  ScaleReveal.tsx
+    src/presets/               ChordReveal.tsx  IntervalReveal.tsx  ScaleReveal.tsx  (build MNX internally)
     styles/notation.css        # default theme, all custom properties
     styles/polyhymnia-notation.woff2   # synced from notation-font
   notation-font/                # build-time only, never in the runtime dep tree
     manifest.ts build.mjs sync.mjs dist/
-apps/web/                        # imports @polyhymnia/notation-react only
+apps/web/                        # imports @polyhymnia/notation-react only; demo scores under src/scores/*.mnx.json
+tools/musicxml-to-mnx/           # offline content pipeline, not a runtime package — interface.md "Authoring scores"
 ```
 
 Dependency direction: `notation-model` ← `notation-engine` ← `notation-react` ← `apps/web`. Each layer depends only on the layers to its left.
 
-- `notation-model` — the data model (`ScoreDoc` and its parts, `Rational`, durations, pitches, ids) and the builders. No dependencies at all.
-- `notation-engine` — font metrics, the layout pipeline, `query/` (timemap) and `apply/` (edits), plus `NotationOptions`. Its output, `LayoutResult`, is the renderer-agnostic contract: a future Vue (or any other) rendering package depends on `notation-model` + `notation-engine` exactly as `notation-react` does, and reimplements only the rendering layer.
-- `notation-react` — the React rendering layer. Its public facade re-exports the builders and the layout types, so an app still needs this one dependency only.
+- `notation-model` — a thin layer over MNX, nothing else: the vendored schema and its 52 official examples, generated `MnxDocument`/`Event`/`Note`/… types, `readMnx()` (version check), `Rational`, `noteValueLength`/`tupletRatio` (MNX note-value and tuplet math), `parsePitch`/`midiOf`. No custom score model, no builders (`AGENTS.md`). No dependencies at all besides its own devDependencies (Ajv, `json-schema-to-typescript`, both build/test-time only).
+- `notation-engine` — font metrics, the layout pipeline reading MNX directly, `query/` (timemap) and `apply/` (edits), plus `NotationOptions`. Its output, `LayoutResult`, is the renderer-agnostic contract: a future Vue (or any other) rendering package depends on `notation-model` + `notation-engine` exactly as `notation-react` does, and reimplements only the rendering layer.
+- `notation-react` — the React rendering layer. Presets build MNX internally (`interface.md`) from small typed props (`PitchToken`, MNX note values); there is no public builder API to re-export.
 
-Enforcement: no lint script — the package manifests and tsconfigs are the enforcement. pnpm's strict `node_modules` means a package can only import what its `package.json` declares, so `notation-model` (no dependencies) cannot reach the engine (relative-path imports across packages are not blocked by pnpm; there are none, and review keeps it that way), and `notation-engine` (depends on `notation-model` only) cannot reach React. Both `tsconfig.json`s exclude `"DOM"` from `lib`, so any DOM or React reference in either is a compile error on the day it's written.
+Enforcement: no lint script — the package manifests and tsconfigs are the enforcement. pnpm's strict `node_modules` means a package can only import what its `package.json` declares, so `notation-model` (no runtime dependencies) cannot reach the engine (relative-path imports across packages are not blocked by pnpm; there are none, and review keeps it that way), and `notation-engine` (depends on `notation-model` only) cannot reach React. Both `tsconfig.json`s exclude `"DOM"` from `lib`, so any DOM or React reference in either is a compile error on the day it's written.
 
 `notation-font` is build-time-only — fontTools/Python never appear in `npm install`. `build.mjs` writes to `notation-font/dist/` and then runs `sync.mjs` (also runnable alone as `node sync.mjs`), which copies byte-identical files to where the runtime packages read them: `metadata.json` → `notation-engine/src/font/`, the `.woff2` + `OFL.txt` + `NOTICE.txt` → `notation-engine/assets/`, and the `.woff2` → `notation-react/styles/`.
 
@@ -48,7 +53,7 @@ Each stage is a pure function `(input, options: NotationOptions) => output`, ind
 | # | Stage | Adds | Detail |
 | --- | --- | --- | --- |
 | 1 | normalize | resolved clef/key/time per measure | inherits forward; produces diagnostics, never throws |
-| 2 | temporal | onset/duration ticks per element | rational arithmetic, tuplet scaling, fullness policy (`data-model.md`). **Timemap is born here.** |
+| 2 | temporal | onset/duration ticks per element | rational arithmetic, tuplet scaling, fullness policy (`mnx.md`). **Timemap is born here.** |
 | 3 | accidentals | resolved accidental per note | measure-scoped state, key seeding, tie carryover, cautionary rules — `engraving.md` |
 | 4 | grouping | beam groups, tuplet spans, tie/slur pairs | meter-driven beat grouping — `engraving.md` |
 | 5 | vertical | staff position, stem direction, *provisional* stem length, ledger lines | per-voice stem rules, chord shifting, accidental packing — `engraving.md`. Beamed notes' length is provisional here — stage 9 re-terminates it. |
@@ -74,7 +79,7 @@ interface LayoutResult {
   elements: Readonly<Record<NoteId, ElementBox>>;
   slots: readonly Slot[];          // interaction.md
   timemap: TimeMap;                 // playback.md
-  diagnostics: readonly Diagnostic[];   // data-model.md
+  diagnostics: readonly Diagnostic[];   // mnx.md
 }
 interface SystemBox { index: number; x: number; y: number; w: number; h: number }   // sp, one row of the score
 interface GlyphRun { x: number; y: number; cp: number; cls: string; el?: NoteId }
@@ -90,7 +95,7 @@ interface ElementBox {
 }
 ```
 
-**Chords:** one `ElementBox` per member `NoteEl.id` (one per notehead), not one per `ChordEl`. All members of a chord share `x`/`tick`/`durationTicks`/`systemIndex`/`measureIndex`; each has its own `y`/`staffPosition`/`hitBox`/`label`, `kind:'chord'`. No separate chord-level box — matches the one-`<g>`-per-note accessibility rule (`interaction.md`) and keeps `modifyPitch`/`deleteElements` addressable per pitch without a second ID scheme. `HitResult.part:'notehead'` resolves to the member whose `staffPosition` is nearest the hit point.
+**Chords:** one `ElementBox` per member note id (one per notehead), not one per chord event. All members of a chord share `x`/`tick`/`durationTicks`/`systemIndex`/`measureIndex`; each has its own `y`/`staffPosition`/`hitBox`/`label`, `kind:'chord'`. No separate chord-level box — matches the one-`<g>`-per-note accessibility rule (`interaction.md`) and keeps `modifyPitch`/`deleteElements` addressable per pitch without a second ID scheme. `NoteId` (`layout/records.ts`) is a plain `string` — the MNX `id` when the document supplies one, else the positional id `mnx.md` documents. `HitResult.part:'notehead'` resolves to the member whose `staffPosition` is nearest the hit point.
 
 Beams are `RectShape` with `rot` (a rotated rect approximates a beam's parallelogram; sub-pixel error at 0.5sp thickness / 0.25 slope cap — becomes a 4-point `PathShape` if it ever shows).
 
@@ -148,7 +153,7 @@ No color in the layout engine, ever. Every node: `fill/stroke="currentColor"` + 
 
 Playback indicator visual form is explicitly not decided here — see `playback.md`.
 
-No `correct`/`incorrect` state in the default theme, deliberately: the renderer doesn't know quiz semantics (`data-model.md`'s `meta` passthrough, `interaction.md`'s `applyIntent` boundary) and has no prop that would drive it. Answer-correctness styling is the app's own overlay (its own class/wrapper keyed by `NoteId`, same ids `ElementBox`/`aria-label` already expose) — not a renderer concern, so not a renderer CSS hook.
+No `correct`/`incorrect` state in the default theme, deliberately: the renderer doesn't know quiz semantics and has no prop that would drive it. App/quiz data about a note (is it the answer, is it a distractor) lives in the app, keyed by the note's `NoteId`, never as a field on the MNX document (`AGENTS.md`) — no `meta` passthrough on the wire. Answer-correctness styling is the app's own overlay (its own class/wrapper keyed by `NoteId`, same ids `ElementBox`/`aria-label` already expose) — not a renderer concern, so not a renderer CSS hook.
 
 ## React layer
 

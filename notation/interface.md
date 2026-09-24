@@ -6,7 +6,7 @@ React components a consumer imports and writes. Internals: `architecture.md`, `e
 
 ```ts
 interface NotationProps {
-  score: ScoreDoc;                    // data-model.md, required
+  score: MnxDocument;                 // mnx.md, required — plain MNX, no private fields (AGENTS.md)
   options?: NotationOptions;          // below, all fields default
   children?: React.ReactNode;         // compound children, below
   className?: string; style?: React.CSSProperties;
@@ -16,20 +16,20 @@ interface NotationProps {
 
 ```tsx
 <Notation
-  score={scoreDoc}
+  score={doc}
   options={notationOptions}
   className style
   ref={handleRef}          // NotationHandle
 />
 ```
 
-Renders the `<svg>`, computes layout (`useMemo`), provides layout to compound children below. No `children` = static, non-interactive, read-only render.
+Renders the `<svg>`, computes layout (`useMemo`, keyed on `score` identity), provides layout to compound children below. No `children` = static, non-interactive, read-only render.
 
 ## Compound children — interaction, playback
 
 ```tsx
 <Notation score={doc} options={opts} ref={handleRef}>
-  <Notation.Interaction mode="insert" insertDefaults={{ duration: 'q' }} onIntent={handleIntent} />
+  <Notation.Interaction mode="insert" insertDefaults={{ duration: { base: 'quarter' } }} onIntent={handleIntent} />
   <Notation.Playback view={{ mode: 'notes', activeIds }} />
 </Notation>
 ```
@@ -50,24 +50,25 @@ interface NotationHandle {
   setPlaybackTick(tick: number): void;
   animateCursor(span: CursorSpan): Animation;    // CursorSpan — playback.md
   exportSVG(): string;
-  focus(id: NoteId): void;
+  focus(id: NoteId): void;                        // NoteId — a plain string, mnx.md's ID rule
 }
 ```
 
 ## Options
 
-One nested typed object, not flat props. Same type on the React prop and `layoutScore(score, options)` (`architecture.md`) — one options surface, not two.
+One nested typed object, not flat props. Same type on the React prop and `layoutScore(doc, options)` (`architecture.md`) — one options surface, not two.
 
 ```ts
 interface NotationOptions {
+  divisions?: number;                                                                // mnx.md, default 3360 — engine option, not document data
   spacing?: { k?: number; base?: number };                                          // engraving.md, default k=0.55 base=3.2sp
-  beaming?: { halfBarBeaming?: boolean; beatGrouping?: readonly number[] };          // engraving.md, default halfBarBeaming=true; beatGrouping is a score-wide fallback, overridden per-measure by TimeSpec.beatGrouping
+  beaming?: { halfBarBeaming?: boolean; beatGrouping?: readonly number[] };          // engraving.md; beatGrouping is a score-wide fallback for the future beam() function — no per-measure override, MNX's `time` carries none
   accidentals?: {
     courtesyPolicy?: 'none' | 'next-measure' | 'always';                            // default 'next-measure'
     parenthesizeCautionary?: boolean;
     insertAlteration?: 'key' | 'natural';                                            // interaction.md, default 'key'
   };
-  insertGrid?: DurationToken | Duration;    // default: beat subdivision implied by the meter
+  insertGrid?: NoteValue;                    // MNX note-value, default: beat subdivision implied by the meter
   tuplets?: { showRatio?: boolean };         // engraving.md, default false — numeral shows actual only
   font?: { family?: string; url?: string };
   widthSp?: number;                          // system width, engraving.md
@@ -77,60 +78,30 @@ interface NotationOptions {
 
 Every field defaults; `<Notation score={doc}>` alone is valid.
 
-## Content authoring
+## Authoring scores
 
-`score: ScoreDoc` is the only source of truth. No JSX-per-note composition (`<Note pitch="C4"/>` as a real content element) — a note can't render standalone, layout needs the whole score for spacing/beaming, so it would just be a non-rendering data-collection shim: a second implicit data model reconciling into `ScoreDoc` anyway, for no benefit. Instead: plain builder functions that construct `ScoreDoc` directly.
+`score: MnxDocument` is the only source of truth — no private extensions, no JSX-per-note composition (`<Note pitch="C4"/>` as a real content element). A note can't render standalone: layout needs the whole score for spacing/beaming, so a per-note component would just be a non-rendering data-collection shim — a second implicit data model reconciling into MNX anyway, for no benefit. There is no builder API; MNX content comes from one of three places:
 
-```ts
-function score(config: ScoreConfig, ...measures: Measure[]): ScoreDoc;
-function measure(...content: (VoiceElement | Voice)[]): Measure;                       // single-voice shorthand
-function measure(config: MeasureConfig, ...content: (VoiceElement | Voice)[]): Measure;
-function voice(index: 0 | 1, ...elements: VoiceElement[]): Voice;
-function note(pitch: PitchToken | Pitch, duration: DurationToken | Duration, opts?: NoteOpts): NoteEl;
-function rest(duration: DurationToken | Duration, opts?: RestOpts): RestEl;
-function chord(notes: NoteEl[], duration?: DurationToken | Duration): ChordEl;          // duration inferred if notes agree
-function tuplet(actual: number, normal: number, ...elements: VoiceElement[]): VoiceElement[];
-```
+1. **Hand-written `.mnx.json`** — the natural form for fixed exercise content. `apps/web/src/scores/*.mnx.json` is both the demo gallery's content and the reference for what hand-authored MNX looks like; every file there is validated against the pinned schema by the same Ajv test `mnx.md` describes for fixture files.
+2. **Generated in code** — presets (below) and any future content generator construct plain MNX object literals directly; `notation-model`'s `parsePitch`/`Rational`/`noteValueLength` (`mnx.md`) are the only helpers, there's no `score()`/`measure()`/`note()` builder layer to call instead.
+3. **MusicXML import, offline** — `tools/musicxml-to-mnx convert <in.musicxml> <out.mnx.json>` converts MusicXML exported from notation apps (MuseScore/Dorico/Sibelius) into committed `.mnx.json` files, the same way hand-written scores are committed: convert (`mnxconverter`, pinned) → Ajv against the pinned schema + headless `layoutScore` (`tools/musicxml-to-mnx/src/check.ts`) → deterministic ids assigned to events/notes that lack them (`src/ids.ts`) → write. See `tools/musicxml-to-mnx/SPIKE.md` for coverage of the supported subset. Not a runtime import path — no product flow needs a user uploading a file at this point, so none is built (`AGENTS.md`).
 
-Builder option/config shapes:
-
-```ts
-interface ScoreConfig { clef: ClefSpec['kind']; key?: KeySpec['fifths']; time?: TimeSpec }
-interface MeasureConfig { clef?: ClefSpec['kind']; key?: KeySpec['fifths']; time?: TimeSpec; systemBreak?: boolean; pickup?: boolean }
-interface NoteOpts { id?: NoteId; accidental?: AccidentalPolicy; tie?: 'start'|'stop'|'continue'; voice?: 0|1; breath?: 'comma'|'caesura' }
-interface RestOpts { id?: NoteId; voice?: 0|1; wholeBar?: boolean }
-```
-
-Token grammars, template-literal-typed for editor autocomplete:
-
-```ts
-type PitchToken    = `${'A'|'B'|'C'|'D'|'E'|'F'|'G'}${''|'#'|'##'|'b'|'bb'}${number}`;   // "C4" "F#5" "Bb3"
-type DurationToken = `${'b'|'w'|'h'|'q'|'8'|'16'|'32'|'64'}${''|'.'|'..'}`;              // "q" "q." "8.."
-```
-
-Example:
-
-```ts
-import { score, measure, note, chord } from '@polyhymnia/notation-model/build';
-
-const doc = score({ clef: 'treble' },
-  measure(chord([note('C4', 'q'), note('E4', 'q'), note('G4', 'q')])),
-);
-```
-
-- IDs: auto-incrementing per builder call by default. `opts.id` pins one explicitly when the caller needs to reference it later (playback `activeIds`, quiz `meta` lookup).
-- Builders enforce the fullness rule (`data-model.md`) before returning: underfull auto-pads a trailing rest + diagnostic, overfull is a hard build error. `measure({ pickup: true }, ...)` is exempt — no auto-pad, no diagnostic (`data-model.md`'s Pickup measures).
+Editing existing content (not authoring it fresh) goes through `applyIntent` (`interaction.md`), which is also a pure MNX→MNX function and preserves whatever content it doesn't touch.
 
 ## Presets
 
-`@polyhymnia/notation-react/presets` — separate export path, tree-shaken out if unused. Thin wrappers around `<Notation>` + builders for the single-exercise case — not a scoped feature of their own (`README.md`), just sugar over the builder API above.
+`@polyhymnia/notation-react/presets` — separate export path, tree-shaken out if unused. Thin wrappers around `<Notation>` for the single-exercise case — not a scoped feature of their own (`README.md`), just sugar that builds a small MNX document internally from a few typed props; nothing outside `presets/` constructs MNX by hand for the app.
 
 ```ts
-interface ChordRevealProps { pitches: readonly PitchToken[]; clef: ClefSpec['kind']; duration?: DurationToken | Duration }   // default 'q'
-interface IntervalRevealProps { from: PitchToken; to: PitchToken; clef: ClefSpec['kind']; mode: 'harmonic' | 'melodic'; duration?: DurationToken | Duration }   // default 'q'
+interface ChordRevealProps { pitches: readonly PitchToken[]; clef: ClefKind; duration?: NoteValue }   // default { base: 'quarter' }
+interface IntervalRevealProps { from: PitchToken; to: PitchToken; clef: ClefKind; mode: 'harmonic' | 'melodic'; duration?: NoteValue }   // default { base: 'quarter' }
 type ScaleName = 'major' | 'naturalMinor' | 'harmonicMinor' | 'melodicMinor';
-interface ScaleRevealProps { root: PitchToken; scale: ScaleName; clef: ClefSpec['kind']; descending?: boolean; duration?: DurationToken | Duration }   // default 'q'
+interface ScaleRevealProps { root: PitchToken; scale: ScaleName; clef: ClefKind; descending?: boolean; duration?: NoteValue }   // default { base: 'quarter' }
 ```
+
+- `PitchToken` — the same `'C4'` / `'F#5'` / `'Bb3'` string grammar `parsePitch` (`mnx.md`) accepts; presets parse it internally to an MNX `pitch` object.
+- `ClefKind` — `'treble' | 'bass' | 'alto' | 'tenor'`, the engine's resolved clef kinds (`engraving.md`); presets translate this to the MNX `{sign, staffPosition}` pair `mnx.md`'s clef mapping table expects.
+- `duration` — an MNX note value, `{ base: NoteValueBase; dots?: number }` (`mnx.md`), not a token string — same shape a hand-written `.mnx.json` event's `duration` would use.
 
 `descending: true` with `scale: 'melodicMinor'`: uses the classical descending form (natural-minor pitches, lowered 6th/7th) — a genuinely different pitch set from the ascending form, not the same notes reversed. Every other `scale` value: `descending` reverses the same (ascending) pitch set, since only melodic minor has direction-dependent content.
 

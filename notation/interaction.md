@@ -1,5 +1,7 @@
 # Interaction
 
+Not implemented yet — hit-testing, slots, and `applyIntent` exist only as this design (`roadmap.md`'s testing/phase notes). Written against MNX throughout, since that's the only score format there is to design against (`AGENTS.md`).
+
 ## Hit-testing
 
 Hybrid: per-element `<g>` for existing elements (exact) + one overlay `<rect>` per system for empty space, both resolved through one engine `hitTest()` function — pure, no DOM geometry, runs in Node (entered only via the real function signature, `roadmap.md`).
@@ -19,6 +21,8 @@ type HitResult =
   | { kind:'chrome'; part:'clef'|'key'|'time'|'barline'; measureIndex:number };
 ```
 
+`NoteId` is a plain string — the MNX id when the document supplies one, else the engine's deterministic positional id (`mnx.md`'s ID rule). `Pitch` here is MNX's pitch shape, `{ step: 'A'..'G'; alter?: number; octave: number }` (`notation-model`'s `types.ts`), the same shape `parsePitch('C#4')` produces.
+
 ## Slot model
 
 Addressable insertion points, emitted by the layout pipeline's `emit` stage (only it knows column x-ranges — `architecture.md`).
@@ -32,9 +36,9 @@ interface Slot extends SlotRef {
 }
 ```
 
-Generation, per measure/voice: union of (a) existing element onsets and (b) a regular grid at `options.insertGrid` resolution (default: the beat subdivision implied by the meter, e.g. an eighth in 4/4), **excluding grid ticks that fall inside an existing note's span** (between its onset and onset+duration, exclusive of the onset itself) — a note is atomic, so no slot may target a tick a `spliceVoice` call would have to reject. Ticks inside a *rest*'s span stay included: splitting a rest into `insertGrid`-sized pieces is exactly what `fillRests` already does. Each slot's x-band = midpoint-to-midpoint tiling.
+Generation, per measure/voice: union of (a) existing element onsets and (b) a regular grid at `options.insertGrid` resolution (an MNX note value, default: the beat subdivision implied by the meter, e.g. an eighth in 4/4), **excluding grid ticks that fall inside an existing note's span** (between its onset and onset+duration, exclusive of the onset itself) — a note is atomic, so no slot may target a tick a `spliceVoice` call would have to reject. Ticks inside a *rest*'s span stay included: splitting a rest into `insertGrid`-sized pieces is exactly what `fillRests` already does. Each slot's x-band = midpoint-to-midpoint tiling.
 
-`staffPosition = round(y*2)/2`. `pitch` = invert the pitch→y formula (`architecture.md`) + current key signature's alteration for that step — clicking the F line in D major yields F♯, not F♮ (`options.accidentals.insertAlteration: 'key' | 'natural'` switches this).
+`staffPosition = round(y*2)/2`. `pitch` = invert the pitch→y formula (`architecture.md`) + current key signature's alteration for that step, expressed as an MNX pitch — clicking the F line in D major yields F♯, not F♮ (`options.accidentals.insertAlteration: 'key' | 'natural'` switches this).
 
 ## Intents
 
@@ -42,12 +46,12 @@ One channel, not a callback per action:
 
 ```ts
 type NotationIntent =
-  | { type:'insertNote'; at:SlotRef; pitch:Pitch; duration:Duration }
+  | { type:'insertNote'; at:SlotRef; pitch:Pitch; duration:NoteValue }
   | { type:'activate'; target:HitResult }
   | { type:'selectElements'; ids:readonly NoteId[]; mode:'replace'|'toggle'|'range' }
   | { type:'modifyPitch'; ids:readonly NoteId[]; by:{diatonic:number}|{chromatic:number}|{pitch:Pitch} }
-  | { type:'modifyDuration'; ids:readonly NoteId[]; duration:Duration }
-  | { type:'modifyAccidental'; ids:readonly NoteId[]; policy:AccidentalPolicy }   // AccidentalPolicy — data-model.md
+  | { type:'modifyDuration'; ids:readonly NoteId[]; duration:NoteValue }
+  | { type:'modifyAccidental'; ids:readonly NoteId[]; policy:AccidentalPolicy }   // AccidentalPolicy — mnx.md
   | { type:'deleteElements'; ids:readonly NoteId[] }
   | { type:'moveElements'; ids:readonly NoteId[]; to:SlotRef; pitchDelta?:number }
   | { type:'navigate'; from:NoteId|null; direction:'next'|'prev'|'up'|'down'|'measureStart'|'measureEnd' }
@@ -58,11 +62,13 @@ interface IntentContext { layout:LayoutResult; hit:HitResult|null; nativeEvent:P
 
 interface NotationInteraction {
   mode: 'view' | 'select' | 'insert';
-  insertDefaults?: { duration: DurationToken | Duration; voice?: 0|1 };   // DurationToken — interface.md
+  insertDefaults?: { duration: NoteValue; voice?: 0|1 };   // NoteValue — interface.md's NotationOptions.insertGrid
   selection?: readonly NoteId[];              // controlled
   onIntent?: (intent: NotationIntent, ctx: IntentContext) => void;
 }
 ```
+
+`Pitch`/`NoteValue`/`AccidentalPolicy` are MNX shapes throughout — an intent is a small, serializable edit description over the same vocabulary the document itself uses, not a parallel type system.
 
 Rules:
 
@@ -85,57 +91,60 @@ Phase 1: `mode:'insert'`, handle `insertNote`, ignore everything else. Every oth
 
 ## Applying intents
 
-`applyIntent` ships as a separate `notation-engine` export, not wired into `<Notation>` — the quiz layer can reject an edit (wrong answer, locked measure) without fighting the renderer.
+`applyIntent` ships as a separate `notation-engine` export, not wired into `<Notation>` — the quiz layer can reject an edit (wrong answer, locked measure) without fighting the renderer. It is a pure **MNX → MNX** function: everything in the document it doesn't touch — other measures, other parts, layout hints, ids — passes through unchanged (`AGENTS.md`).
 
 ```ts
 interface ApplyOptions { allowMeasureGrowth?: boolean }   // default false — see spliceVoice step 6
-function applyIntent(score: ScoreDoc, intent: NotationIntent, opts?: ApplyOptions):
-  { score: ScoreDoc; inverse: NotationIntent | null; diagnostics: Diagnostic[] };   // Diagnostic — data-model.md
+function applyIntent(doc: MnxDocument, intent: NotationIntent, opts?: ApplyOptions):
+  { doc: MnxDocument; inverse: NotationIntent | null; diagnostics: Diagnostic[] };   // Diagnostic — mnx.md
 ```
 
-`applyIntent` resolves the target measure's capacity (from its effective `TimeSpec`, inheriting forward same as `normalize`, `architecture.md`) and threads it into `spliceVoice` as `measureCapacityTicks` — the one piece of context `spliceVoice` itself can't derive from `elements` alone.
+`applyIntent` resolves the target measure's capacity (from its effective `TimeSpec`, inheriting forward same as `normalize`, `architecture.md`) and threads it into `spliceVoice` as `measureCapacityTicks` — the one piece of context `spliceVoice` itself can't derive from the sequence's content alone.
 
 `inverse` makes undo one line: push it, pop and reapply for redo.
 
-**Rule: a voice's total duration per measure never changes.** Every mutation reduces to one primitive:
+**Rule: a voice's total duration per measure never changes.** Every mutation reduces to one primitive, operating on one MNX `Sequence`'s `content` array (`SequenceContent` — MNX `Event`/`Tuplet`/`Space`/`Grace`/`MultiNoteTremolo` items, `mnx.md`):
 
 ```ts
-/** Replace [tick, tick+ticks) in one voice with `insert`, re-padding the remainder with
+/** Replace [tick, tick+ticks) in one sequence with `insert`, re-padding the remainder with
  *  rests so total duration is unchanged. `measureCapacityTicks`: the containing measure's
- *  resolved capacity — needed because a `wholeBar` rest's ticks can't be read off its Duration
- *  (data-model.md's "Whole-bar rests and unrepresentable capacities"). */
-function spliceVoice(elements: readonly VoiceElement[], tick: number, ticks: number,
-                      insert: readonly VoiceElement[], divisions: number, measureCapacityTicks: number):
-  { elements: VoiceElement[] } | { diagnostic: Diagnostic } {
-  // 1. walk cumulative duration to find what covers [tick, tick+ticks), each element's ticks
-  //    via elementTicks(el): the normal Duration->ticks formula, EXCEPT a `wholeBar` RestEl,
-  //    whose ticks are always `measureCapacityTicks` (never derived from its Duration, which
-  //    is pinned to 'whole' for rendering regardless of meter — data-model.md).
-  //    notes are atomic (can't start/end mid-note); only a REST may split at either boundary.
-  // 2. if [tick, tick+ticks) is not element-boundary-aligned and any covered element is a
-  //    NOTE (not a rest) -> reject, diagnostic 'splice-crosses-note'. Slot generation already
-  //    excludes these ticks (above), so this only fires on a hand-built/out-of-band call.
+ *  resolved capacity — needed because a `fullMeasure` rest's ticks can't be read off its note
+ *  value (mnx.md's "Whole-bar rests"). */
+function spliceVoice(content: SequenceContent, tick: number, ticks: number,
+                      insert: SequenceContent, divisions: number, measureCapacityTicks: number):
+  { content: SequenceContent } | { diagnostic: Diagnostic } {
+  // 1. walk cumulative duration to find what covers [tick, tick+ticks), each item's ticks
+  //    via itemTicks(item): the normal note-value->ticks formula (mnx.md), EXCEPT the
+  //    sequence's own `fullMeasure` rest, whose ticks are always `measureCapacityTicks`
+  //    (never derived from its note value, which is pinned to 'whole' for rendering
+  //    regardless of meter — mnx.md).
+  //    notes are atomic (can't start/end mid-note); only a REST event may split at either
+  //    boundary.
+  // 2. if [tick, tick+ticks) is not item-boundary-aligned and any covered item is a NOTE
+  //    event (not a rest) -> reject, diagnostic 'splice-crosses-note'. Slot generation
+  //    already excludes these ticks (above), so this only fires on a hand-built/out-of-band
+  //    call.
   // 3. remove the covered range.  4. splice in `insert`.
   // 5. insert-duration < ticks removed -> fillRests() the remainder, splice in alongside.
-  //    a remainder that reconsumes the FULL remaining capacity re-collapses to one `wholeBar`
-  //    rest instead of fillRests' normal decomposition — the two mechanisms don't overlap
-  //    otherwise: fillRests never emits `wholeBar:true`.
+  //    a remainder that reconsumes the FULL remaining capacity re-collapses to one
+  //    `fullMeasure` rest instead of fillRests' normal decomposition — the two mechanisms
+  //    don't overlap otherwise: fillRests never emits a `fullMeasure` rest.
   // 6. insert-duration > ticks removed -> reject, diagnostic 'measure-overfull', unless
   //    opts.allowMeasureGrowth (ApplyOptions, above) -> extend the measure's capacity instead.
 }
 
-/** Decompose a tick length into the fewest notatable rest durations. Rests aren't tied
+/** Decompose a tick length into the fewest notatable rest events. Rests aren't tied
  *  (unlike notes), so 5 sixteenths -> a quarter rest + a 16th rest, not one glyph.
- *  Greedy: largest power-of-two duration that fits, up to 2 dots (model cap), recurse
- *  the remainder. Terminates for any positive tick count. */
-function fillRests(ticks: number, divisions: number): RestEl[];
+ *  Greedy: largest power-of-two note value that fits, up to 2 dots (the engine's own
+ *  cap, mnx.md), recurse the remainder. Terminates for any positive tick count. */
+function fillRests(ticks: number, divisions: number): Event[];   // each a rest event: { duration, rest: {} }
 ```
 
-- `insertNote` = `spliceVoice(elements, slot.tick, durationTicks(duration), [note], divisions, measureCapacityTicks)` — consumes exactly the note's duration out of whatever rest occupies that time.
-- `deleteElements` = `spliceVoice(elements, tick, ticks, [], divisions, measureCapacityTicks)` — empty `insert` always triggers step 4, so the deleted note becomes rest(s) of equal duration, not a hole and not a shift.
+- `insertNote` = `spliceVoice(content, slot.tick, durationTicks(duration), [event], divisions, measureCapacityTicks)` — consumes exactly the note's duration out of whatever rest occupies that time.
+- `deleteElements` = `spliceVoice(content, tick, ticks, [], divisions, measureCapacityTicks)` — empty `insert` always triggers step 4, so the deleted note becomes rest event(s) of equal duration, not a hole and not a shift.
 - `moveElements` = a delete-at-old + insert-at-new composed as one intent, one inverse — two `spliceVoice` calls, each with its own measure's `measureCapacityTicks` (the source and target measures may differ; `SlotRef` doesn't constrain a move to stay within one).
 
-Why this is necessary, not decorative: the naive implementation (`array.filter(e => e.id !== id)`) silently shifts every later element's *derived* onset earlier by the deleted duration — the measure still sums correctly while sounding and rendering wrong (`data-model.md`).
+Why this is necessary, not decorative: the naive implementation (`content.filter(e => e.id !== id)`) silently shifts every later element's *derived* onset earlier by the deleted duration — the measure still sums correctly while sounding and rendering wrong (`mnx.md`).
 
 ## Accessibility
 

@@ -5,7 +5,7 @@ Status: accepted design, in progress. Supersedes `RESEARCH.md` §4.8.
 Files:
 
 - `interface.md` — public React API: components, props, composition, content authoring. Read first if consuming the library.
-- `data-model.md` — score/note data types, time representation, IDs, fullness rule.
+- `mnx.md` — the supported MNX subset, the MNX→engine mapping table, unsupported-construct degrade, IDs, time representation, pickup/fullness rules, diagnostics, the pinned schema and its update process.
 - `font.md` — SMuFL font choice, glyph set, license, subsetting.
 - `architecture.md` — package structure, layout pipeline, coordinate system.
 - `engraving.md` — staff, stems, beaming, tuplets, spacing/justification, key/time signatures, accidentals, ties, slurs, rests, ledger lines, barlines, two-voice layout.
@@ -42,13 +42,13 @@ In scope — full engraving, not a reduced subset:
 | Accessibility | aria-label per note, text alternative |
 | Theming | CSS custom properties |
 
-Deferred — explicit, not accidental. Most are additive later, not a redesign, given the data model and package split already in place — except where a row's cost says otherwise:
+Deferred — explicit, not accidental. Most are additive later, not a redesign, given the package split already in place and MNX already representing most of them in the schema — except where a row's cost says otherwise:
 
 | Deferred | Cost to add later |
 | --- | --- |
-| Grand staff / piano brace | Medium-high — **most likely to come back, check exercise catalogue before Phase 2** |
+| Grand staff / piano brace | Medium-high — **most likely to come back, check exercise catalogue before Phase 2**. MNX already represents it (a part's `staves` count), so this is an engine-only cost: a vertical-system concept and a brace glyph, no schema change |
 | Cross-staff beaming | High — needs grand staff first |
-| Nested/compound tuplets | Medium-high — `Duration.tuplet` (single ref) becomes a list: a breaking data-model change, not additive. Budget a major version bump. |
+| Nested/compound tuplets | Medium — no longer a schema/data-model change: MNX `tuplet` containers already nest natively (`engraving.md`), the engine just flattens them today (`mnx.md`). Purely an engine change: draw the nested brackets instead of combining the ratio |
 | Grace notes, ornaments, glissandi | Medium — needs a new "non-metrical attachment" concept |
 | Dynamics, articulations, pedal | Low-medium — glyphs already in the font subset headroom tier (`font.md`) |
 | Hairpins | Low — drawn shapes (like ties/slurs), not a glyph; no font cost either way |
@@ -56,6 +56,6 @@ Deferred — explicit, not accidental. Most are additive later, not a redesign, 
 | Full percussion notation | Medium |
 | Multi-measure rests, repeats/voltas/jumps | Low |
 | Cross-system slurs | Medium |
-| Microtonal accidentals, figured bass, tablature | Low — glyphs exist, out of domain; microtonal also needs `Pitch.alter`'s closed union (`-2\|-1\|0\|1\|2`, data-model.md) widened — a breaking change, smaller than the tuplet one above |
+| Microtonal accidentals, figured bass, tablature | Low — glyphs exist, out of domain; microtonal is also engine-only now: MNX's `pitch.alter` is an unconstrained `number` already, so only the engine's own `Alter` union (`-2\|-1\|0\|1\|2`, `layout/records.ts`) and its clamping in `normalize.ts` would need to widen — no MNX schema change |
 | RTL/vertical/mensural notation | n/a |
 | Page layout (titles, margins, pagination) | Low — component renders a fragment, host owns the page |

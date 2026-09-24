@@ -1,112 +1,164 @@
-# Data model
+# MNX
 
-The component owns its own representation — no ABC, no MusicXML, no layout-engine DSL in the model. A second renderer, or a MusicXML/MIDI export, is an adapter at the edge, not a restructuring.
+MNX (W3C Community Group, `w3c-cg/mnx`) is the component's only score format — public APIs take and return plain MNX, never a private model or an "MNX + extensions" shape (`AGENTS.md`). This file covers the subset the engine actually lays out, how unsupported MNX degrades, time representation, IDs, diagnostics, and how the vendored schema is upgraded. `interface.md` covers the `score` prop and authoring; `architecture.md` covers where in the pipeline MNX is read.
 
-## Types
+## Where MNX is read
 
-```ts
-// identity
-type NoteId    = string & { readonly __brand: 'NoteId' };
-type MeasureId = string & { readonly __brand: 'MeasureId' };
-type VoiceId   = string & { readonly __brand: 'VoiceId' };
-type SlurId    = string & { readonly __brand: 'SlurId' };
+Only `notation-engine/src/layout/normalize.ts` reads the raw MNX document. It calls `readMnx()` (`notation-model/src/mnx/read.ts`) to check `mnx.version`, then flattens `parts[0]`'s sequences into flat `NormalizedElement`/`NormalizedGap` records (`layout/normalize.ts`) that carry only what later stages need — a resolved clef/key/time per measure, one flat list of events per voice. `layout/temporal.ts` turns those into `TemporalElement` rows (onset/duration in ticks) — it does timing only, it does not read the document. Every stage after `temporal` reads only these flat records (`layout/records.ts`'s types), never the MNX document itself. This is the boundary `AGENTS.md` requires: if MNX gains a field the engine doesn't yet support, exactly one file (`normalize.ts`) changes.
 
-// pitch — step/alter/octave, never MIDI (alter never affects y position, architecture.md)
-interface Pitch { step: 0|1|2|3|4|5|6; alter: -2|-1|0|1|2; octave: number }   // 0..6 = C D E F G A B
+`layoutScore(doc: MnxDocument, options)` is the pipeline entry point; `options.divisions` (ticks per quarter note) defaults to 3360.
 
-// duration
-type DurationBase = 'breve'|'whole'|'half'|'quarter'|'eighth'|'16th'|'32nd'|'64th';
-interface TupletRef { id: string; actual: number; normal: number }            // 3:2 => actual 3, normal 2
-interface Duration { base: DurationBase; dots: 0|1|2; tuplet?: TupletRef }
+## Supported subset
 
-// elements — a Voice is a flat, ordered, sequential list. No onset/tick field: onset is
-// ALWAYS derived by summing preceding durations in the array. See "Time" below.
-type VoiceElement = NoteEl | ChordEl | RestEl;
+Reading `parts[0]` only, `staff 1` only, up to 2 sequences (voices) per measure:
 
-type AccidentalPolicy = 'auto' | 'always' | 'never' | 'cautionary';   // written-accidental resolution, engraving.md
+| MNX construct | Engine mapping |
+| --- | --- |
+| `global.measures[i].time` | `TimeSpec { beats, beatType, symbol? }`; `display: 'common'`/`'cut'` → `symbol`. Invalid/missing → inherits the previous measure's time, diagnostic `invalid-time-signature` |
+| `global.measures[i].key.fifths` | `KeySpec { fifths }`, clamped to −7..7 + `mnx-unsupported` when clamping actually changed the value. Missing/non-numeric `fifths` → inherits the previous measure's key, diagnostic `invalid-key-signature` |
+| `global.measures[i].barline.type` | `barlineEnd`: `regular`→`single`, `double`→`double`, `dashed`→`dashed`, `final`→`final`, `noBarline`→`none`. Anything else drawn as `single` + `mnx-unsupported` |
+| `global.measures[i].repeatStart` / `.repeatEnd` | `barlineStart: 'repeat-start'` / `barlineEnd: 'repeat-end'`. `repeatEnd.times !== 2` still draws a plain end-repeat + `mnx-unsupported` |
+| `global.measures[i].tempos[]` | `TempoEvent { tick, bpm, beatUnit? }` — `location.fraction` → an offset from the measure start, added to the running tick total; `value` → `beatUnit` (defaults to a quarter when the value's base isn't supported) |
+| `parts[0].measures[i].clefs[]` | `{ sign, staffPosition, octave? }` → `ClefSpec`. `staffPosition` 0 = the staff's middle line: G/−2 = treble, F/2 = bass, C/0 = alto, C/2 = tenor. `octave: 1 \| -1` → `octaveShift`. Any other G/F/C sign/position combination falls back to the nearest of treble/bass/alto by sign, + `mnx-unsupported`. A `sign` outside `G`/`F`/`C`/`P` has no fallback — the previous clef is kept, + `mnx-unsupported`. A clef whose `position` fraction is mid-measure is applied starting the *next* measure (not drawn mid-bar) + `mnx-unsupported` |
+| `sequences[]` (`staff: 1`, up to 2) | Voice 0 = first sequence, voice 1 = second. A 3rd+ sequence is dropped, diagnostic `too-many-voices` |
+| `event` with one `notes` entry | note |
+| `event` with `notes.length > 1` | chord — one `ElementNote` per member |
+| `event.rest` | rest; `rest.staffPosition` → the rest's forced staff line/space |
+| `sequence.fullMeasure` | a whole-bar rest (`wholeBar: true`) — see "Whole-bar rests" below |
+| `tuplet` container | flattened: children get a `TupletRef { id, actual, normal }`, `actual`/`normal` from `inner`/`outer` reduced to lowest terms (`tupletRatio`, `notation-model/src/mnx/time.ts`). A tuplet nested inside another is flattened into one combined ratio + `mnx-unsupported` (message says the content "keeps only the outer tuplet's ratio" when the inner ratio itself is unsupported, vs "laid out untupled" for an unnested tuplet) |
+| `note.accidentalDisplay` | absent → `'auto'`; `show: false` → `'never'`; `show: true` → `'always'`; `show: true` + `enclosure.symbol: 'parentheses'` → `'cautionary'` |
+| `note.ties[].target`/`targetType` | resolved to a start/stop pair by MNX note id — the earlier note gets `tie: 'start'`/`'continue'`, the resolved target gets `'stop'`/`'continue'`. Only `targetType: 'nextNote'` or an absent `targetType` is drawn this way; `crossVoice`/`arpeggio`/`crossJump` are not drawn, + `mnx-unsupported`. An unresolved target → diagnostic `tie-target-unresolved`, no tie drawn. `tie.lv` (laissez-vibrer) is not drawn, `mnx-unsupported` |
+| `event.stemDirection` | `'up'`/`'down'` override; anything else is the engine's own resolution (`engraving.md`) |
+| `event.markings.breath` | drawn as `'comma'` unless `symbol` is something other than `'comma'`/`'auto'`, then still drawn as a comma + `mnx-unsupported` |
+| `event.markings.caesura` | drawn as `'caesura'`; a caesura + a breath on the same event draws only the caesura + `mnx-unsupported`; a non-default `shape`/`marks` still draws a plain caesura + `mnx-unsupported` |
+| `scores[0].pages[].systems[].measure` | forces a system break after the *previous* measure (a system starting at measure `k` → break after `k−1`). No `pages`/`systems` at all → greedy breaking (`engraving.md`). A `measure` id that doesn't resolve → diagnostic `system-measure-unresolved`. More than one entry in `scores[]` → only `scores[0]` is used, + `mnx-unsupported` |
+| first measure, non-empty, no `fullMeasure`, shorter than the meter | pickup — no padding, no diagnostic (see "Pickup measures" below) |
+| any other measure shorter than its meter | padded with synthetic trailing rests + diagnostic `measure-underfull` |
+| a measure longer than its meter | truncated at the barline + diagnostic `measure-overfull` (error) |
+| `space` sequence content | advances time without emitting a note/rest/chord — invisible |
 
-interface NoteEl {
-  kind: 'note'; id: NoteId; pitch: Pitch; duration: Duration;
-  tie?: 'start' | 'stop' | 'continue';
-  accidental?: AccidentalPolicy;    // default 'auto'
-  beam?: 'auto' | 'begin' | 'continue' | 'end' | 'none';       // default 'auto'
-  stem?: 'auto' | 'up' | 'down' | 'none';
-  slurs?: readonly { id: SlurId; role: 'start' | 'stop' }[];
-  breath?: 'comma' | 'caesura';     // breathing point after this note — engraving.md; consumes no time
-  meta?: Readonly<Record<string, unknown>>;                     // opaque passthrough, renderer ignores
-}
-interface ChordEl { kind: 'chord'; id: NoteId; notes: readonly NoteEl[]; duration: Duration }
-interface RestEl  { kind: 'rest';  id: NoteId; duration: Duration; staffPosition?: number; wholeBar?: boolean }
+Note values: `breve`, `whole`, `half`, `quarter`, `eighth`, `16th`, `32nd`, `64th`, 0–2 dots (more than 2 dots draws 2 + `mnx-unsupported`). The MNX enum also has `duplexMaxima`/`maxima`/`longa` above breve and `128th`..`4096th` below 64th — an event using one of those is skipped entirely (`invalid-duration` if the value can't even be read, `mnx-unsupported` if the base is simply outside the supported set).
 
-// structure
-interface Measure {
-  id: MeasureId;
-  clef?: ClefSpec; key?: KeySpec; time?: TimeSpec;     // absent = inherit from previous measure
-  voices: readonly Voice[];                             // length 1 or 2
-  barlineEnd?: 'single'|'double'|'dashed'|'final'|'repeat-end'|'none';
-  barlineStart?: 'none'|'repeat-start';
-  pickup?: boolean;      // anacrusis — see "Pickup measures" below; exempt from the fullness rule
-  systemBreak?: boolean; // force a system (line) break after this measure — engraving.md
-}
-interface Voice { id: VoiceId; index: 0 | 1; elements: readonly VoiceElement[] }
+## Unsupported MNX
 
-interface ClefSpec { kind: 'treble'|'bass'|'alto'|'tenor'; octaveShift?: -1|0|1 }
-interface KeySpec  { fifths: -7|-6|-5|-4|-3|-2|-1|0|1|2|3|4|5|6|7; mode?: 'major'|'minor' }
-interface TimeSpec {
-  beats: number; beatType: number; symbol?: 'normal'|'common'|'cut';
-  beatGrouping?: readonly number[];    // irregular meters (5/8, 7/8): per-measure override, highest
-                                        // priority in the 3-tier resolution order — engraving.md
-}
+`AGENTS.md`: unsupported MNX renders what's possible plus an `mnx-unsupported` diagnostic, never throws. Constructs the engine recognizes but does not lay out — each reported once per measure (or once per document, for whole-document constructs), via `Reader.unsupported()` in `normalize.ts`:
 
-interface Staff { id: string; clef: ClefSpec; key: KeySpec; time: TimeSpec; measures: readonly Measure[] }
-interface ScoreDoc {
-  id: string;
-  divisions: number;              // ticks per quarter, default 3360 — see "Time" below
-  staves: readonly Staff[];       // length 1 today; array so grand staff (README deferred list) needs no type change
-  tempo: TempoMap;                // playback.md — tempo is notation data, not audio data
-}
+- Multiple parts (only `parts[0]` is laid out), a part with `staves > 1` (only staff 1), a part's `transposition`/`kit` (percussion kits aren't laid out)
+- A 3rd+ sequence in a measure (`too-many-voices`, listed separately below since it isn't gated through `unsupported()`); a sequence on `staff !== 1`
+- Percussion clefs and other unrecognized clef sign/position pairs (fall back to the nearest of treble/bass/alto); a clef octave outside `-1..1`
+- Grace notes, multi-note tremolo (its time is left blank via a `space`), lyrics, slurs (not drawn yet), dynamics, ottavas, arpeggios/non-arpeggios, staff configs, measure repeats, beams (flags are drawn instead — beaming isn't implemented, `engraving.md`)
+- `ending`, `jump`, `segno`, `fine`, `fermata` (global or per-event), multimeasure rests
+- A measure's `number` override (ignored — measures are numbered positionally)
+- `note.written`/`note.perform` (sounding pitch is drawn instead; perform hints are ignored)
+- Cross-staff notes/events/tuplets (laid out on staff 1 regardless)
+- Any `event.markings` key besides `breath`/`caesura`/`id`/the internal `_c`/`_x` reserved names
+- An accidental `alter` outside `-2..2` (clamped, drawn with the clamped value); a key signature's `fifths` outside `-7..7` (clamped, drawn with the clamped value)
+- A tie's `targetType` other than `nextNote`/absent (`crossVoice`, `arpeggio`, `crossJump` — not drawn)
+- Nested tuplets (flattened to one combined ratio), a tuplet whose `inner`/`outer` note value isn't supported (its content is laid out untupled, or keeps only the outer ratio when nested)
+- More than one `scores[]` entry (only the first score's layout is used)
+- A synthesized positional id that collides with an id already in use (disambiguated with a `~2`, `~3`, … suffix, diagnostic `id-collision`); an explicit id reused on more than one laid-out element (diagnostic `id-collision`, first occurrence wins)
 
-// diagnostics — shared by every non-throwing degrade path (normalize/temporal stages, builders,
-// applyIntent). One type, not a per-producer shape.
-interface Diagnostic {
-  severity: 'warning' | 'error';
-  code: string;                    // e.g. 'measure-overfull', 'splice-crosses-note', 'tuplet-crosses-barline'
-  message: string;
-  measureIndex?: number; voice?: 0 | 1; tick?: number;
-}
-```
+Two constructs the engine reads but doesn't yet lay out are downstream of `normalize`, not gated through the same `unsupported()` helper, so they get their own diagnostic codes instead of `mnx-unsupported`:
+
+- A 2nd voice (`sequences[1]`) is parsed and carried through `temporal`, but `layout/vertical.ts` only lays out voice 0 today — diagnostic `voice-1-not-yet-supported` (warning), one per measure that has one.
+- Anything past 2 sequences never reaches `temporal` at all — diagnostic `too-many-voices` (warning), from `normalize.ts`, listing how many were dropped.
+
+## ID rule
+
+Every element the engine lays out gets an id: the MNX `id` when the document supplies one, otherwise a deterministic positional id. Content an app references — playback highlight, quiz lookups, click targets — **must** carry a real MNX `id`; a positional id is stable only until the document is edited.
+
+Positional id shapes (measure `m`, sequence `s`, event index `k` within its voice):
+
+| Element | Positional id |
+| --- | --- |
+| An event (note/rest/chord) | `m{measure}.s{sequence}.e{k}` |
+| A chord member | `{eventId}.n{k}` |
+| A tuplet | `m{measure}.s{sequence}.t{k}` |
+| A full-measure rest | `m{measure}.s{sequence}.full` |
+| A synthetic padding rest (underfull measure) | `m{measure}.v{voice}.pad{k}` |
+
+Every explicit `id` in the document is scanned up front, so a positional id is never silently assigned to two different elements: if a synthesized candidate collides with an id already in use (explicit or previously synthesized), it gets a deterministic `~2`, `~3`, … suffix instead, plus diagnostic `id-collision`. Two elements that explicitly share the same `id` also get `id-collision`; the first occurrence keeps the id, the rest are unaddressable by it.
 
 ## Time: rationals internally, integer ticks at the boundary
 
-- Inside the temporal layout pass: `Rational { n: number; d: number }`, gcd-normalized. Exact arithmetic, no float epsilon bugs (`3 × triplet-eighth = 1 quarter` exactly).
-- At every API boundary (timemap, intents, props, JSON): integer ticks. `divisions = 3360` ticks/quarter by default — `2⁵×3×5×7`, divides evenly down to a 64th (needs 2⁴) crossed with triplets/quintuplets/septuplets. Conventional 768/960 cannot represent a 64th-note septuplet exactly.
-- `divisions` is configurable if MIDI/MusicXML interop is preferred over exact tuplet division — see `roadmap.md` open questions.
+- Inside the layout pipeline (from `temporal` on): `Rational { n: number; d: number }` (`notation-model/src/mnx/rational.ts`, re-exported as `Rational` from `@polyhymnia/notation-model/mnx`), gcd-normalized. Exact arithmetic, no float epsilon bugs (`3 × triplet-eighth = 1 quarter` exactly).
+- `normalize.ts` converts every MNX note-value/tuplet/fraction to a `Rational` via `noteValueLength`/`tupletRatio` (`notation-model/src/mnx/time.ts`) before any arithmetic; `temporal.ts` sums those rationals to get onsets and only rounds to integer ticks (`Rational.toTicks`) when producing its output rows.
+- `options.divisions` (default 3360 = 2⁵×3×5×7) is an engine option, not document data — MNX carries no `divisions` field. 3360 divides evenly down to a 64th (needs 2⁴) crossed with triplets/quintuplets/septuplets; conventional 768/960 cannot represent a 64th-note septuplet exactly. `readMnx`/`normalize` reject a non-positive/non-integer `options.divisions`, diagnostic `invalid-divisions`, and fall back to the default.
 
-## Sequential positioning and the fullness rule
+## Pickup and fullness rules
 
-A voice's elements play strictly in order — no stored onset, onset is always the sum of preceding durations in that voice's array. Deliberate: a stored onset that disagrees with the durations around it becomes structurally impossible.
+Every tick of a measure must be covered — the engine still enforces this, but the source of truth for "did the content fill the bar" is now MNX content itself, not a model-level fullness rule on input:
 
-Consequence: **every tick of a measure must be covered by a note or a rest — no implicit gaps.** `Σ element durations == measure capacity` for every measure/voice.
+- **Pickup**: the first measure only, non-empty, no `fullMeasure`, and shorter than the prevailing meter → `NormalizedMeasure.pickup = true`. Its capacity for layout purposes is exactly whatever its content sums to — no padding, no diagnostic. A pickup measure never restates the time signature on the following measure (that only happens on an actual time change).
+- **Underfull** (a later measure shorter than its meter): `temporal.ts` pads with synthetic trailing rests (`decomposeLength` — fewest notatable rest durations, ≤2 dots) and emits `measure-underfull` (warning).
+- **Overfull** (longer than its meter): truncated at the barline and `measure-overfull` (error) — never a throw; malformed content degrades visibly in a live quiz rather than crashing it.
 
-- Underfull (builder or hand-built `ScoreDoc`): auto-pad a trailing rest + diagnostic.
-- Overfull: truncate at the barline, drop the excess + diagnostic. Never throws — malformed content degrades visibly in a live quiz rather than crashing it.
+### Whole-bar rests
 
-Consequence for editing: delete/move must never shift what follows in time — `interaction.md`'s `spliceVoice`/`fillRests` is the actual algorithm. A naive `array.filter()` delete would silently shift every later onset earlier while the measure still "sums correctly" — this is the concrete failure mode the fullness rule and the splice primitive exist to rule out.
+`sequence.fullMeasure` (or `event.rest` alone with no notes, drawn as the sole content) becomes `NormalizedElement.wholeBar: true`: always the single whole-rest glyph (`base: 'whole'`), regardless of meter, but its actual duration in ticks is the measure's real capacity — a 9/8 or 5/4 bar's whole-bar rest is 4.5 or 5 quarters long even though no `{base, dots}` combination can represent that exactly. `temporal.ts`'s `wholeBarShare` divides the measure's remaining capacity evenly across however many whole-bar rests share the bar (normally one).
 
-### Pickup measures
+## Diagnostics
 
-`Measure.pickup: true`: exempt from the fullness rule — `Σ element durations` may be less than the prevailing `TimeSpec`'s capacity, no auto-pad, no diagnostic. Capacity for this one measure is simply "whatever its elements sum to." Always the first measure of a score (or of a system after a `systemBreak`, if a piece pickup-repeats — out of scope, not needed for exercises). Does **not** trigger a time-signature restatement on the following measure (`engraving.md`'s Time signatures "Mid-score change" rule only fires on an actual `TimeSpec` change; a pickup measure doesn't set its own `time`, it inherits and is simply short).
+One shape everywhere (`notation-model/src/mnx/read.ts`'s `Diagnostic`, re-exported from `@polyhymnia/notation-model/mnx`):
 
-### Whole-bar rests and unrepresentable capacities
+```ts
+interface Diagnostic {
+  severity: 'warning' | 'error';
+  code: string;
+  message: string;
+  measureIndex?: number;
+  voice?: 0 | 1;
+  tick?: number;
+}
+```
 
-`Duration` (`base` × `dots≤2`) can't represent every meter's capacity exactly — 9/8 (4.5 quarters), 5/4 (5 quarters), 11/8 (5.5 quarters) have no valid `{base,dots}` combination. `RestEl.wholeBar: true` decouples the two concerns this forces apart: `duration.base` is always `'whole'` (draws the one whole-rest glyph, the real convention regardless of meter — never a breve or a dotted shape picked to "fit"), while `durationTicks` at the `temporal` stage (`architecture.md`) is overridden to the measure's actual capacity in ticks, not derived from `base`/`dots` via the normal formula. The only place in the model a rendered duration and its tick length intentionally diverge — every other element's ticks are always derived from its own `Duration`.
+Codes actually produced today (verify against `normalize.ts`/`temporal.ts`/`vertical.ts`/`read.ts` — this list is exact as of the current pipeline, not aspirational):
 
-## Identity
+| Code | Severity | Where | Meaning |
+| --- | --- | --- | --- |
+| `mnx-invalid` | error | `readMnx` | The document isn't an object, or has no `mnx` key |
+| `mnx-unsupported-version` | error | `readMnx` | `mnx.version` isn't the version this build supports |
+| `mnx-unsupported` | warning | `normalize` | A recognized-but-unsupported construct, one per construct per measure (or per document) — see "Unsupported MNX" above |
+| `no-parts` | warning | `normalize` | No `parts[0]`; nothing to lay out |
+| `no-measures` | warning | `normalize` | `global.measures` is empty |
+| `measure-count-mismatch` | warning | `normalize` | `parts[0].measures.length !== global.measures.length`; lays out `global`'s count |
+| `missing-sequences` | warning | `normalize` | A part measure has no `sequences` array; treated as empty |
+| `too-many-voices` | warning | `normalize` | More than 2 sequences in a measure; the rest are dropped |
+| `invalid-divisions` | warning | `normalize` | `options.divisions` isn't a positive integer; falls back to 3360 |
+| `invalid-time-signature` | warning | `normalize` | A measure's `time` isn't a valid `{count, unit}`; inherits the previous measure's |
+| `invalid-key-signature` | warning | `normalize` | A measure's `key.fifths` is missing or not a finite number; inherits the previous measure's key |
+| `invalid-duration` | warning | `normalize` | An event's `duration` has no readable `base`; the event is skipped |
+| `invalid-pitch` | warning | `normalize` | A note's `pitch` is missing `step`/`octave`; drawn as C4 |
+| `tie-target-unresolved` | warning | `normalize` | `tie.target` doesn't resolve to a laid-out note id; the tie is ignored |
+| `system-measure-unresolved` | warning | `normalize` | A `systems[].measure` id doesn't resolve to a global measure; ignored |
+| `id-collision` | warning | `normalize`, `temporal` | A synthesized positional id collided with an id already in use (disambiguated with a `~n` suffix), or the same explicit id was assigned to more than one laid-out element (first occurrence wins) |
+| `zero-length-element` | warning | `temporal` | An event's resolved duration is zero (or negative); skipped |
+| `measure-underfull` | warning | `temporal` | A non-pickup measure doesn't fill its capacity; padded |
+| `measure-overfull` | error | `temporal` | A measure exceeds its capacity; truncated at the barline |
+| `voice-1-not-yet-supported` | warning | `vertical` | A measure has a 2nd sequence, parsed but not yet laid out |
 
-Every element's `NoteId` is caller-assigned or produced by a provided `createId()` — never derived from array position. Required by:
+## Pinned schema, examples, and updating
 
-- Interaction: intents name elements by ID; array indices break the moment an insert happens.
-- Playback: `activeIds` must survive re-layout (a resize re-runs layout and re-breaks systems).
-- React reconciliation: `key={id}`; positional keys would remount every following node on an insert and kill CSS transitions on them.
+The MNX schema and its 52 official example documents are vendored at one pinned commit in `packages/notation-model/schema/`:
 
-`meta?: Record<string, unknown>` on `NoteEl` is an explicit opaque passthrough — the quiz layer attaches "this is the answer note" / "this is a distractor" without a parallel `Map<NoteId, QuizInfo>` to keep in sync.
+```
+schema/
+  mnx-schema.json        # docs/mnx-schema.json at the pinned commit
+  examples/<slug>.json   # docs/static/examples/json/<slug>.json, 52 files
+  SOURCE                 # commit, commit date, schema $id, supported mnx.version
+```
+
+Never hand-edit any of these, or the generated `notation-model/src/mnx/types.ts` (`json-schema-to-typescript` output, checked in, regenerated by `pnpm gen:mnx-types`) — `AGENTS.md`. Upgrade deliberately with:
+
+```sh
+pnpm mnx:update <commit>
+```
+
+which re-downloads the schema and examples at that commit, regenerates the types, and rewrites `SOURCE`. Type errors and the conformance test below show exactly what an upgrade touches. Upgrades happen on purpose (a new feature is needed, or on a rough monthly cadence), never automatically — the spec is still moving (renamed keys, enum casing changes, `measure-global.index` removed and the version bumped to 2 have all happened within the last year).
+
+## Testing
+
+- **Schema test** (`notation-engine/test/schema.test.ts`): every fixture in `notation-engine/test/fixtures/` validates against the pinned `mnx-schema.json` with Ajv (devDependency only — never in a runtime bundle, `AGENTS.md`).
+- **Conformance test** (`notation-engine/test/conformance.test.ts`): runs all 52 vendored official examples through `layoutScore()`. Every one must lay out without throwing; each is asserted against an exact expected diagnostic-code list (`EXPECTED_CODES` in that file) — most produce `[]` or `['mnx-unsupported']`, a few hit `no-measures`/`system-measure-unresolved`/`voice-1-not-yet-supported`/`measure-underfull`/`measure-count-mismatch` for constructs described above. This is what actually proves the mapping table in this file, not the table itself — re-run it after any `normalize.ts`/`temporal.ts` change.
+- **MNX↔engine mapping test** (`notation-engine/test/mnx-mapping.test.ts`): targeted cases for individual mapping rules (clef resolution, tie resolution, tuplet ratios, barline types, …).
+- **Pipeline test** (`notation-engine/test/pipeline.test.ts`) keeps its malformed-input cases as malformed MNX — feeding `normalize`/`temporal` documents missing fields, invalid divisions, too many voices, etc., and asserting the diagnostic degrade path rather than a throw.

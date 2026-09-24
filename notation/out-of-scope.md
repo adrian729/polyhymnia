@@ -7,7 +7,7 @@ Companion to `README.md`'s in-scope/deferred tables, written after auditing the 
 
 Nothing here is urgent. Ordering is by how likely it is to actually come up.
 
-Three related gaps this same audit found — bass clef 8va (`fClef8va`), dashed barlines, and breath marks/caesura — were small and self-contained enough to fix directly instead of deferring; see `font.md`, `data-model.md`, and `engraving.md` for the result.
+Three related gaps this same audit found — bass clef 8va (`fClef8va`), dashed barlines, and breath marks/caesura — were small and self-contained enough to fix directly instead of deferring; see `font.md`, `mnx.md`, and `engraving.md` for the result.
 
 ## Needs infrastructure that doesn't exist yet
 

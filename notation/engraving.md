@@ -11,7 +11,7 @@ Direction and length for every notehead outside a beam group (stage 5, `vertical
 ```
 1. direction: staffPosition < 2.0 (above middle line) -> down; > 2.0 (below middle line) -> up;
    == 2.0 -> down (tie-break, matches Beaming's group rule below). Chord: vote by the member
-   furthest from the middle line. `NoteEl.stem` (data-model.md) overrides when set.
+   furthest from the middle line. MNX `event.stemDirection` (mnx.md) overrides when set.
 2. length: 3.5sp from notehead centre, font anchors (`stemUpSE [1.18,0.168]` / `stemDownNW
    [0.0,-0.168]` on noteheadBlack) — same nominal length beamed or not; only a beam group's
    justify-time re-terminate (Beaming step 8, below) changes it after this stage.
@@ -24,17 +24,14 @@ Direction and length for every notehead outside a beam group (stage 5, `vertical
 
 ## Beaming
 
-Only durations < quarter beam. Group-break conditions, per voice, walking onset ticks:
+**Not implemented yet**, neither the grouping nor the drawing (`AGENTS.md`'s Phase-2 note, plan's "Out of scope"). Today: `normalize.ts` reads a measure's MNX `beams` (`PartMeasure.beams`, a `BeamList`) only to report it — `mnx-unsupported`, "flags are drawn instead" — every event still gets its own flag glyph (`font.md`'s flag block), regardless of duration or meter. Beat grouping is **not document data**: MNX's `time` object carries no per-measure grouping field (unlike the old model's `TimeSpec.beatGrouping`), and the engine's own `TimeSpec` (`layout/records.ts`) doesn't add one back.
 
-```
-break if: element is a rest (unless beamOverRests)
-        | duration >= quarter
-        | element.beam === 'none'
-        | onset crosses a beat-group boundary
-        | element.beam === 'begin'
-```
+The planned design, once built, is two pieces:
 
-Beat-group boundaries. Resolution order for irregular meters: `TimeSpec.beatGrouping` (per-measure, data-model.md) > `options.beaming.beatGrouping` (score-wide default, applied when a measure omits its own) > guessed default below (diagnostic emitted when guessing):
+1. **`beam(doc: MnxDocument, { beatGrouping? }) → MnxDocument`**, in `notation-model` — a pure MNX→MNX function (same shape as `applyIntent`, `interaction.md`), not an engine stage. It resolves beat-group boundaries for each measure (table below), decides beam-break conditions (a rest not under `beamOverRests`, a duration ≥ quarter, crossing a beat-group boundary), and **writes the result as explicit MNX `beams`** — a tree of `{ events: Id[], beams?: BeamList, direction?: 'left'|'right'|'auto' }`, top-level entries are primary beam groups, nested `beams` are the secondary-beam/hook subdivisions, `direction` disambiguates a hook's point. Content generators and `applyIntent` call it after any edit that can change note values in a measure; hand-authored MNX can also just write `beams` directly and skip the function entirely.
+2. **Beam drawing in the engine**, reading those explicit `beams` instead of inferring groups from onset math at layout time — the geometry algorithm below (slope, secondary beams, hooks) stays the same, it just starts from an already-grouped tree rather than computing the grouping itself.
+
+Only durations < quarter beam. `beam()`'s beat-group boundaries — resolution order once irregular-meter grouping is ambiguous: `options.beaming.beatGrouping` passed to the call (a score-wide default) > the guessed default below (diagnostic emitted when guessing). There is no per-measure override anymore — that tier existed only because the old model's `TimeSpec` carried it; MNX doesn't, so the highest tier `beam()` has is its own call-time option:
 
 | Meter | Group unit | Boundaries (quarters from bar start) | Note |
 | --- | --- | --- | --- |
@@ -45,7 +42,7 @@ Beat-group boundaries. Resolution order for irregular meters: `TimeSpec.beatGrou
 | 6/8, 9/8, 12/8 | dotted quarter | 1.5, 3, (4.5), (6) | groups by the dotted beat, not the eighth |
 | 5/8, 7/8, 5/4, 7/4, 11/8… | explicit | from resolved `beatGrouping` (above) | default guess [3,2] / [2,2,3] / [3,2]; emits a diagnostic when guessing |
 
-Geometry, per group, run **after justification** (needs final x):
+Geometry, per group, drawn from the MNX `beams` tree, run **after justification** (needs final x):
 
 ```
 1. stem direction: from Stems (above) — already resolved per-note/per-chord; 2-voice forces it
@@ -82,13 +79,13 @@ Out of scope: cross-staff beaming, mixed stem direction within a beam, feathered
 
 ## Tuplets
 
-Single nesting level. `tuplet(actual, normal, ...elements)` (`interface.md`) marks a contiguous run; the `grouping` stage (`architecture.md`) resolves it to a span:
+A single nesting level is drawn: MNX `tuplet` containers (`inner`/`outer` note-value quantities) mark a contiguous run of sequence content; `normalize.ts` resolves the ratio (`tupletRatio`, `mnx.md`) and the `grouping` stage (`architecture.md`) resolves the flattened run to a span:
 
 ```ts
 interface TupletSpan { startTick: number; endTick: number; actual: number; normal: number; elements: readonly NoteId[]; bracket: boolean }
 ```
 
-Duration scaling (`actual`:`normal`, e.g. 3:2) is applied per-element at the `temporal` stage (`data-model.md`), before grouping ever sees the span. A `tuplet()` call whose span crosses a barline is rejected at `temporal` — diagnostic `tuplet-crosses-barline` — tuplets don't span barlines.
+Duration scaling (`actual`:`normal`, e.g. 3:2) is applied per-element at the `normalize`/`temporal` stages (`mnx.md`), before grouping ever sees the span. `normalize.ts` already only reads events inside the `tuplet` container's own `content`, so a span can never cross a barline by construction — there's no `tuplet-crosses-barline` diagnostic to reject with. A `tuplet` nested inside another `tuplet` is flattened into one combined ratio + `mnx-unsupported` (`mnx.md`), rather than drawn as nested brackets.
 
 Bracket suppression: **omit the bracket** when every element in the span beams together as one run — the beam already marks the group; draw only the numeral, centered above/below the beam. **Draw the bracket** when the span is unbeamed, only partially beamed, or contains a rest.
 
@@ -106,7 +103,7 @@ Geometry, when drawn (post-justify, same as beams):
    (suppression above only affects the bracket line + hooks).
 ```
 
-Nested/compound tuplets: out of scope (`README.md`).
+Nested/compound tuplets: MNX already nests `tuplet` containers natively, so there's no data-model change needed to add this — it's purely an engine limitation (`README.md`).
 
 ## Horizontal spacing and justification
 
@@ -143,7 +140,7 @@ if slack < 0: push the last measure to the next system
 
 **Last system: natural width, not justified** (optional stretch to `maxLastSystemFill`, default 0.65). Full-justifying a 2-measure final system produces the "two notes stranded at opposite ends" look.
 
-**System breaking:** greedy — accumulate measures until the next exceeds `widthSp`, accounting for clef/key restatement cost at each new system. `Measure.systemBreak: true` forces a break. Global (Knuth-Plass) optimization deferred — scores are 1–8 measures, not worth it; stage signature unchanged if added later.
+**System breaking:** greedy — accumulate measures until the next exceeds `widthSp`, accounting for clef/key restatement cost at each new system. `NormalizedMeasure.systemBreak: true` forces a break — set by `normalize.ts` from MNX `scores[0].pages[].systems[].measure` (a system starting at measure `k` forces a break after `k−1`, mnx.md); no `pages`/`systems` at all falls back to this greedy algorithm entirely. Global (Knuth-Plass) optimization deferred — scores are 1–8 measures, not worth it; stage signature unchanged if added later.
 
 ## Key signatures
 
@@ -164,7 +161,7 @@ Key change: emit naturals for accidentals present in the outgoing key and absent
 
 ## Time signatures
 
-`symbol:'common'`/`'cut'` (`TimeSpec`, data-model.md): single glyph, timeSigCommon (E08A) / timeSigCutCommon (E08B), replaces the numerator/denominator stack entirely — no digits drawn.
+`symbol:'common'`/`'cut'` (`TimeSpec`, mnx.md): single glyph, timeSigCommon (E08A) / timeSigCutCommon (E08B), replaces the numerator/denominator stack entirely — no digits drawn.
 
 Numeric (default): digit glyphs (timeSig0–9, E080–E089, `font.md`) compose left-to-right, no kerning table at this size.
 
@@ -226,7 +223,7 @@ Out of scope: cross-system slurs (system breaks avoid splitting a slur in the co
 
 Single-voice y: middle-line baseline, `y = 2.0` sp (top-line origin, `architecture.md`), **except** whole/breve, which hangs from the line above (`y = 1.5`) per convention (a rest "hangs," a notehead "sits"). Assumes Bravura's rest glyphs (E4E2–E4E9) are self-anchored to this baseline (standard SMuFL practice, but `font.md`'s glyph table has no measured anchor data for them — confirm against the real glyph metadata in Phase 0/1, `roadmap.md`, before trusting this as a no-table rule). Two-voice offset (v0 up `y=1.0`, v1 down `y=3.0`) is relative to this baseline — see Two voices, below.
 
-`RestEl.wholeBar: true` (data-model.md): the measure still gets one column, and `idealWidth(d)` (Horizontal spacing, above) uses its overridden `durationTicks` (the measure's real capacity, data-model.md's "Whole-bar rests" — not the nominal `'whole'` `Duration` base, which would undersize a 9/8 or 5/4 bar). Only the rest glyph's **x-offset within that column** is overridden to the column's horizontal center, rather than derived from its (irrelevant, always-zero) tick offset — the glyph itself is always the single whole-rest shape regardless of meter.
+`wholeBar: true` on a `NormalizedElement`/`TemporalElement` (from MNX `sequence.fullMeasure`, mnx.md): the measure still gets one column, and `idealWidth(d)` (Horizontal spacing, above) uses its overridden `durationTicks` (the measure's real capacity, mnx.md's "Whole-bar rests" — not the nominal `'whole'` `base`, which would undersize a 9/8 or 5/4 bar). Only the rest glyph's **x-offset within that column** is overridden to the column's horizontal center, rather than derived from its (irrelevant, always-zero) tick offset — the glyph itself is always the single whole-rest shape regardless of meter.
 
 ## Ledger lines
 
@@ -234,7 +231,7 @@ For a notehead with `staffPosition` outside `[0, 4]` (above/below the 5-line sta
 
 ## Barlines
 
-Each a `RectShape` (or several, for double/final/repeat) at the measure's right edge (`barlineEnd`) or left edge (`barlineStart`) — `data-model.md`. `barlineEnd`/`barlineStart` are independent fields, possibly on different measures (a repeat spans the `repeat-end` of one measure and the `repeat-start` of the next) — listed separately, not as one combined enum.
+Each a `RectShape` (or several, for double/final/repeat) at the measure's right edge (`barlineEnd`, from MNX `global.measures[i].barline`/`repeatEnd`) or left edge (`barlineStart`, from `repeatStart`) — `mnx.md`. `barlineEnd`/`barlineStart` are independent fields on `NormalizedMeasure`, possibly resolved from different source measures (a repeat spans the `repeat-end` of one measure and the `repeat-start` of the next) — listed separately, not as one combined enum.
 
 | Value | Field | Rendered as (left→right) | Thickness |
 | --- | --- | --- | --- |
@@ -249,7 +246,7 @@ Contributes to the column rod width (`Horizontal spacing`, above) via `fixedWidt
 
 ## Breath marks
 
-`NoteEl.breath` (`data-model.md`), not a `VoiceElement`: a breath is a performance direction attached to a note, so it consumes no time and can never affect the fullness rule. It is drawn immediately after the note it hangs off, before the next element in the voice.
+From MNX `event.markings.breath`/`.caesura` (`mnx.md`), carried as `TemporalElement.breath` — not a sequence-content item of its own: a breath is a performance direction attached to a note's event, so it consumes no time and can never affect the fullness rule. It is drawn immediately after the note it hangs off, before the next element in the voice.
 
 | Value | Glyph | Reads as |
 | --- | --- | --- |
