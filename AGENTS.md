@@ -6,6 +6,11 @@
 - New concern that doesn't fit an existing package's role → new package, not a folder inside another.
 - `apps/*` consume packages only through their public exports; no app code inside packages.
 
+# Interaction (answer entry)
+- Planned right after beaming: hit-testing, insertion slots, `applyIntent` (`notation/interaction.md`). Design every feature so this stays cheap to add; never take a shortcut interaction would have to undo.
+- Every drawn element keeps its MNX/positional id and a hitbox in `LayoutResult`; ids stay stable when an edited document is re-laid out.
+- Derived notation (beams, tuplet brackets, accidentals, padding rests) is recomputed from MNX on each layout or produced by a pure MNX → MNX function; no state that exists only after rendering.
+
 # Score format
 - MNX (w3c-cg/mnx) is the only score format. Public APIs take and return plain MNX. Never add private fields or `_x` extensions to documents.
 - No custom score model, builder API, or internal "MNX + additions" representation. Layout structures derived from MNX stay inside `notation-engine`.
