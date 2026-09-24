@@ -125,7 +125,7 @@ function spliceVoice(elements: readonly VoiceElement[], tick: number, ticks: num
 }
 
 /** Decompose a tick length into the fewest notatable rest durations. Rests aren't tied
- *  (unlike notes), so 5 sixteenths -> a dotted-8th rest + a 16th rest, not one glyph.
+ *  (unlike notes), so 5 sixteenths -> a quarter rest + a 16th rest, not one glyph.
  *  Greedy: largest power-of-two duration that fits, up to 2 dots (model cap), recurse
  *  the remainder. Terminates for any positive tick count. */
 function fillRests(ticks: number, divisions: number): RestEl[];

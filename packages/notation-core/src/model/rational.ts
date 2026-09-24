@@ -1,0 +1,132 @@
+// Exact rational arithmetic for the temporal pass (data-model.md "Time").
+//
+// A Rational here measures musical time in WHOLE NOTES: a quarter is {n:1,d:4}, a
+// triplet eighth is {n:1,d:12}. Integer ticks are the API-boundary representation;
+// rationals are the internal one, so `3 x triplet-eighth === 1 quarter` is exact
+// rather than 1119.9999999999998 x 3.
+
+export interface Rational {
+  readonly n: number;
+  readonly d: number;
+}
+
+function gcd(a: number, b: number): number {
+  let x = Math.abs(a);
+  let y = Math.abs(b);
+  while (y !== 0) {
+    const t = x % y;
+    x = y;
+    y = t;
+  }
+  return x;
+}
+
+/** Construct a gcd-normalized rational. Sign is carried by the numerator, `d` > 0. */
+export function rational(n: number, d = 1): Rational {
+  if (!Number.isFinite(n) || !Number.isFinite(d)) {
+    throw new RangeError(`Rational requires finite values, got ${n}/${d}`);
+  }
+  if (d === 0) throw new RangeError('Rational denominator must be non-zero');
+  if (!Number.isInteger(n) || !Number.isInteger(d)) {
+    throw new RangeError(`Rational requires integers, got ${n}/${d}`);
+  }
+  let nn = n;
+  let dd = d;
+  if (dd < 0) {
+    nn = -nn;
+    dd = -dd;
+  }
+  if (nn === 0) return { n: 0, d: 1 };
+  const g = gcd(nn, dd);
+  return { n: nn / g, d: dd / g };
+}
+
+export const ZERO: Rational = { n: 0, d: 1 };
+export const ONE: Rational = { n: 1, d: 1 };
+
+export function add(a: Rational, b: Rational): Rational {
+  return rational(a.n * b.d + b.n * a.d, a.d * b.d);
+}
+
+export function subtract(a: Rational, b: Rational): Rational {
+  return rational(a.n * b.d - b.n * a.d, a.d * b.d);
+}
+
+export function multiply(a: Rational, b: Rational): Rational {
+  return rational(a.n * b.n, a.d * b.d);
+}
+
+export function divide(a: Rational, b: Rational): Rational {
+  if (b.n === 0) throw new RangeError('Rational division by zero');
+  return rational(a.n * b.d, a.d * b.n);
+}
+
+export function negate(a: Rational): Rational {
+  return { n: -a.n, d: a.d };
+}
+
+export function equals(a: Rational, b: Rational): boolean {
+  // Both operands are normalized, so structural equality is value equality.
+  return a.n * b.d === b.n * a.d;
+}
+
+/** -1 if a < b, 0 if equal, 1 if a > b. */
+export function compare(a: Rational, b: Rational): -1 | 0 | 1 {
+  const l = a.n * b.d;
+  const r = b.n * a.d;
+  return l < r ? -1 : l > r ? 1 : 0;
+}
+
+export function isZero(a: Rational): boolean {
+  return a.n === 0;
+}
+
+export function min(a: Rational, b: Rational): Rational {
+  return compare(a, b) <= 0 ? a : b;
+}
+
+export function max(a: Rational, b: Rational): Rational {
+  return compare(a, b) >= 0 ? a : b;
+}
+
+/** Exact tick value, which may be fractional when the rational is finer than
+ *  `divisions` can express (e.g. a double-dotted 64th at divisions=3360). */
+export function toExactTicks(a: Rational, divisions: number): number {
+  return (a.n * 4 * divisions) / a.d;
+}
+
+/** Integer ticks — the API-boundary representation. Rounds only when the value is not
+ *  exactly representable at this `divisions` (data-model.md's reason for 3360). */
+export function toTicks(a: Rational, divisions: number): number {
+  return Math.round(toExactTicks(a, divisions));
+}
+
+export function fromTicks(ticks: number, divisions: number): Rational {
+  return rational(Math.round(ticks), 4 * divisions);
+}
+
+/** Lossy; for comparisons against float inputs only, never for time arithmetic. */
+export function toNumber(a: Rational): number {
+  return a.n / a.d;
+}
+
+/** Namespace-style access (`Rational.add(...)`) alongside the named exports. */
+export const Rational = {
+  of: rational,
+  ZERO,
+  ONE,
+  add,
+  subtract,
+  multiply,
+  divide,
+  negate,
+  equals,
+  compare,
+  isZero,
+  min,
+  max,
+  toTicks,
+  toExactTicks,
+  fromTicks,
+  toNumber,
+};
