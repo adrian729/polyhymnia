@@ -37,5 +37,9 @@ export const DEFAULT_OPTIONS = {
     insertAlteration: 'key' as const,
   },
   tuplets: { showRatio: false },
+  // engraving.md names `widthSp` but fixes no default. 100sp is one printed system at a
+  // conventional rastral size (~180mm at a 1.75mm staff space) — wide enough for four
+  // moderately busy measures, which is the shape of an exercise.
+  widthSp: 100,
   maxLastSystemFill: 0.65,
 } satisfies NotationOptions;
