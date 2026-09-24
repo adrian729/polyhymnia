@@ -54,9 +54,7 @@ export function clefGlyph(clef: ClefSpec): string {
     case 'treble':
       return shift === -1 ? 'gClef8vb' : shift === 1 ? 'gClef8va' : 'gClef';
     case 'bass':
-      // The subset carries no fClef8va, so a bass clef an octave up falls back to the
-      // plain glyph rather than rendering nothing (font.md's 58-glyph subset).
-      return shift === -1 ? 'fClef8vb' : 'fClef';
+      return shift === -1 ? 'fClef8vb' : shift === 1 ? 'fClef8va' : 'fClef';
     default:
       return 'cClef';
   }

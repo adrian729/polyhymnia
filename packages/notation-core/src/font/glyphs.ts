@@ -1,4 +1,4 @@
-// SMuFL glyph name -> codepoint for the 58-glyph subset (font.md). Mirrors
+// SMuFL glyph name -> codepoint for the 61-glyph subset (font.md). Mirrors
 // notation-font's build manifest; the metadata JSON carries metrics but no codepoints,
 // and notation-font is build-time-only so it can't be imported as a runtime dependency.
 //
@@ -14,6 +14,7 @@ export const GLYPH_CODEPOINT: Record<string, number> = {
   cClef: 0xe05c,
   fClef: 0xe062,
   fClef8vb: 0xe064,
+  fClef8va: 0xe065,
 
   // Time signature digits + common/cut
   timeSig0: 0xe080,
@@ -82,6 +83,10 @@ export const GLYPH_CODEPOINT: Record<string, number> = {
 
   // Repeat barline dot
   repeatDot: 0xe044,
+
+  // Breath marks
+  breathMarkComma: 0xe4ce,
+  caesura: 0xe4d1,
 };
 
 export function glyphCodepoint(name: string): number | undefined {

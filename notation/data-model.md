@@ -32,6 +32,7 @@ interface NoteEl {
   beam?: 'auto' | 'begin' | 'continue' | 'end' | 'none';       // default 'auto'
   stem?: 'auto' | 'up' | 'down' | 'none';
   slurs?: readonly { id: SlurId; role: 'start' | 'stop' }[];
+  breath?: 'comma' | 'caesura';     // breathing point after this note — engraving.md; consumes no time
   meta?: Readonly<Record<string, unknown>>;                     // opaque passthrough, renderer ignores
 }
 interface ChordEl { kind: 'chord'; id: NoteId; notes: readonly NoteEl[]; duration: Duration }
@@ -42,7 +43,7 @@ interface Measure {
   id: MeasureId;
   clef?: ClefSpec; key?: KeySpec; time?: TimeSpec;     // absent = inherit from previous measure
   voices: readonly Voice[];                             // length 1 or 2
-  barlineEnd?: 'single'|'double'|'final'|'repeat-end'|'none';
+  barlineEnd?: 'single'|'double'|'dashed'|'final'|'repeat-end'|'none';
   barlineStart?: 'none'|'repeat-start';
   pickup?: boolean;      // anacrusis — see "Pickup measures" below; exempt from the fullness rule
   systemBreak?: boolean; // force a system (line) break after this measure — engraving.md

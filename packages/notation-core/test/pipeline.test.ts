@@ -200,11 +200,17 @@ describe('font metrics come from the metadata JSON', () => {
     expect(glyphAdvanceWidth('notAGlyph')).toBe(0);
   });
 
-  it('maps the 58-glyph subset to codepoints, augmentationDot included', () => {
-    expect(Object.keys(GLYPH_CODEPOINT)).toHaveLength(58);
+  it('maps the 61-glyph subset to codepoints, augmentationDot included', () => {
+    expect(Object.keys(GLYPH_CODEPOINT)).toHaveLength(61);
     expect(GLYPH_CODEPOINT.augmentationDot).toBe(0xe1e7);
     expect(GLYPH_CODEPOINT.restQuarter).toBe(0xe4e5);
     expect(GLYPH_CODEPOINT.gClef).toBe(0xe050);
     expect(GLYPH_CODEPOINT.repeatDot).toBe(0xe044);
+    expect(GLYPH_CODEPOINT.fClef8va).toBe(0xe065);
+    expect(GLYPH_CODEPOINT.breathMarkComma).toBe(0xe4ce);
+    expect(GLYPH_CODEPOINT.caesura).toBe(0xe4d1);
+    // The codepoint table and the metadata are two views of one manifest — a name in
+    // either that the other lacks is a build that has drifted.
+    expect(Object.keys(GLYPH_CODEPOINT).every((name) => glyphAdvanceWidth(name) > 0)).toBe(true);
   });
 });

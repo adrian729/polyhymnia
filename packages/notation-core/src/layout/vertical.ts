@@ -36,6 +36,7 @@ const ACCIDENTAL_COLUMN_GAP = 0.12; // between stacked accidental columns
 const ACCIDENTAL_PAD = 0.2; // vertical clearance in the stacking bbox test
 const DOT_GAP = 0.2; // notehead/rest to first augmentation dot
 const DOT_SPACING = 0.1; // between successive dots
+const BREATH_GAP = 0.35; // right edge of the note (dots included) to a breath mark
 
 const NOTEHEAD_GLYPH: Record<DurationBase, string> = {
   breve: 'noteheadDoubleWhole',
@@ -105,6 +106,13 @@ export interface StemLayout {
   flag?: { glyph: string; dx: number; y: number };
 }
 
+export interface BreathLayout {
+  glyph: string;
+  /** Offset from the element's notehead x — the mark sits past the notehead and dots. */
+  dx: number;
+  y: number;
+}
+
 export interface RestLayout {
   glyph: string;
   y: number;
@@ -127,9 +135,10 @@ export interface VerticalElement {
   noteheads: readonly NoteheadLayout[];
   rest?: RestLayout;
   stem?: StemLayout;
+  breath?: BreathLayout;
   /** Accidental block width, left of the notehead x. */
   leftWidth: number;
-  /** Notehead advance + chord shift + dots, right of the notehead x. */
+  /** Notehead advance + chord shift + dots + breath mark, right of the notehead x. */
   rightWidth: number;
 }
 
@@ -253,14 +262,42 @@ function layOut(
   for (const head of noteheads) head.dots = dotPositions(duration.dots, headExtent, head.staffPosition);
 
   const stem = layOutStem(duration, dir, noteheads, notes);
+  const noteRight = headExtent + dotsWidth(duration.dots);
+  const breath = layOutBreath(notes, noteRight);
 
   return {
     ...base,
     noteheads,
     ...(stem ? { stem } : {}),
+    ...(breath ? { breath } : {}),
     leftWidth,
-    rightWidth: headExtent + dotsWidth(duration.dots),
+    rightWidth: noteRight + (breath ? BREATH_GAP + glyphAdvanceWidth(breath.glyph) : 0),
   };
+}
+
+// --- breath marks -----------------------------------------------------------
+
+const BREATH_GLYPH: Record<NonNullable<NoteEl['breath']>, string> = {
+  comma: 'breathMarkComma',
+  caesura: 'caesura',
+};
+
+/**
+ * Breath marks are anchored on the top staff line, y = 0. Taken from the real glyph
+ * metadata rather than assumed, the same way the rest anchors above were:
+ * `breathMarkComma` has bBox y 0.008..1.004 and `caesura` -0.004..2.128 — both start at
+ * their origin and extend upward only, so anchoring on the top line puts all of their
+ * ink in the space above the staff, which is where the convention puts them. Any lower
+ * an anchor would drive them through the staff lines.
+ */
+const BREATH_Y = 0;
+
+/** A chord takes the mark from whichever member carries it — the breath belongs to the
+ *  rhythmic event, and `NoteEl` is the only place the field can be written. */
+function layOutBreath(notes: readonly NoteEl[], noteRight: number): BreathLayout | undefined {
+  const breath = notes.find((n) => n.breath)?.breath;
+  if (!breath) return undefined;
+  return { glyph: BREATH_GLYPH[breath], dx: noteRight + BREATH_GAP, y: BREATH_Y };
 }
 
 // --- rests ------------------------------------------------------------------

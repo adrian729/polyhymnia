@@ -115,6 +115,9 @@ Clef change: restated at the new measure, same barline-adjacent placement as a k
 | thinBarlineThickness | 0.16 | single barline |
 | thickBarlineThickness | 0.50 | final/repeat barline |
 | barlineSeparation | 0.40 | gap in a double/final barline |
+| dashedBarlineThickness | 0.16 | dashed barline |
+| dashedBarlineDashLength | 0.50 | dashed barline dash segment |
+| dashedBarlineGapLength | 0.25 | gap between dashed barline segments |
 | tupletBracketThickness | 0.16 | tuplet bracket |
 | slurEndpoint/MidpointThickness | 0.10 / 0.22 | slur variable-width path |
 | tieEndpoint/MidpointThickness | 0.10 / 0.22 | tie variable-width path |

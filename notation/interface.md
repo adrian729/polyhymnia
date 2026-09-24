@@ -97,7 +97,7 @@ Builder option/config shapes:
 ```ts
 interface ScoreConfig { clef: ClefSpec['kind']; key?: KeySpec['fifths']; time?: TimeSpec }
 interface MeasureConfig { clef?: ClefSpec['kind']; key?: KeySpec['fifths']; time?: TimeSpec; systemBreak?: boolean; pickup?: boolean }
-interface NoteOpts { id?: NoteId; accidental?: AccidentalPolicy; tie?: 'start'|'stop'|'continue'; voice?: 0|1 }
+interface NoteOpts { id?: NoteId; accidental?: AccidentalPolicy; tie?: 'start'|'stop'|'continue'; voice?: 0|1; breath?: 'comma'|'caesura' }
 interface RestOpts { id?: NoteId; voice?: 0|1; wholeBar?: boolean }
 ```
 

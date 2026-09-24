@@ -30,6 +30,7 @@ export interface NoteOpts {
   // other way in from the builder API.
   beam?: NoteEl['beam'];
   stem?: NoteEl['stem'];
+  breath?: NoteEl['breath'];
   slurs?: readonly { id: SlurId; role: 'start' | 'stop' }[];
   meta?: Readonly<Record<string, unknown>>;
 }
@@ -72,6 +73,7 @@ export function note(
   if (opts.tie !== undefined) el.tie = opts.tie;
   if (opts.beam !== undefined) el.beam = opts.beam;
   if (opts.stem !== undefined) el.stem = opts.stem;
+  if (opts.breath !== undefined) el.breath = opts.breath;
   if (opts.slurs !== undefined) el.slurs = opts.slurs;
   if (opts.meta !== undefined) el.meta = opts.meta;
   return withVoiceHint(el, opts.voice);

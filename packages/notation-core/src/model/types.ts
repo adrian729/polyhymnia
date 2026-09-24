@@ -62,6 +62,10 @@ export interface NoteEl {
   beam?: 'auto' | 'begin' | 'continue' | 'end' | 'none'; // default 'auto'
   stem?: 'auto' | 'up' | 'down' | 'none';
   slurs?: readonly { id: SlurId; role: 'start' | 'stop' }[];
+  /** Breathing point drawn immediately after this note, before the next element in the
+   *  voice. A performance direction attached to a note, not its own `VoiceElement`: it
+   *  consumes no time, so it can never affect the fullness rule (engraving.md). */
+  breath?: 'comma' | 'caesura';
   meta?: Readonly<Record<string, unknown>>; // opaque passthrough, renderer ignores
 }
 
@@ -89,7 +93,7 @@ export interface Measure {
   key?: KeySpec;
   time?: TimeSpec; // absent = inherit from previous measure
   voices: readonly Voice[]; // length 1 or 2
-  barlineEnd?: 'single' | 'double' | 'final' | 'repeat-end' | 'none';
+  barlineEnd?: 'single' | 'double' | 'dashed' | 'final' | 'repeat-end' | 'none';
   barlineStart?: 'none' | 'repeat-start';
   pickup?: boolean; // anacrusis — exempt from the fullness rule
   systemBreak?: boolean; // force a system (line) break after this measure

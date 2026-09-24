@@ -41,7 +41,14 @@ export type { AccidentalScore, ResolvedAccidental } from './layout/accidentals.j
 export { grouping } from './layout/grouping.js';
 export type { GroupingScore, TupletSpan } from './layout/grouping.js';
 export { vertical, STEM_LENGTH } from './layout/vertical.js';
-export type { VerticalElement, VerticalScore, NoteheadLayout, StemLayout, RestLayout } from './layout/vertical.js';
+export type {
+  VerticalElement,
+  VerticalScore,
+  NoteheadLayout,
+  StemLayout,
+  RestLayout,
+  BreathLayout,
+} from './layout/vertical.js';
 export { horizontal } from './layout/horizontal.js';
 export type { HorizontalMeasure, HorizontalScore, LayoutColumn, MeasureChrome } from './layout/horizontal.js';
 export { breakSystems } from './layout/break.js';

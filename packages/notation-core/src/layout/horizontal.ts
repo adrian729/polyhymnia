@@ -338,6 +338,10 @@ export function endBarlineWidth(kind: Measure['barlineEnd']): number {
       return 0;
     case 'double':
       return BARLINE_PAD + e.thinBarlineThickness * 2 + e.barlineSeparation;
+    // A dashed barline is one line's worth of horizontal space like `single` — it is
+    // broken vertically, not horizontally.
+    case 'dashed':
+      return BARLINE_PAD + e.dashedBarlineThickness;
     case 'final':
       return BARLINE_PAD + e.thinBarlineThickness + e.thinThickBarlineSeparation + e.thickBarlineThickness;
     case 'repeat-end':

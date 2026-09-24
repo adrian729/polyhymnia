@@ -16,7 +16,7 @@ Font choice is a build-time swap, not lock-in: Leland/Petaluma are SMuFL-complia
 
 ## License obligation
 
-OFL-FAQ 2.6: subsetting a web font is modification; a modified font "would not normally allow the use of RFNs." Our 57-glyph subset does not preserve Functional Equivalence (the full character inventory), so:
+OFL-FAQ 2.6: subsetting a web font is modification; a modified font "would not normally allow the use of RFNs." Our 61-glyph subset does not preserve Functional Equivalence (the full character inventory), so:
 
 - The subsetted font ships under a **renamed family** — CFF `fontName` + name IDs 1/4/6/16 rewritten to `EarmasterNotation` at build time. `pyftsubset --name-IDs=''` empties the `name` table but leaves CFF `fontName` unchanged — the rename needs an explicit build step or this is a silent compliance bug.
 - Ship `OFL.txt` + copyright/authorship notice + upstream pointer alongside.
@@ -24,13 +24,13 @@ OFL-FAQ 2.6: subsetting a web font is modification; a modified font "would not n
 
 Our reading of the FAQ, not legal advice — flagged in `roadmap.md` open questions.
 
-## Glyph set — 58 glyphs, full scope
+## Glyph set — 61 glyphs, full scope
 
 Staff lines, ledger lines, barlines (the lines themselves), stems, and beams are **not glyphs** — drawn as `<rect>`, thickness from `engravingDefaults` (`architecture.md`). All five need exact-length stretching (justification) or rotation (beams), which a glyph can't do. Repeat-barline dots ARE a glyph (below) — a fixed shape, no stretching needed.
 
 | Category | Codepoints | Count |
 | --- | --- | --- |
-| Clefs | E050 gClef, E052 gClef8vb, E053 gClef8va, E05C cClef, E062 fClef, E064 fClef8vb | 6 |
+| Clefs | E050 gClef, E052 gClef8vb, E053 gClef8va, E05C cClef, E062 fClef, E064 fClef8vb, E065 fClef8va | 7 |
 | Time signature | E080–E08B (digits 0–9 + common + cut) | 12 |
 | Noteheads | E0A0 breve, E0A2 whole, E0A3 half, E0A4 black | 4 |
 | Augmentation dot | E1E7 | 1 |
@@ -40,7 +40,8 @@ Staff lines, ledger lines, barlines (the lines themselves), stems, and beams are
 | Rests | E4E2–E4E9 (breve→64th) | 8 |
 | Tuplet digits + colon | E880–E88A | 11 |
 | Repeat barline | E044 repeatDot | 1 |
-| **Total** | | **58** |
+| Breath marks | E4CE breathMarkComma, E4D1 caesura | 2 |
+| **Total** | | **61** |
 
 `augmentationDot` is `U+E1E7` — not `U+E4E5` (that's `restQuarter`, part of the rest block).
 
@@ -50,19 +51,19 @@ Staff lines, ledger lines, barlines (the lines themselves), stems, and beams are
 | --- | --- | --- |
 | 9 | 3,128 B | Phase-1 minimum: clefs, 3 noteheads, 3 accidentals, dot |
 | 57 | 9,156 B | Full scope minus `repeatDot` (measured before that glyph was added to the subset) |
-| 58 | **~9,250 B** (est.) | Full scope (table above) — one extra simple glyph, re-measure at Phase 0 build |
+| 61 | **9,448 B** | Full scope (table above) — measured at the Phase 0 build |
 | 88 | 10,984 B | + articulations, fermatas, dynamics, keyboard pedal marks (E650 block), brace, X-notehead — headroom for deferred features |
 
-Metadata (advance widths, bboxes, anchors) filtered to the 58-glyph set: ~7,000 B raw / **~1,800 B gzipped** (est., one glyph added to the 57-glyph measurement above). Full `Bravura.json` is 1,256,995 B — unfiltered metadata costs >100× more than the font.
+Metadata (advance widths, bboxes, anchors) filtered to the 61-glyph set: 7,210 B raw / **1,886 B gzipped**. Full `Bravura.json` is 1,256,995 B — unfiltered metadata costs >100× more than the font.
 
-**Total wire cost, full scope: ~11 KB** (~9,250 B font + ~1,800 B gz metadata). `vexflow-core` alone is 328.7 KB before fonts, for comparison.
+**Total wire cost, full scope: ~11 KB** (9,448 B font + 1,886 B gz metadata). `vexflow-core` alone is 328.7 KB before fonts, for comparison.
 
 ## Build
 
 ```sh
 pyftsubset Bravura.otf \
-  --unicodes="U+E044,U+E050,U+E052,U+E053,U+E05C,U+E062,U+E064,U+E080-E08B,U+E0A0,U+E0A2-E0A4,\
-U+E1E7,U+E240-E247,U+E260-E264,U+E26A,U+E26B,U+E4E2-E4E9,U+E880-E88A" \
+  --unicodes="U+E044,U+E050,U+E052,U+E053,U+E05C,U+E062,U+E064,U+E065,U+E080-E08B,U+E0A0,U+E0A2-E0A4,\
+U+E1E7,U+E240-E247,U+E260-E264,U+E26A,U+E26B,U+E4CE,U+E4D1,U+E4E2-E4E9,U+E880-E88A" \
   --output-file=earmaster-notation.woff2 --flavor=woff2 \
   --no-hinting --desubroutinize \
   --drop-tables+=GSUB,GPOS,BASE,JSTF,DSIG --name-IDs='' --notdef-outline

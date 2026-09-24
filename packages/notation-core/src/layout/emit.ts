@@ -241,6 +241,9 @@ function emitBarlines(
   switch (measure.source.barlineEnd) {
     case 'none':
       break;
+    case 'dashed':
+      rects.push(...dashes(right - e.dashedBarlineThickness, staffTop, bottom));
+      break;
     case 'double':
       rects.push(line(right - e.thinBarlineThickness, e.thinBarlineThickness));
       rects.push(
@@ -272,6 +275,35 @@ function emitBarlines(
     default:
       rects.push(line(right - e.thinBarlineThickness, e.thinBarlineThickness));
   }
+}
+
+/**
+ * A dashed barline as discrete dash segments spanning the same top-line-to-bottom-line
+ * height as any other barline (engraving.md "## Barlines").
+ *
+ * Dash and gap keep their `engravingDefaults` lengths exactly — stretching either to fit
+ * the staff would make the cadence font-dependent in a way the metadata does not
+ * sanction. Instead the whole run is centred on the staff and clipped to it, so the
+ * pattern is symmetric and the outermost dashes still touch the top and bottom lines
+ * (with Bravura's 0.5/0.25 those clip to roughly half a dash each).
+ */
+function dashes(x: number, staffTop: number, bottom: number): RectShape[] {
+  const { dashedBarlineThickness, dashedBarlineDashLength, dashedBarlineGapLength } =
+    engravingDefaults;
+  const height = bottom - staffTop;
+  const period = dashedBarlineDashLength + dashedBarlineGapLength;
+  const count = Math.max(2, Math.round((height + dashedBarlineGapLength) / period));
+  const run = count * dashedBarlineDashLength + (count - 1) * dashedBarlineGapLength;
+  const first = staffTop + (height - run) / 2;
+
+  const out: RectShape[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const top = Math.max(staffTop, first + i * period);
+    const end = Math.min(bottom, first + i * period + dashedBarlineDashLength);
+    if (end - top <= 1e-9) continue;
+    out.push({ x, y: top, w: dashedBarlineThickness, h: end - top, cls: 'barline' });
+  }
+  return out;
 }
 
 // --- elements ---------------------------------------------------------------
@@ -356,6 +388,13 @@ function emitElement(element: VerticalElement, ctx: ElementContext): void {
         glyph(stem.flag.glyph, ctx.x + stem.flag.dx, staffTop + stem.flag.y, 'flag', owner),
       );
     }
+  }
+
+  const breath = element.breath;
+  if (breath) {
+    ctx.glyphs.push(
+      glyph(breath.glyph, ctx.x + breath.dx, staffTop + breath.y, 'breath', element.id),
+    );
   }
 
   const first = element.noteheads[0];

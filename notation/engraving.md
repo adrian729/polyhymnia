@@ -240,11 +240,26 @@ Each a `RectShape` (or several, for double/final/repeat) at the measure's right 
 | --- | --- | --- | --- |
 | `single` | `barlineEnd` | one line | `thinBarlineThickness` (0.16sp) |
 | `double` | `barlineEnd` | two thin lines | `thinBarlineThickness` each, `barlineSeparation` (0.4sp) apart |
+| `dashed` | `barlineEnd` | one line broken into dash segments — several `RectShape`s at one x, same top-line-to-bottom-line span as `single` | `dashedBarlineThickness` (0.16sp), dashes `dashedBarlineDashLength` (0.5sp), gaps `dashedBarlineGapLength` (0.25sp). Dash and gap keep their metadata lengths exactly; the run is centred on the staff height and clipped to it, so the outermost dashes touch the top and bottom lines. Horizontal contribution is a single thin line's — it is broken vertically, not horizontally |
 | `final` | `barlineEnd` | thin, then thick — thick line sits at the true measure edge | `thinBarlineThickness` then `thickBarlineThickness` (0.5sp), `barlineSeparation` apart |
 | `repeat-end` | `barlineEnd` | two dots, then thin, then thick — thick line at the true measure edge, dots adjacent to the **preceding** (repeated) music | as `final`, plus two `repeatDot` glyphs, `repeatBarlineDotSeparation` (0.16sp) from the thin line, straddling the middle staff line |
 | `repeat-start` | `barlineStart` | thick, then thin, then two dots (mirror of `repeat-end`) — thick line at the true measure edge, dots adjacent to the **following** (repeated) music | as `repeat-end`, mirrored |
 
 Contributes to the column rod width (`Horizontal spacing`, above) via `fixedWidths(clef, key, time, barlines)`.
+
+## Breath marks
+
+`NoteEl.breath` (`data-model.md`), not a `VoiceElement`: a breath is a performance direction attached to a note, so it consumes no time and can never affect the fullness rule. It is drawn immediately after the note it hangs off, before the next element in the voice.
+
+| Value | Glyph | Reads as |
+| --- | --- | --- |
+| `'comma'` | `breathMarkComma` (E4CE) | the ordinary breath/lift mark |
+| `'caesura'` | `caesura` (E4D1) | the "railroad tracks" — a full stop in the flow |
+
+Placement:
+
+- **x**: 0.35sp past the note's right edge — the notehead advance plus any chord second-shift and augmentation dots, the same extent the column's rod already measures. The mark extends the note's `rightWidth`, so the next column moves right by exactly the mark's advance width rather than colliding with it.
+- **y**: the top staff line, `y = 0`. Read off the glyph metadata, not assumed: `breathMarkComma` has bBox y 0.008..1.004 and `caesura` -0.004..2.128, so both start at their origin and extend upward only — anchoring on the top line puts all of their ink in the space above the staff, where the convention puts them, and any lower an anchor would drive them through the staff lines.
 
 ## Two voices
 

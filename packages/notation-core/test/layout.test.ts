@@ -320,6 +320,20 @@ describe('chrome', () => {
     expect(at('tenor')).toEqual([3, 1]);
   });
 
+  it('draws an octave-up bass clef with its own glyph', () => {
+    const glyphAt = (octaveShift: -1 | 0 | 1): number =>
+      glyphsOf(
+        layoutScore(score({ clef: 'bass', octaveShift }, measure(note('D3', 'w')))),
+        'clef',
+      )[0]!.cp;
+
+    expect(glyphAt(1)).toBe(0xe065); // fClef8va — no longer falls back to the plain clef
+    expect(glyphAt(1)).toBe(cp('fClef8va'));
+    expect(glyphAt(1)).not.toBe(glyphAt(0));
+    expect(glyphAt(0)).toBe(cp('fClef'));
+    expect(glyphAt(-1)).toBe(cp('fClef8vb'));
+  });
+
   it('draws a final barline thin-then-thick at the measure edge', () => {
     const layout = layoutScore(
       score({ clef: 'treble' }, measure({ barlineEnd: 'final' }, note('C4', 'w'))),
@@ -327,6 +341,47 @@ describe('chrome', () => {
     const barlines = layout.rects.filter((r) => r.cls === 'barline').sort((a, b) => a.x - b.x);
     expect(barlines.map((r) => r.w)).toEqual([0.16, 0.5]);
     expect(barlines[1]!.x + barlines[1]!.w).toBeCloseTo(layout.systems[0]!.w, 5);
+  });
+
+  it('draws a dashed barline as dash segments spanning the staff, not one rect', () => {
+    const layout = layoutScore(
+      score({ clef: 'treble' }, measure({ barlineEnd: 'dashed' }, note('C4', 'w'))),
+    );
+    const staffTop = layout.systems[0]!.y;
+    const dashes = layout.rects.filter((r) => r.cls === 'barline').sort((a, b) => a.y - b.y);
+
+    expect(dashes.length).toBeGreaterThan(1);
+    // One vertical line's worth of x, at the measure edge, one dash thick throughout.
+    expect(new Set(dashes.map((r) => +r.x.toFixed(6))).size).toBe(1);
+    expect(dashes.every((r) => Math.abs(r.w - 0.16) < 1e-9)).toBe(true);
+    expect(dashes[0]!.x + 0.16).toBeCloseTo(layout.systems[0]!.w, 5);
+    // Top line to bottom line, but broken: no segment covers the whole 4sp staff.
+    expect(dashes[0]!.y).toBeCloseTo(staffTop, 5);
+    const last = dashes[dashes.length - 1]!;
+    expect(last.y + last.h).toBeCloseTo(staffTop + 4, 5);
+    expect(dashes.every((r) => r.h < 4)).toBe(true);
+    // Every gap is exactly dashedBarlineGapLength — that cadence is what reads as dashed.
+    for (let i = 1; i < dashes.length; i += 1) {
+      const gap = dashes[i]!.y - (dashes[i - 1]!.y + dashes[i - 1]!.h);
+      expect(gap).toBeCloseTo(0.25, 6);
+    }
+  });
+
+  it('gives a dashed barline the same width contribution as a single one', () => {
+    const at = (barlineEnd: 'dashed' | 'single' | 'none'): number => {
+      const layout = layoutScore(
+        score(
+          { clef: 'treble' },
+          measure({ barlineEnd }, note('C4', 'w')),
+          measure(note('D4', 'w')),
+        ),
+      );
+      return boxes(layout).sort((a, b) => a.tick - b.tick)[1]!.x;
+    };
+    // A dashed barline is a thin line's worth of space — broken vertically, not
+    // horizontally — so it pushes the next measure exactly as far as `single` does.
+    expect(at('dashed')).toBeCloseTo(at('single'), 6);
+    expect(at('dashed')).toBeGreaterThan(at('none'));
   });
 });
 
@@ -375,6 +430,60 @@ describe('stems and flags', () => {
     expect(+(dots[0]!.y - staffTop).toFixed(3)).toBe(1.5);
     // A4 already sits in a space (2.5) -> the dot stays level with it.
     expect(+(dots[1]!.y - staffTop).toFixed(3)).toBe(2.5);
+  });
+});
+
+describe('breath marks', () => {
+  it('draws the mark just past the note, above the staff, without consuming time', () => {
+    const layout = layoutScore(
+      score({ clef: 'treble' }, measure(note('C4', 'h', { breath: 'comma' }), note('D4', 'h'))),
+    );
+    const staffTop = layout.systems[0]!.y;
+    const marks = glyphsOf(layout, 'breath');
+    const notes = boxes(layout).sort((a, b) => a.tick - b.tick);
+
+    expect(marks).toHaveLength(1);
+    expect(marks[0]!.cp).toBe(0xe4ce); // breathMarkComma
+    // Anchored on the top staff line, so its ink hangs in the space above the staff.
+    expect(marks[0]!.y).toBeCloseTo(staffTop, 6);
+    expect(marks[0]!.y).toBeGreaterThanOrEqual(staffTop - 0.5);
+    expect(marks[0]!.y).toBeLessThanOrEqual(staffTop + 4);
+    // Past the notehead it belongs to, and clear of the note that follows.
+    expect(marks[0]!.x).toBeGreaterThan(notes[0]!.x + notes[0]!.w);
+    expect(notes[1]!.x).toBeGreaterThan(marks[0]!.x + 0.612); // breathMarkComma advance
+    // Two half notes still fill the bar exactly — a breath adds no rest, no diagnostic.
+    expect(notes).toHaveLength(2);
+    expect(layout.diagnostics).toEqual([]);
+  });
+
+  it('uses the caesura glyph for a caesura', () => {
+    const layout = layoutScore(
+      score({ clef: 'treble' }, measure(note('C4', 'h', { breath: 'caesura' }), note('D4', 'h'))),
+    );
+    expect(glyphsOf(layout, 'breath').map((g) => g.cp)).toEqual([0xe4d1]);
+  });
+
+  it('widens the note’s column so the following one moves right', () => {
+    const xs = (breath: boolean): number[] =>
+      boxes(
+        layoutScore(
+          score(
+            { clef: 'treble' },
+            measure(
+              note('C4', '8', breath ? { breath: 'comma' } : {}),
+              note('D4', '8'),
+              note('E4', 'h.'),
+            ),
+          ),
+        ),
+      )
+        .sort((a, b) => a.tick - b.tick)
+        .map((b) => b.x);
+
+    const withMark = xs(true);
+    const without = xs(false);
+    expect(withMark[0]).toBeCloseTo(without[0]!, 6); // the marked note itself does not move
+    expect(withMark[1]!).toBeGreaterThan(without[1]!);
   });
 });
 

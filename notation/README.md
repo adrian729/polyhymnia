@@ -12,6 +12,7 @@ Files:
 - `interaction.md` — hit-testing, click-to-edit, the intent system, edit application.
 - `playback.md` — timemap, tempo, playback-position API, cursor rendering.
 - `roadmap.md` — testing strategy, phased build plan, LOC estimate, open questions.
+- `out-of-scope.md` — symbols/features deliberately not covered: what's blocked on infrastructure that doesn't exist yet vs. what's outside an ear-training app's domain entirely.
 
 ## Feature scope
 
@@ -29,7 +30,8 @@ In scope — full engraving, not a reduced subset:
 | Stems & flags | Direction/length rules, 8th–64th flags |
 | Beaming | Automatic: beat grouping, slope, secondary beams, hooks, breaking |
 | Tuplets | Single-level, bracket + numeral |
-| Barlines | Single/double/final/repeat |
+| Barlines | Single/double/dashed/final/repeat |
+| Breath marks | Comma and caesura, attached to a note |
 | Ties | Within/across barline, chord-wise |
 | Slurs | Single-system, note-to-note |
 | Spacing/justification | Duration-proportional, system-width justified |
