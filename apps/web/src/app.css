@@ -1,0 +1,98 @@
+:root {
+  --ink: #1c1c1e;
+  --muted: #6b6b70;
+  --rule: #e2e2e6;
+  --warn: #8a5a00;
+  --warn-bg: #fff6e0;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: var(--ink);
+  background: #fdfdfd;
+}
+
+body {
+  margin: 0;
+  padding: 2rem 1.5rem 6rem;
+}
+
+main {
+  max-width: 62rem;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin: 0 0 0.25rem;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 2.75rem 0 0.25rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+p.lede,
+p.note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0.35rem 0 1rem;
+}
+
+.example {
+  margin: 1.25rem 0 1.75rem;
+}
+
+.example > h3 {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.15rem;
+}
+
+.example > .caption {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0 0 0.5rem;
+}
+
+/* The renderer's own sizing hook: an sp-unit viewBox scaled by one width. */
+.example .em-notation {
+  width: 100%;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 2rem;
+}
+
+.row > .example {
+  flex: 1 1 15rem;
+  min-width: 13rem;
+  margin: 0.75rem 0;
+}
+
+.diagnostics {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--warn-bg);
+  border-left: 3px solid var(--warn);
+  color: var(--warn);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+footer {
+  margin-top: 3.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}

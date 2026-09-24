@@ -1,0 +1,38 @@
+/* Default theme (architecture.md "## Theming").
+   No color in the layout engine: every node is `currentColor` plus a stable `data-*`
+   attribute, and this file is the only place that decides how any of it looks. */
+
+@font-face {
+  font-family: 'EarmasterNotation';
+  src: url('./earmaster-notation.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+.em-notation {
+  /* SMuFL glyphs carry their own metrics; a fallback would render tofu at the wrong
+     size, so the stack ends at the notation font deliberately. */
+  font-family: 'EarmasterNotation';
+  color: var(--em-ink, currentColor);
+  /* An sp-unit viewBox with no intrinsic pixel size — the host decides the rendered
+     width; height follows the viewBox aspect ratio. */
+  display: block;
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.em-notation [data-em='staff-line'] {
+  color: var(--em-staff, #999);
+}
+.em-notation [data-em-selected] {
+  color: var(--em-selected, #0969da);
+}
+.em-notation [data-em-playing='true'] {
+  color: var(--em-playing, #0969da);
+}
+.em-notation [data-em-cursor] {
+  fill: var(--em-cursor, #0969da);
+  opacity: var(--em-cursor-opacity, 0.25);
+}
