@@ -11,7 +11,7 @@ import type {
   PitchToken,
 } from '@earmaster/notation-core';
 import { Notation } from '../Notation.js';
-import { durationKey, fittingMeter, scalePitches } from './shared.js';
+import { durationKey, fittingMeter, scaleKey, scalePitches } from './shared.js';
 import type { ScaleName } from './shared.js';
 
 export type { ScaleName } from './shared.js';
@@ -40,11 +40,13 @@ export function ScaleReveal({
   onLayout,
 }: ScaleRevealProps): JSX.Element {
   const doc = useMemo(() => {
-    const pitches = scalePitches(parsePitch(root), scale, descending);
+    const rootPitch = parsePitch(root);
+    const pitches = scalePitches(rootPitch, scale, descending);
     return score(
-      // No key signature: a scale reveal spells its own accidentals, so the reader sees
-      // which degrees are altered instead of inferring them from a signature.
-      { clef, time: fittingMeter(duration, pitches.length) },
+      // The scale's own key signature: diatonic degrees then draw no accidental at all
+      // (spacing stays even), and only genuinely non-diatonic degrees — the raised 6th/7th
+      // in harmonic/melodic minor — still get one, exactly as real notation shows them.
+      { clef, key: scaleKey(rootPitch, scale).fifths, time: fittingMeter(duration, pitches.length) },
       measure(pitches.map((p) => note(p, duration))),
     );
   }, [root, scale, clef, descending, durationKey(duration)]);

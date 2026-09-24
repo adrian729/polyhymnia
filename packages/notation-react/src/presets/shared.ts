@@ -3,7 +3,7 @@
 // each repeat.
 
 import { durationToRational, parseDuration } from '@earmaster/notation-core';
-import type { Duration, DurationToken, Pitch, TimeSpec } from '@earmaster/notation-core';
+import type { Duration, DurationToken, KeySpec, Pitch, TimeSpec } from '@earmaster/notation-core';
 
 /**
  * A meter that exactly fits `count` notes of `duration`, so a reveal is one full bar:
@@ -83,4 +83,31 @@ export function scalePitches(
  *  instead of throwing. */
 function clampAlter(alter: number): Pitch['alter'] {
   return Math.max(-2, Math.min(2, alter)) as Pitch['alter'];
+}
+
+/** Natural letter's position on the circle of fifths (C=0), the same table
+ *  engraving.md's key-signature ordering is built from. */
+const MAJOR_FIFTHS_BASE = [0, 2, 4, -1, 1, 3, 5] as const; // C D E F G A B
+
+/**
+ * The key signature a scale's tonic implies — so a `ScaleReveal` can draw diatonic
+ * degrees with no accidental at all (the horizontal-spacing engine already gives an
+ * accidental-bearing column extra room; a scale that spells every altered degree inline
+ * instead of via a key signature ends up with visibly uneven note spacing, since roughly
+ * half its notes carry an accidental and half don't).
+ *
+ * `naturalMinor`/`harmonicMinor`/`melodicMinor` all key off the *natural* minor's
+ * signature (the raised 6th/7th in harmonic/melodic minor are then genuinely
+ * non-diatonic against it, so they still draw their own accidental — correctly, since
+ * that's exactly how real notation shows those scales: a plain minor key signature plus
+ * an inline raised leading tone).
+ */
+export function scaleKey(root: Pitch, scale: ScaleName): KeySpec {
+  const majorFifths = MAJOR_FIFTHS_BASE[root.step] + 7 * root.alter;
+  const fifths = scale === 'major' ? majorFifths : majorFifths - 3;
+  return { fifths: clampFifths(fifths) };
+}
+
+function clampFifths(fifths: number): KeySpec['fifths'] {
+  return Math.max(-7, Math.min(7, fifths)) as KeySpec['fifths'];
 }
