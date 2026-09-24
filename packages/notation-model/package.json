@@ -7,17 +7,21 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
-    "./build": "./dist/build/index.js"
+    ".": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "mnx:update": "node scripts/mnx-update.mjs",
+    "gen:mnx-types": "node scripts/gen-mnx-types.mjs"
   },
   "devDependencies": {
     "typescript": "^5.7.0",
     "vitest": "^3.0.0",
-    "fast-check": "^3.23.0"
+    "fast-check": "^3.23.0",
+    "json-schema-to-typescript": "16.0.0",
+    "ajv": "8.20.0",
+    "@types/node": "^26.6.2"
   }
 }

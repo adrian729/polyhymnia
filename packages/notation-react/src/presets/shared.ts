@@ -2,8 +2,8 @@
 // feature of its own — it is the arithmetic the three thin wrappers would otherwise
 // each repeat.
 
-import { durationToRational, parseDuration } from '@polyhymnia/notation-model';
-import type { Duration, DurationToken, KeySpec, Pitch, TimeSpec } from '@polyhymnia/notation-model';
+import { noteValueLength } from '@polyhymnia/notation-model';
+import type { Key, NoteValue, Pitch, Time } from '@polyhymnia/notation-model';
 
 /**
  * A meter that exactly fits `count` notes of `duration`, so a reveal is one full bar:
@@ -11,24 +11,23 @@ import type { Duration, DurationToken, KeySpec, Pitch, TimeSpec } from '@polyhym
  * half. A scale of eight quarters reads 8/4 — an honest signature for eight beats,
  * rather than two bars of 4/4 the exercise never asked for.
  */
-export function fittingMeter(duration: DurationToken | Duration, count: number): TimeSpec {
-  const length = durationToRational(parseDuration(duration)); // whole notes per note
-  let beats = length.n * count;
-  let beatType = length.d;
+export function fittingMeter(duration: NoteValue, count: number): Time {
+  const length = noteValueLength(duration); // whole notes per note
+  if (!length) throw new RangeError(`Unsupported note value base: ${duration.base}`);
+  let noteCount = length.n * count;
+  let unit = length.d;
   // Reduce while both stay integral and the beat unit stays a real note value.
-  while (beats % 2 === 0 && beatType % 2 === 0 && beatType > 4) {
-    beats /= 2;
-    beatType /= 2;
+  while (noteCount % 2 === 0 && unit % 2 === 0 && unit > 4) {
+    noteCount /= 2;
+    unit /= 2;
   }
-  return { beats, beatType };
+  return { count: noteCount, unit: unit as Time['unit'] };
 }
 
-/** A stable dependency value for a `duration` prop, which may arrive as a token string
- *  or as a fresh `Duration` object literal on every render. */
-export function durationKey(duration: DurationToken | Duration): string {
-  return typeof duration === 'string'
-    ? duration
-    : `${duration.base}.${duration.dots}`;
+/** A stable dependency value for a `duration` prop, a fresh object literal on every
+ *  render otherwise. */
+export function durationKey(duration: NoteValue): string {
+  return `${duration.base}.${duration.dots ?? 0}`;
 }
 
 // --- scale spelling ---------------------------------------------------------
@@ -44,6 +43,18 @@ const PATTERNS: Record<ScaleName, readonly number[]> = {
   // (interface.md), resolved in `scalePitches`, not here.
   melodicMinor: [0, 2, 3, 5, 7, 9, 11, 12],
 };
+
+/** Step letters in pitch-class order, C first — the numbering `stepNumber`/`letterOf`
+ *  work in, kept private here since the old model's `Pitch` (numeric step) is gone. */
+const STEP_LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const;
+
+function stepNumber(letter: Pitch['step']): number {
+  return STEP_LETTERS.indexOf(letter);
+}
+
+function letterOf(n: number): Pitch['step'] {
+  return STEP_LETTERS[((n % 7) + 7) % 7]!;
+}
 
 /** Semitone of each natural letter above C. */
 const NATURAL_SEMITONES = [0, 2, 4, 5, 7, 9, 11] as const;
@@ -64,15 +75,17 @@ export function scalePitches(
 ): Pitch[] {
   const pattern =
     scale === 'melodicMinor' && descending ? PATTERNS.naturalMinor : PATTERNS[scale];
-  const rootSemitone = NATURAL_SEMITONES[root.step] + root.alter + 12 * root.octave;
+  const rootStep = stepNumber(root.step);
+  const rootAlter = root.alter ?? 0;
+  const rootSemitone = NATURAL_SEMITONES[rootStep]! + rootAlter + 12 * root.octave;
 
   const ascending = pattern.map((semitones, degree): Pitch => {
-    const letter = root.step + degree;
-    const step = (letter % 7) as Pitch['step'];
-    const octave = root.octave + Math.floor(letter / 7);
-    const natural = NATURAL_SEMITONES[step] + 12 * octave;
+    const letterIndex = rootStep + degree;
+    const step = letterOf(letterIndex);
+    const octave = root.octave + Math.floor(letterIndex / 7);
+    const natural = NATURAL_SEMITONES[stepNumber(step)]! + 12 * octave;
     const alter = clampAlter(rootSemitone + semitones - natural);
-    return { step, alter, octave };
+    return alter === 0 ? { step, octave } : { step, alter, octave };
   });
 
   return descending ? ascending.reverse() : ascending;
@@ -81,8 +94,8 @@ export function scalePitches(
 /** The model only spells double flat .. double sharp; anything beyond it is a root no
  *  key signature would be written in (G# major), and clamping keeps the render legible
  *  instead of throwing. */
-function clampAlter(alter: number): Pitch['alter'] {
-  return Math.max(-2, Math.min(2, alter)) as Pitch['alter'];
+function clampAlter(alter: number): number {
+  return Math.max(-2, Math.min(2, alter));
 }
 
 /** Natural letter's position on the circle of fifths (C=0), the same table
@@ -102,12 +115,12 @@ const MAJOR_FIFTHS_BASE = [0, 2, 4, -1, 1, 3, 5] as const; // C D E F G A B
  * that's exactly how real notation shows those scales: a plain minor key signature plus
  * an inline raised leading tone).
  */
-export function scaleKey(root: Pitch, scale: ScaleName): KeySpec {
-  const majorFifths = MAJOR_FIFTHS_BASE[root.step] + 7 * root.alter;
+export function scaleKey(root: Pitch, scale: ScaleName): Key {
+  const majorFifths = MAJOR_FIFTHS_BASE[stepNumber(root.step)]! + 7 * (root.alter ?? 0);
   const fifths = scale === 'major' ? majorFifths : majorFifths - 3;
   return { fifths: clampFifths(fifths) };
 }
 
-function clampFifths(fifths: number): KeySpec['fifths'] {
-  return Math.max(-7, Math.min(7, fifths)) as KeySpec['fifths'];
+function clampFifths(fifths: number): number {
+  return Math.max(-7, Math.min(7, fifths));
 }

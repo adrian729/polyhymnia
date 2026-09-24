@@ -5,7 +5,8 @@
 // playback.md specifies with methods; its data (`entries`/`measures`/`tempo`) still
 // serializes, the lookup helpers do not.
 
-import type { Diagnostic, NoteId } from '@polyhymnia/notation-model';
+import type { Diagnostic } from '@polyhymnia/notation-model';
+import type { NoteId } from './records.js';
 import type { TimeMap } from '../query/timemap.js';
 
 export interface ViewBox {

@@ -7,7 +7,7 @@
 // carry flags rather than beams, and `paths` is always empty.
 
 import type { NotationOptions } from '../options.js';
-import type { Diagnostic, ScoreDoc } from '@polyhymnia/notation-model';
+import type { Diagnostic, MnxDocument } from '@polyhymnia/notation-model';
 import { accidentals } from './accidentals.js';
 import { breakSystems } from './break.js';
 import { emit } from './emit.js';
@@ -19,8 +19,8 @@ import { temporal } from './temporal.js';
 import type { LayoutResult } from './types.js';
 import { vertical } from './vertical.js';
 
-export function layoutScore(score: ScoreDoc, options?: NotationOptions): LayoutResult {
-  const normalized = normalize(score, options);
+export function layoutScore(doc: MnxDocument, options?: NotationOptions): LayoutResult {
+  const normalized = normalize(doc, options);
   const timed = temporal(normalized, options);
   const resolvedAccidentals = accidentals(normalized, timed, options);
   const groups = grouping(timed, options);

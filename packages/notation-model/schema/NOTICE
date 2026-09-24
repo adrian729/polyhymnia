@@ -1,0 +1,47 @@
+Source
+
+  The files in this directory (mnx-schema.json and examples/*.json) are
+  vendored from the W3C Music Notation Community Group's MNX specification
+  repository:
+
+    Repository: https://github.com/w3c-cg/mnx
+    Pinned commit: see SOURCE in this directory (commit hash, commit date,
+      schema $id, and supported mnx.version are recorded there and updated
+      together on every `pnpm mnx:update <commit>`).
+
+Copyright
+
+  These files are copyright of the Contributors to the MNX Specification.
+  The specification's documentation site states, in its footer
+  (https://mnx.formats.music/docs/, fetched 2026-09-24):
+
+    "Copyright (c) 2021 the Contributors to the MNX Specification,
+    published by the Music Notation Community Group under the W3C
+    Community Contributor License Agreement (CLA)."
+
+License
+
+  Per the notice above, the MNX specification (which the vendored schema
+  and examples are drawn from) is published under the W3C Community
+  Contributor License Agreement (CLA). The w3c-cg/mnx GitHub repository
+  itself does not carry a LICENSE file and GitHub's repository metadata
+  reports no detected license for it, so the CLA statement on the docs
+  site is the only license terms found. The CLA primarily governs
+  contributions to the specification and grants a royalty-free license
+  to implement the specification; it is not a general open-source license
+  for the schema/example JSON files as redistributed here.
+
+  This project vendors the schema and examples for the narrow purpose of
+  validating and generating TypeScript types for the MNX document format
+  described by the specification (AGENTS.md "MNX schema"), not as a
+  general redistribution of W3C Community Group content. No definitive,
+  general-purpose redistribution license for these specific files was
+  found — verify the CLA's terms (and W3C's Document/Software licensing
+  policies, if applicable to Community Group output) before any
+  redistribution of this directory's contents beyond that use.
+
+Preservation
+
+  `pnpm mnx:update <commit>` (packages/notation-model/scripts/mnx-update.mjs)
+  re-vendors mnx-schema.json, examples/*.json and SOURCE from a new commit;
+  it must never delete or overwrite this NOTICE file.

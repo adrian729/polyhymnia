@@ -7,27 +7,37 @@
 // module is deliberately not this stage's job, because those extras need layout
 // geometry this stage has not computed yet.
 //
-// Never throws. The fullness policy here is the degrade path for hand-built documents:
-// underfull pads, overfull truncates at the barline, both with a diagnostic
-// (data-model.md). The builders' hard error is the authoring-time counterpart.
+// Never throws. The fullness policy here is the degrade path for documents that do not
+// fill their measures: underfull pads with a warning, overfull truncates at the barline
+// with an error.
 
+import { Rational as R } from '@polyhymnia/notation-model';
+import type { Diagnostic, Rational } from '@polyhymnia/notation-model';
+import type { NotationOptions } from '../options.js';
+import type { NormalizedEvent, NormalizedMeasure, NormalizedScore } from './normalize.js';
 import {
   decomposeLength,
-  durationToRational,
-  isWholeBarRest,
-  asNoteId,
-  createId,
-  Rational as R,
-  rational,
-} from '@polyhymnia/notation-model';
-import type { Rational, Diagnostic, NoteId, RestEl, VoiceElement } from '@polyhymnia/notation-model';
-import type { NotationOptions } from '../options.js';
-import type { NormalizedMeasure, NormalizedScore } from './normalize.js';
+  noteValueSpecLength,
+  type DurationBase,
+  type NoteId,
+  type TupletRef,
+} from './records.js';
 
+export type { ElementNote } from './normalize.js';
+import type { ElementNote } from './normalize.js';
 export interface TemporalElement {
   id: NoteId;
   kind: 'note' | 'chord' | 'rest';
-  element: VoiceElement;
+  base: DurationBase;
+  dots: 0 | 1 | 2;
+  tuplet?: TupletRef;
+  /** One entry for a note, N for a chord's members, none for a rest. */
+  notes: readonly ElementNote[];
+  stem?: 'auto' | 'up' | 'down' | 'none';
+  breath?: 'comma' | 'caesura';
+  /** Draws one whole-rest glyph and takes the measure's full capacity in ticks. */
+  wholeBar?: boolean;
+  staffPosition?: number;
   staffIndex: number;
   measureIndex: number;
   voice: 0 | 1;
@@ -60,6 +70,7 @@ export function temporal(normalized: NormalizedScore, _options?: NotationOptions
   const elements: TemporalElement[] = [];
   const measures: TemporalMeasure[] = [];
   const diagnostics: Diagnostic[] = [];
+  const usedIds = new Set(normalized.usedIds);
 
   for (const staff of normalized.staves) {
     let measureStart = R.ZERO;
@@ -69,12 +80,13 @@ export function temporal(normalized: NormalizedScore, _options?: NotationOptions
         walkVoice(
           measure,
           voice.index,
-          voice.elements,
+          voice.events,
           staff.index,
           measureStart,
           divisions,
           elements,
           diagnostics,
+          usedIds,
         );
       }
       measures.push({
@@ -94,19 +106,21 @@ export function temporal(normalized: NormalizedScore, _options?: NotationOptions
 function walkVoice(
   measure: NormalizedMeasure,
   voiceIndex: 0 | 1,
-  voiceElements: readonly VoiceElement[],
+  events: readonly NormalizedEvent[],
   staffIndex: number,
   measureStart: Rational,
   divisions: number,
   out: TemporalElement[],
   diagnostics: Diagnostic[],
+  usedIds: Set<string>,
 ): void {
   const { capacity, index: measureIndex } = measure;
+  const wholeBarLength = wholeBarShare(events, capacity);
   let onset = R.ZERO;
   let truncated = false;
 
-  for (const el of voiceElements) {
-    const length = lengthOf(el, voiceElements, capacity);
+  for (const ev of events) {
+    const length = ev.kind === 'rest' && ev.wholeBar ? wholeBarLength : ev.length;
     if (R.compare(length, R.ZERO) <= 0) {
       diagnostics.push({
         severity: 'warning',
@@ -119,7 +133,6 @@ function walkVoice(
       continue;
     }
 
-    // Overfull: truncate at the barline, drop the excess (data-model.md).
     if (!measure.pickup && R.compare(onset, capacity) >= 0) {
       truncated = true;
       continue;
@@ -130,23 +143,32 @@ function walkVoice(
       truncated = true;
     }
 
-    out.push({
-      id: el.id,
-      kind: el.kind,
-      element: el,
-      staffIndex,
-      measureIndex,
-      voice: voiceIndex,
-      tick: R.toTicks(R.add(measureStart, onset), divisions),
-      measureTick: R.toTicks(onset, divisions),
-      durationTicks: R.toTicks(effective, divisions),
-    });
+    if (ev.kind !== 'space') {
+      out.push({
+        id: ev.id,
+        kind: ev.kind,
+        base: ev.base,
+        dots: ev.dots,
+        ...(ev.tuplet ? { tuplet: ev.tuplet } : {}),
+        notes: ev.notes,
+        ...(ev.stem ? { stem: ev.stem } : {}),
+        ...(ev.breath ? { breath: ev.breath } : {}),
+        ...(ev.wholeBar ? { wholeBar: true } : {}),
+        ...(ev.staffPosition !== undefined ? { staffPosition: ev.staffPosition } : {}),
+        staffIndex,
+        measureIndex,
+        voice: voiceIndex,
+        tick: R.toTicks(R.add(measureStart, onset), divisions),
+        measureTick: R.toTicks(onset, divisions),
+        durationTicks: R.toTicks(effective, divisions),
+      });
+    }
     onset = R.add(onset, length);
   }
 
   if (truncated) {
     diagnostics.push({
-      severity: 'warning',
+      severity: 'error',
       code: 'measure-overfull',
       message:
         `Measure ${measureIndex} voice ${voiceIndex} overflows its ` +
@@ -158,8 +180,6 @@ function walkVoice(
     return;
   }
 
-  // Underfull: auto-pad a trailing rest (data-model.md). A pickup measure is exempt —
-  // its capacity is defined as whatever its content sums to.
   if (measure.pickup || R.compare(onset, capacity) >= 0) return;
   const padding = decomposeLength(R.subtract(capacity, onset));
   if (padding.length === 0) return;
@@ -174,13 +194,32 @@ function walkVoice(
     voice: voiceIndex,
     tick: R.toTicks(R.add(measureStart, onset), divisions),
   });
-  for (const duration of padding) {
-    const restEl: RestEl = { kind: 'rest', id: asNoteId(createId('pad')), duration };
-    const length = durationToRational(duration);
+  padding.forEach((value, k) => {
+    const length = noteValueSpecLength(value);
+    const candidate = `m${measureIndex}.v${voiceIndex}.pad${k}`;
+    let id = candidate;
+    let n = 2;
+    while (usedIds.has(id)) {
+      id = `${candidate}~${n}`;
+      n += 1;
+    }
+    if (id !== candidate) {
+      diagnostics.push({
+        severity: 'warning',
+        code: 'id-collision',
+        message: `Synthesized id ${JSON.stringify(candidate)} collides with an existing id; using ${JSON.stringify(id)} instead.`,
+        measureIndex,
+        voice: voiceIndex,
+        tick: R.toTicks(R.add(measureStart, onset), divisions),
+      });
+    }
+    usedIds.add(id);
     out.push({
-      id: restEl.id,
+      id,
       kind: 'rest',
-      element: restEl,
+      base: value.base,
+      dots: value.dots,
+      notes: [],
       staffIndex,
       measureIndex,
       voice: voiceIndex,
@@ -190,28 +229,16 @@ function walkVoice(
       synthetic: true,
     });
     onset = R.add(onset, length);
-  }
+  });
 }
 
-/**
- * A `wholeBar` rest is the only element whose tick length is not derived from its
- * `Duration` — that is pinned to 'whole' for rendering whatever the meter, while the
- * length is the capacity the rest of the voice leaves over (data-model.md's
- * "the only place in the model a rendered duration and its tick length intentionally
- * diverge").
- */
-function lengthOf(
-  el: VoiceElement,
-  siblings: readonly VoiceElement[],
-  capacity: Rational,
-): Rational {
-  if (!isWholeBarRest(el)) return durationToRational(el.duration);
+function wholeBarShare(events: readonly NormalizedEvent[], capacity: Rational): Rational {
   let others = R.ZERO;
   let wholeBarCount = 0;
-  for (const other of siblings) {
-    if (isWholeBarRest(other)) wholeBarCount += 1;
-    else others = R.add(others, durationToRational(other.duration));
+  for (const ev of events) {
+    if (ev.kind === 'rest' && ev.wholeBar) wholeBarCount += 1;
+    else others = R.add(others, ev.length);
   }
   const remainder = R.max(R.ZERO, R.subtract(capacity, others));
-  return R.divide(remainder, rational(Math.max(1, wholeBarCount)));
+  return R.divide(remainder, R.of(Math.max(1, wholeBarCount)));
 }

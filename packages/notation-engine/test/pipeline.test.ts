@@ -1,33 +1,16 @@
 // normalize + temporal composed, entered through the real stage functions.
 
-import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  measure,
-  note,
-  resetIdCounter,
-  score,
-  voice,
-  wholeBarRest,
-} from '@polyhymnia/notation-model';
-import type { ScoreDoc } from '@polyhymnia/notation-model';
+import { describe, expect, it } from 'vitest';
+import type { MnxDocument } from '@polyhymnia/notation-model';
 import { normalize } from '../src/layout/normalize.js';
 import { temporal } from '../src/layout/temporal.js';
 import { engravingDefaults, glyphAdvanceWidth, glyphAnchor } from '../src/font/metadata.js';
 import { GLYPH_CODEPOINT } from '../src/font/glyphs.js';
-
-beforeEach(() => resetIdCounter());
+import { fixture, measure, mnx, note, withGlobal } from './mnx.js';
 
 describe('normalize — forward inheritance', () => {
   it('carries clef, key and time forward until a measure restates them', () => {
-    const doc = score(
-      { clef: 'treble', key: 2, time: { beats: 4, beatType: 4 } },
-      measure(note('C4', 'w')),
-      measure({ time: { beats: 3, beatType: 4 } }, note('D4', 'h.')),
-      measure(note('E4', 'h.')),
-      measure({ clef: 'bass', key: -3 }, note('E2', 'h.')),
-      measure(note('F2', 'h.')),
-    );
-    const measures = normalize(doc).staves[0]!.measures;
+    const measures = normalize(fixture('inheritance')).staves[0]!.measures;
 
     expect(measures.map((m) => `${m.time.beats}/${m.time.beatType}`)).toEqual([
       '4/4',
@@ -41,13 +24,7 @@ describe('normalize — forward inheritance', () => {
   });
 
   it('resolves capacity per measure, including the pickup exemption', () => {
-    const doc = score(
-      { clef: 'treble' },
-      measure({ pickup: true }, note('G3', '8')),
-      measure(note('C4', 'w')),
-      measure({ time: { beats: 3, beatType: 4 } }, note('D4', 'h.')),
-    );
-    const measures = normalize(doc).staves[0]!.measures;
+    const measures = normalize(fixture('pickup')).staves[0]!.measures;
     expect(measures.map((m) => m.capacityTicks)).toEqual([1680, 13440, 10080]);
     expect(measures[0]!.pickup).toBe(true);
   });
@@ -56,61 +33,68 @@ describe('normalize — forward inheritance', () => {
 describe('normalize — never throws', () => {
   const malformed = {
     id: 42,
-    divisions: -7,
-    tempo: 'fast',
-    staves: [
+    mnx: { version: 1 },
+    global: {
+      measures: [
+        { time: { count: 0, unit: 0 }, key: { fifths: 99 } },
+        { time: { count: 3, unit: 4 } },
+        {},
+        null,
+      ],
+    },
+    parts: [
       {
-        id: 's',
-        clef: { kind: 'kazoo' },
-        key: { fifths: 99 },
-        time: { beats: 0, beatType: 0 },
         measures: [
-          { id: 'm0', voices: 'not an array' },
-          { id: 'm1', time: { beats: 3, beatType: 4 }, voices: [{ index: 0, elements: null }] },
-          {
-            id: 'm2',
-            voices: [
-              { id: 'v0', index: 0, elements: [] },
-              { id: 'v1', index: 1, elements: [] },
-              { id: 'v2', index: 0, elements: [] },
-            ],
-          },
+          { clefs: [{ clef: { sign: 'kazoo' } }], sequences: 'not an array' },
+          { sequences: [{ content: null }] },
+          { sequences: [{ content: [] }, { content: [] }, { content: [] }] },
           null,
         ],
       },
     ],
-  } as unknown as ScoreDoc;
+  } as unknown as MnxDocument;
 
-  it('degrades a deliberately malformed ScoreDoc into diagnostics', () => {
-    const normalized = normalize(malformed);
+  it('degrades a deliberately malformed MNX document into diagnostics', () => {
+    const normalized = normalize(malformed, { divisions: -7 });
     const codes = normalized.diagnostics.map((d) => d.code);
 
     expect(codes).toContain('invalid-divisions');
     expect(codes).toContain('invalid-time-signature');
-    expect(codes).toContain('missing-voices');
+    expect(codes).toContain('missing-sequences');
     expect(codes).toContain('too-many-voices');
     expect(normalized.divisions).toBe(3360);
-    // Unreadable clef/key/time fall back rather than propagate undefined downstream.
     expect(normalized.staves[0]!.measures[0]!.clef.kind).toBe('treble');
     expect(normalized.staves[0]!.measures[0]!.key.fifths).toBe(7);
     expect(normalized.staves[0]!.measures[0]!.time).toEqual({ beats: 4, beatType: 4 });
-    // A valid meter later in the score still takes effect and still inherits forward.
     expect(normalized.staves[0]!.measures[1]!.time).toEqual({ beats: 3, beatType: 4 });
     expect(normalized.staves[0]!.measures[2]!.time).toEqual({ beats: 3, beatType: 4 });
   });
 
   it('survives an empty, missing or nonsense document', () => {
-    expect(() => normalize(undefined as unknown as ScoreDoc)).not.toThrow();
-    expect(() => normalize({} as ScoreDoc)).not.toThrow();
-    expect(normalize({} as ScoreDoc).diagnostics.map((d) => d.code)).toContain('no-staves');
+    expect(() => normalize(undefined as unknown as MnxDocument)).not.toThrow();
+    expect(() => normalize({} as MnxDocument)).not.toThrow();
+    expect(normalize({} as MnxDocument).diagnostics.map((d) => d.code)).toContain('mnx-invalid');
+    expect(normalize({ mnx: { version: 1 }, global: { measures: [] }, parts: [] }).diagnostics.map((d) => d.code)).toContain(
+      'no-parts',
+    );
     expect(() => temporal(normalize(malformed))).not.toThrow();
+  });
+
+  it('reports an unknown mnx.version and still lays out what it can read', () => {
+    const doc = { ...mnx({}, measure(note('C4', 'w'))), mnx: { version: 2 } };
+    const normalized = normalize(doc);
+
+    expect(normalized.diagnostics).toContainEqual(
+      expect.objectContaining({ severity: 'error', code: 'mnx-unsupported-version' }),
+    );
+    expect(temporal(normalized).elements).toHaveLength(1);
   });
 });
 
 describe('temporal', () => {
   it('derives onsets by summing preceding durations, with no stored onset', () => {
-    const doc = score(
-      { clef: 'treble' },
+    const doc = mnx(
+      {},
       measure(note('C4', 'q'), note('D4', '8'), note('E4', '8'), note('F4', 'h')),
       measure(note('G4', 'w')),
     );
@@ -124,69 +108,40 @@ describe('temporal', () => {
     ]);
   });
 
-  it('pads an underfull hand-built measure instead of throwing', () => {
-    const hand: ScoreDoc = {
-      id: 'hand',
-      divisions: 3360,
-      tempo: [],
-      staves: [
-        {
-          id: 's',
-          clef: { kind: 'treble' },
-          key: { fifths: 0 },
-          time: { beats: 4, beatType: 4 },
-          measures: [{ id: 'm0' as never, voices: [voice(0, note('C4', 'q'))] }],
-        },
-      ],
-    };
-    const map = temporal(normalize(hand));
+  it('pads an underfull measure instead of throwing', () => {
+    const map = temporal(normalize(mnx({}, measure(note('C4', 'w')), measure(note('C4', 'q')))));
+    const second = map.elements.filter((e) => e.measureIndex === 1);
 
     expect(map.diagnostics.map((d) => d.code)).toEqual(['measure-underfull']);
-    expect(map.elements).toHaveLength(2);
-    expect(map.elements[1]!.synthetic).toBe(true);
-    expect(map.elements[1]!.durationTicks).toBe(10080);
+    expect(second).toHaveLength(2);
+    expect(second[1]!.synthetic).toBe(true);
+    expect(second[1]!.durationTicks).toBe(10080);
   });
 
-  it('truncates an overfull hand-built measure at the barline', () => {
-    const hand: ScoreDoc = {
-      id: 'hand',
-      divisions: 3360,
-      tempo: [],
-      staves: [
-        {
-          id: 's',
-          clef: { kind: 'treble' },
-          key: { fifths: 0 },
-          time: { beats: 4, beatType: 4 },
-          measures: [
-            {
-              id: 'm0' as never,
-              voices: [voice(0, note('C4', 'w'), note('D4', 'h'), note('E4', 'q'))],
-            },
-          ],
-        },
-      ],
-    };
-    const map = temporal(normalize(hand));
+  it('truncates an overfull measure at the barline', () => {
+    const map = temporal(normalize(mnx({}, measure(note('C4', 'w'), note('D4', 'h'), note('E4', 'q')))));
 
     expect(map.diagnostics.map((d) => d.code)).toEqual(['measure-overfull']);
+    expect(map.diagnostics[0]!.severity).toBe('error');
     expect(map.elements.map((e) => [e.tick, e.durationTicks])).toEqual([[0, 13440]]);
     expect(map.measures[0]!.endTick).toBe(13440);
   });
 
   it('gives a whole-bar rest the measure capacity, not the whole note length', () => {
-    const doc = score(
-      { clef: 'treble', time: { beats: 9, beatType: 8 } },
-      measure(wholeBarRest()),
-      measure(wholeBarRest()),
-    );
-    const map = temporal(normalize(doc));
+    const map = temporal(normalize(fixture('whole-bar-9-8')));
 
     expect(map.elements.map((e) => [e.tick, e.durationTicks])).toEqual([
       [0, 15120],
       [15120, 15120],
     ]);
     expect(map.diagnostics).toEqual([]);
+  });
+
+  it('honours the divisions option', () => {
+    const doc = mnx({}, withGlobal({ time: { count: 4, unit: 4 } }, measure(note('C4', 'q'), note('D4', 'h.'))));
+    const map = temporal(normalize(doc, { divisions: 480 }));
+    expect(map.divisions).toBe(480);
+    expect(map.elements.map((e) => e.durationTicks)).toEqual([480, 1440]);
   });
 });
 

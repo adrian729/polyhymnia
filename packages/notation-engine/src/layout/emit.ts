@@ -10,15 +10,15 @@
 
 import { engravingDefaults, glyphAdvanceWidth, glyphBBox } from '../font/metadata.js';
 import { glyphCodepoint } from '../font/glyphs.js';
-import { describePitch } from '@polyhymnia/notation-model';
-import type {
-  Diagnostic,
-  Duration,
-  DurationBase,
-  NoteId,
-  TempoMap,
-  TimeSpec,
-} from '@polyhymnia/notation-model';
+import type { Diagnostic } from '@polyhymnia/notation-model';
+import {
+  describePitch,
+  type Duration,
+  type DurationBase,
+  type NoteId,
+  type TempoMap,
+  type TimeSpec,
+} from './records.js';
 import type { NotationOptions } from '../options.js';
 import { buildTimeMap, type MeasureTime, type Placement } from '../query/timemap.js';
 import {
@@ -227,7 +227,7 @@ function emitBarlines(
     cls: 'barline',
   });
 
-  if (measure.source.barlineStart === 'repeat-start') {
+  if (measure.barlineStart === 'repeat-start') {
     let x = measure.x;
     rects.push(line(x, e.thickBarlineThickness));
     x += e.thickBarlineThickness + e.thinThickBarlineSeparation;
@@ -238,7 +238,7 @@ function emitBarlines(
   }
 
   const right = measure.x + measure.width;
-  switch (measure.source.barlineEnd) {
+  switch (measure.barlineEnd) {
     case 'none':
       break;
     case 'dashed':

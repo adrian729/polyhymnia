@@ -4,8 +4,7 @@
 // line, y increasing downward, 1 sp between adjacent staff lines, so the five lines sit
 // at y = 0, 1, 2, 3, 4 and `staffPosition` and `y` are the same number.
 
-import { stepIndex } from '@polyhymnia/notation-model';
-import type { ClefSpec, KeySpec, Pitch } from '@polyhymnia/notation-model';
+import { stepIndex, type ClefSpec, type KeySpec, type Pitch } from './records.js';
 
 /** Staff lines, hence `y = 0..4`. */
 export const STAFF_LINES = 5;

@@ -1,4 +1,4 @@
-// Exact rational arithmetic for the temporal pass (data-model.md "Time").
+// Exact rational arithmetic for the temporal pass (mnx.md "Time").
 //
 // A Rational here measures musical time in WHOLE NOTES: a quarter is {n:1,d:4}, a
 // triplet eighth is {n:1,d:12}. Integer ticks are the API-boundary representation;
@@ -61,10 +61,6 @@ export function divide(a: Rational, b: Rational): Rational {
   return rational(a.n * b.d, a.d * b.n);
 }
 
-export function negate(a: Rational): Rational {
-  return { n: -a.n, d: a.d };
-}
-
 export function equals(a: Rational, b: Rational): boolean {
   // Both operands are normalized, so structural equality is value equality.
   return a.n * b.d === b.n * a.d;
@@ -91,12 +87,12 @@ export function max(a: Rational, b: Rational): Rational {
 
 /** Exact tick value, which may be fractional when the rational is finer than
  *  `divisions` can express (e.g. a double-dotted 64th at divisions=3360). */
-export function toExactTicks(a: Rational, divisions: number): number {
+function toExactTicks(a: Rational, divisions: number): number {
   return (a.n * 4 * divisions) / a.d;
 }
 
 /** Integer ticks — the API-boundary representation. Rounds only when the value is not
- *  exactly representable at this `divisions` (data-model.md's reason for 3360). */
+ *  exactly representable at this `divisions` (mnx.md's reason for 3360). */
 export function toTicks(a: Rational, divisions: number): number {
   return Math.round(toExactTicks(a, divisions));
 }
@@ -119,14 +115,12 @@ export const Rational = {
   subtract,
   multiply,
   divide,
-  negate,
   equals,
   compare,
   isZero,
   min,
   max,
   toTicks,
-  toExactTicks,
   fromTicks,
   toNumber,
 };

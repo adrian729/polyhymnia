@@ -2,21 +2,25 @@
 
 import { useMemo } from 'react';
 import type { CSSProperties, JSX } from 'react';
-import { measure, note, parsePitch, score } from '@polyhymnia/notation-model';
-import type { ClefSpec, Duration, DurationToken, PitchToken } from '@polyhymnia/notation-model';
+import { parsePitch } from '@polyhymnia/notation-model';
+import type { NoteValue } from '@polyhymnia/notation-model';
+import type { ClefSpec } from '@polyhymnia/notation-engine';
 import type { LayoutResult } from '@polyhymnia/notation-engine';
 import { Notation } from '../Notation.js';
 import { durationKey, fittingMeter, scaleKey, scalePitches } from './shared.js';
 import type { ScaleName } from './shared.js';
+import { buildMeasureScore, noteEventFromPitch } from './mnxBuild.js';
 
 export type { ScaleName } from './shared.js';
 
+const QUARTER: NoteValue = { base: 'quarter' };
+
 export interface ScaleRevealProps {
-  root: PitchToken;
+  root: string;
   scale: ScaleName;
   clef: ClefSpec['kind'];
   descending?: boolean;
-  duration?: DurationToken | Duration;
+  duration?: NoteValue;
   className?: string;
   style?: CSSProperties;
   /** Additive over interface.md's listed props — the same `<Notation>` escape hatch,
@@ -29,7 +33,7 @@ export function ScaleReveal({
   scale,
   clef,
   descending = false,
-  duration = 'q',
+  duration = QUARTER,
   className,
   style,
   onLayout,
@@ -37,12 +41,14 @@ export function ScaleReveal({
   const doc = useMemo(() => {
     const rootPitch = parsePitch(root);
     const pitches = scalePitches(rootPitch, scale, descending);
-    return score(
+    return buildMeasureScore(
+      clef,
       // The scale's own key signature: diatonic degrees then draw no accidental at all
       // (spacing stays even), and only genuinely non-diatonic degrees — the raised 6th/7th
       // in harmonic/melodic minor — still get one, exactly as real notation shows them.
-      { clef, key: scaleKey(rootPitch, scale).fifths, time: fittingMeter(duration, pitches.length) },
-      measure(pitches.map((p) => note(p, duration))),
+      fittingMeter(duration, pitches.length),
+      pitches.map((p) => noteEventFromPitch(p, duration)),
+      scaleKey(rootPitch, scale).fifths,
     );
   }, [root, scale, clef, descending, durationKey(duration)]);
 

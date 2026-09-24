@@ -1,13 +1,13 @@
 // The single options surface, shared by `layoutScore(score, options)` and the React
 // `options` prop (interface.md "## Options"). Every field defaults.
 
-import type { Duration, DurationToken } from '@polyhymnia/notation-model';
+import type { NoteValue } from '@polyhymnia/notation-model';
 
 export interface NotationOptions {
+  divisions?: number;
   /** engraving.md spring/rod spacing, default k=0.55 base=3.2sp */
   spacing?: { k?: number; base?: number };
-  /** default halfBarBeaming=true; `beatGrouping` is a score-wide fallback, overridden
-   *  per-measure by `TimeSpec.beatGrouping` */
+  /** default halfBarBeaming=true; `beatGrouping` is a score-wide fallback */
   beaming?: { halfBarBeaming?: boolean; beatGrouping?: readonly number[] };
   accidentals?: {
     courtesyPolicy?: 'none' | 'next-measure' | 'always'; // default 'next-measure'
@@ -15,7 +15,7 @@ export interface NotationOptions {
     insertAlteration?: 'key' | 'natural'; // interaction.md, default 'key'
   };
   /** default: beat subdivision implied by the meter */
-  insertGrid?: DurationToken | Duration;
+  insertGrid?: NoteValue;
   /** engraving.md, default false — numeral shows actual only */
   tuplets?: { showRatio?: boolean };
   font?: { family?: string; url?: string };
@@ -28,6 +28,7 @@ export interface NotationOptions {
 /** Resolved defaults for the fields the stages implemented so far actually read.
  *  Stages 3-11 extend this as they land. */
 export const DEFAULT_OPTIONS = {
+  divisions: 3360,
   spacing: { k: 0.55, base: 3.2 },
   beaming: { halfBarBeaming: true },
   accidentals: {

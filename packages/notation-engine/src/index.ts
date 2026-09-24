@@ -19,9 +19,38 @@ export {
 export type { EngravingDefaults, FontMetadata, GlyphBBox, GlyphAnchors, GlyphName } from './font/metadata.js';
 export { GLYPH_CODEPOINT, glyphCodepoint } from './font/glyphs.js';
 
+// --- engine records ---
+export { DEFAULT_DIVISIONS, describePitch, midiOf, stepIndex } from './layout/records.js';
+export type {
+  AccidentalPolicy,
+  Alter,
+  ClefSpec,
+  Dots,
+  Duration,
+  DurationBase,
+  KeySpec,
+  NoteId,
+  NoteValueSpec,
+  Pitch,
+  StepNumber,
+  TempoEvent,
+  TempoMap,
+  TimeSpec,
+  TupletRef,
+} from './layout/records.js';
+
 // --- layout stages ---
 export { normalize } from './layout/normalize.js';
-export type { NormalizedMeasure, NormalizedScore, NormalizedStaff } from './layout/normalize.js';
+export type {
+  ElementNote,
+  NormalizedElement,
+  NormalizedEvent,
+  NormalizedGap,
+  NormalizedMeasure,
+  NormalizedScore,
+  NormalizedStaff,
+  NormalizedVoice,
+} from './layout/normalize.js';
 export { temporal } from './layout/temporal.js';
 export type { TemporalElement, TemporalMeasure, TemporalScore } from './layout/temporal.js';
 export { accidentals } from './layout/accidentals.js';
@@ -75,6 +104,3 @@ export type {
 // --- query (playback.md) ---
 export { buildTimeMap, DEFAULT_TEMPO_BPM } from './query/timemap.js';
 export type { MeasureTime, TimeMap, TimeMapEntry } from './query/timemap.js';
-
-// --- apply (interaction.md; only `fillRests` exists so far) ---
-export { fillRests } from './apply/fillRests.js';

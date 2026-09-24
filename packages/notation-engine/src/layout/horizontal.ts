@@ -8,7 +8,8 @@
 
 import { engravingDefaults, glyphAdvanceWidth } from '../font/metadata.js';
 import { DEFAULT_OPTIONS, type NotationOptions } from '../options.js';
-import type { ClefSpec, Diagnostic, KeySpec, Measure, TimeSpec } from '@polyhymnia/notation-model';
+import type { Diagnostic } from '@polyhymnia/notation-model';
+import type { ClefSpec, KeySpec, TimeSpec } from './records.js';
 import type { NormalizedMeasure, NormalizedScore } from './normalize.js';
 import { clefEquals, clefGlyph, keySignature } from './staff.js';
 import type { TemporalScore } from './temporal.js';
@@ -68,7 +69,8 @@ export interface MeasureChrome {
 export interface HorizontalMeasure {
   index: number;
   staffIndex: number;
-  source: Measure;
+  barlineStart: NormalizedMeasure['barlineStart'];
+  barlineEnd: NormalizedMeasure['barlineEnd'];
   clef: ClefSpec;
   key: KeySpec;
   time: TimeSpec;
@@ -142,7 +144,8 @@ export function horizontal(
     measures.push({
       index: measure.index,
       staffIndex: staff.index,
-      source: measure.measure,
+      barlineStart: measure.barlineStart,
+      barlineEnd: measure.barlineEnd,
       clef: measure.clef,
       key: measure.key,
       time: measure.time,
@@ -153,7 +156,7 @@ export function horizontal(
       contentWidth,
       startChrome: chromeOf(measure, previous, true),
       midChrome: chromeOf(measure, previous, false),
-      systemBreak: measure.measure.systemBreak === true,
+      systemBreak: measure.systemBreak,
       x: 0,
       width: 0,
       chrome: chromeOf(measure, previous, false),
@@ -251,8 +254,7 @@ function chromeOf(
     clefWidth: showClef ? glyphAdvanceWidth(clefGlyph(measure.clef)) + CHROME_GAP : 0,
     keyWidth: showKey || cancelKey ? keyWidth(measure, cancelKey, showKey) : 0,
     timeWidth: showTime ? timeWidthOf(measure.time) : 0,
-    startBarlineWidth:
-      measure.measure.barlineStart === 'repeat-start' ? repeatStartWidth() : 0,
+    startBarlineWidth: measure.barlineStart === 'repeat-start' ? repeatStartWidth() : 0,
   };
   const bare =
     widths.clefWidth === 0 &&
@@ -265,7 +267,7 @@ function chromeOf(
     showKey,
     showTime,
     ...widths,
-    endBarlineWidth: endBarlineWidth(measure.measure.barlineEnd),
+    endBarlineWidth: endBarlineWidth(measure.barlineEnd),
     leadWidth: bare ? MEASURE_LEAD : 0,
     cancelKey,
   };
@@ -331,7 +333,7 @@ export function digitsWidth(value: number): number {
   );
 }
 
-export function endBarlineWidth(kind: Measure['barlineEnd']): number {
+export function endBarlineWidth(kind: NormalizedMeasure['barlineEnd']): number {
   const e = engravingDefaults;
   switch (kind) {
     case 'none':

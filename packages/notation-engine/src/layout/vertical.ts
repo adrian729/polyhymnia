@@ -12,19 +12,12 @@
 
 import { engravingDefaults, glyphAdvanceWidth, glyphAnchor, glyphBBox } from '../font/metadata.js';
 import type { NotationOptions } from '../options.js';
-import type {
-  Diagnostic,
-  Duration,
-  DurationBase,
-  NoteEl,
-  NoteId,
-  Pitch,
-  RestEl,
-} from '@polyhymnia/notation-model';
-import { accidentalOf, notesOf, type AccidentalScore } from './accidentals.js';
+import type { Diagnostic } from '@polyhymnia/notation-model';
+import type { Duration, DurationBase, NoteId, Pitch } from './records.js';
+import { accidentalOf, type AccidentalScore } from './accidentals.js';
 import type { NormalizedMeasure, NormalizedScore } from './normalize.js';
 import { MIDDLE_LINE, staffPositionOf } from './staff.js';
-import type { TemporalElement, TemporalScore } from './temporal.js';
+import type { ElementNote, TemporalElement, TemporalScore } from './temporal.js';
 
 /** 3.5sp from the notehead centre (engraving.md "## Stems" step 2). */
 export const STEM_LENGTH = 3.5;
@@ -195,7 +188,11 @@ function layOut(
   measure: NormalizedMeasure,
   resolved: AccidentalScore,
 ): VerticalElement {
-  const duration = row.element.duration;
+  const duration: Duration = {
+    base: row.base,
+    dots: row.dots,
+    ...(row.tuplet ? { tuplet: row.tuplet } : {}),
+  };
   const base: Omit<VerticalElement, 'noteheads' | 'leftWidth' | 'rightWidth'> = {
     id: row.id,
     kind: row.kind,
@@ -210,7 +207,7 @@ function layOut(
   };
 
   if (row.kind === 'rest') {
-    const rest = layOutRest(row.element as RestEl, duration);
+    const rest = layOutRest(row, duration);
     return {
       ...base,
       noteheads: [],
@@ -220,7 +217,7 @@ function layOut(
     };
   }
 
-  const notes = notesOf(row);
+  const notes = row.notes;
   const glyph = NOTEHEAD_GLYPH[duration.base] ?? 'noteheadBlack';
   const width = glyphAdvanceWidth(glyph);
   const heads = notes.map((note) => ({
@@ -228,7 +225,7 @@ function layOut(
     staffPosition: staffPositionOf(note.pitch, measure.clef),
   }));
 
-  const dir = stemDirection(heads, notes);
+  const dir = stemDirection(heads, row.stem);
   const shifts = secondShifts(heads, width);
 
   const noteheads: NoteheadLayout[] = heads.map((head, i) => {
@@ -261,9 +258,9 @@ function layOut(
   const headExtent = noteheads.reduce((max, n) => Math.max(max, n.dx + n.width), 0);
   for (const head of noteheads) head.dots = dotPositions(duration.dots, headExtent, head.staffPosition);
 
-  const stem = layOutStem(duration, dir, noteheads, notes);
+  const stem = layOutStem(duration, dir, noteheads, row.stem);
   const noteRight = headExtent + dotsWidth(duration.dots);
-  const breath = layOutBreath(notes, noteRight);
+  const breath = layOutBreath(row.breath, noteRight);
 
   return {
     ...base,
@@ -277,7 +274,7 @@ function layOut(
 
 // --- breath marks -----------------------------------------------------------
 
-const BREATH_GLYPH: Record<NonNullable<NoteEl['breath']>, string> = {
+const BREATH_GLYPH: Record<NonNullable<TemporalElement['breath']>, string> = {
   comma: 'breathMarkComma',
   caesura: 'caesura',
 };
@@ -292,10 +289,10 @@ const BREATH_GLYPH: Record<NonNullable<NoteEl['breath']>, string> = {
  */
 const BREATH_Y = 0;
 
-/** A chord takes the mark from whichever member carries it — the breath belongs to the
- *  rhythmic event, and `NoteEl` is the only place the field can be written. */
-function layOutBreath(notes: readonly NoteEl[], noteRight: number): BreathLayout | undefined {
-  const breath = notes.find((n) => n.breath)?.breath;
+function layOutBreath(
+  breath: TemporalElement['breath'],
+  noteRight: number,
+): BreathLayout | undefined {
   if (!breath) return undefined;
   return { glyph: BREATH_GLYPH[breath], dx: noteRight + BREATH_GAP, y: BREATH_Y };
 }
@@ -321,28 +318,28 @@ const REST_Y: Partial<Record<DurationBase, number>> = {
 };
 const REST_BASELINE = MIDDLE_LINE;
 
-function layOutRest(el: RestEl, duration: Duration): RestLayout {
+function layOutRest(row: TemporalElement, duration: Duration): RestLayout {
   // A `wholeBar` rest always draws the single whole-rest glyph, whatever the meter
-  // (data-model.md); its tick length diverging from its `Duration` is the temporal
+  // (mnx.md); its tick length diverging from its `Duration` is the temporal
   // stage's business, not this one's.
-  const glyph = el.wholeBar ? 'restWhole' : (REST_GLYPH[duration.base] ?? 'restQuarter');
+  const glyph = row.wholeBar ? 'restWhole' : (REST_GLYPH[duration.base] ?? 'restQuarter');
   const y =
-    el.staffPosition ??
-    (el.wholeBar ? REST_Y.whole! : (REST_Y[duration.base] ?? REST_BASELINE));
+    row.staffPosition ??
+    (row.wholeBar ? REST_Y.whole! : (REST_Y[duration.base] ?? REST_BASELINE));
   const width = glyphAdvanceWidth(glyph);
   return {
     glyph,
     y,
     width,
-    wholeBar: el.wholeBar === true,
-    dots: el.wholeBar ? [] : dotPositions(duration.dots, width, y),
+    wholeBar: row.wholeBar === true,
+    dots: row.wholeBar ? [] : dotPositions(duration.dots, width, y),
   };
 }
 
 // --- stems ------------------------------------------------------------------
 
 interface Head {
-  note: NoteEl;
+  note: ElementNote;
   staffPosition: number;
 }
 
@@ -351,9 +348,8 @@ interface Head {
  * it down by convention. A chord votes by the member furthest from the middle line; a
  * chord straddling it symmetrically falls back to the same down convention.
  */
-function stemDirection(heads: readonly Head[], notes: readonly NoteEl[]): 1 | -1 {
-  const override = notes.find((n) => n.stem === 'up' || n.stem === 'down');
-  if (override) return override.stem === 'up' ? 1 : -1;
+function stemDirection(heads: readonly Head[], override: TemporalElement['stem']): 1 | -1 {
+  if (override === 'up' || override === 'down') return override === 'up' ? 1 : -1;
 
   let furthest = 0;
   for (const head of heads) furthest = Math.max(furthest, Math.abs(head.staffPosition - MIDDLE_LINE));
@@ -390,7 +386,7 @@ function layOutStem(
   duration: Duration,
   dir: 1 | -1,
   noteheads: readonly NoteheadLayout[],
-  notes: readonly NoteEl[],
+  stemOverride: TemporalElement['stem'],
 ): StemLayout | undefined {
   if (STEMLESS.has(duration.base) || noteheads.length === 0) return undefined;
   const glyph = noteheads[0]!.glyph;
@@ -405,7 +401,7 @@ function layOutStem(
   const yTop = dir === 1 ? top - STEM_LENGTH : top + attachY;
   const yBottom = dir === 1 ? bottom + attachY : bottom + STEM_LENGTH;
   const dx = dir === 1 ? attachX - thickness : attachX;
-  const drawn = !notes.some((n) => n.stem === 'none');
+  const drawn = stemOverride !== 'none';
 
   const flagPair = FLAG_GLYPH[duration.base];
   const flag = flagPair

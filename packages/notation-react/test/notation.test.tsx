@@ -2,25 +2,49 @@ import { createRef } from 'react';
 import { render, cleanup } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { layoutScore } from '@polyhymnia/notation-engine';
-import { measure, note, rest, score } from '@polyhymnia/notation-model';
-import type { NoteId } from '@polyhymnia/notation-model';
+import { parsePitch } from '@polyhymnia/notation-model';
+import type { Event, MnxDocument, NoteValue } from '@polyhymnia/notation-model';
 import { Notation } from '../src/Notation.js';
 import type { NotationHandle } from '../src/Notation.js';
 import { ScaleReveal } from '../src/presets/ScaleReveal.js';
 import { scalePitches, fittingMeter } from '../src/presets/shared.js';
-import { parsePitch } from '@polyhymnia/notation-model';
 
 afterEach(cleanup);
 
 const TREBLE_CLEF = 0xe050;
 const NOTEHEAD_BLACK = 0xe0a4;
 
-function simpleScore() {
-  return score(
-    { clef: 'treble' },
-    measure(note('C4', 'q'), note('E4', 'q'), note('G4', 'h')),
-    measure(note('A5', 'q'), rest('q'), note('C3', 'h')),
-  );
+const QUARTER: NoteValue = { base: 'quarter' };
+const HALF: NoteValue = { base: 'half' };
+
+function noteEvent(pitch: string, duration: NoteValue): Event {
+  return { duration, notes: [{ pitch: parsePitch(pitch) }] };
+}
+
+function restEvent(duration: NoteValue): Event {
+  return { duration, rest: {} };
+}
+
+function simpleScore(): MnxDocument {
+  return {
+    mnx: { version: 1 },
+    global: {
+      measures: [{ time: { count: 4, unit: 4 } }, {}],
+    },
+    parts: [
+      {
+        measures: [
+          {
+            clefs: [{ clef: { sign: 'G', staffPosition: -2 } }],
+            sequences: [{ content: [noteEvent('C4', QUARTER), noteEvent('E4', QUARTER), noteEvent('G4', HALF)] }],
+          },
+          {
+            sequences: [{ content: [noteEvent('A5', QUARTER), restEvent(QUARTER), noteEvent('C3', HALF)] }],
+          },
+        ],
+      },
+    ],
+  };
 }
 
 describe('<Notation>', () => {
@@ -79,7 +103,7 @@ describe('<Notation>', () => {
     const groups = [...container.querySelectorAll('[data-pn="element"]')];
     expect(groups.length).toBe(Object.keys(layout.elements).length);
     for (const group of groups) {
-      const id = group.getAttribute('data-pn-el') as NoteId;
+      const id = group.getAttribute('data-pn-el')!;
       expect(group.getAttribute('aria-label')).toBe(layout.elements[id]!.label);
     }
     expect(groups[0]!.getAttribute('aria-label')).toBe('C 4, quarter note, measure 1');
@@ -129,14 +153,14 @@ describe('NotationHandle', () => {
     expect(() => handle.hitTest({ x: 0, y: 0 })).toThrow(/not implemented yet/);
     expect(() => handle.setPlaybackTick(0)).toThrow(/roadmap/);
     expect(() => handle.animateCursor(null)).toThrow(/roadmap/);
-    expect(() => handle.focus('n1' as never)).toThrow(/roadmap/);
+    expect(() => handle.focus('n1')).toThrow(/roadmap/);
   });
 });
 
 describe('scale spelling', () => {
   const names = (root: string, scale: Parameters<typeof scalePitches>[1], desc = false) =>
-    scalePitches(parsePitch(root as never), scale, desc).map(
-      (p) => 'CDEFGAB'[p.step]! + (p.alter > 0 ? '#'.repeat(p.alter) : 'b'.repeat(-p.alter)) + p.octave,
+    scalePitches(parsePitch(root), scale, desc).map(
+      (p) => p.step + (p.alter ? (p.alter > 0 ? '#'.repeat(p.alter) : 'b'.repeat(-p.alter)) : '') + p.octave,
     );
 
   it('spells the major scale with one letter per degree', () => {
@@ -168,9 +192,9 @@ describe('scale spelling', () => {
 
 describe('presets', () => {
   it('fits the meter to the content so no padding rest is invented', () => {
-    expect(fittingMeter('q', 8)).toEqual({ beats: 8, beatType: 4 });
-    expect(fittingMeter('8', 8)).toEqual({ beats: 4, beatType: 4 });
-    expect(fittingMeter('q', 1)).toEqual({ beats: 1, beatType: 4 });
+    expect(fittingMeter(QUARTER, 8)).toEqual({ count: 8, unit: 4 });
+    expect(fittingMeter({ base: 'eighth' }, 8)).toEqual({ count: 4, unit: 4 });
+    expect(fittingMeter(QUARTER, 1)).toEqual({ count: 1, unit: 4 });
   });
 
   it('renders a full octave, one notehead per degree', () => {

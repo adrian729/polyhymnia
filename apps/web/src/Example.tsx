@@ -8,7 +8,8 @@ import type { Diagnostic, LayoutResult } from '@polyhymnia/notation-react';
 interface ExampleProps {
   title: string;
   caption?: string;
-  /** Diagnostics the builders produced (`buildDiagnostics`), which layout never sees. */
+  /** Diagnostics from outside layout (there are none today — every diagnostic this
+   *  gallery shows comes from `layoutScore` itself, via `onLayout` below). */
   extra?: readonly Diagnostic[];
   children: (onLayout: (layout: LayoutResult) => void) => ReactNode;
 }

@@ -1,27 +1,21 @@
 // Exact arithmetic: the reason the temporal pass works in rationals and only collapses
-// to integer ticks at the API boundary (data-model.md "Time").
+// to integer ticks at the API boundary (mnx.md "Time").
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
-import {
-  measure,
-  note,
-  resetIdCounter,
-  score,
-  tuplet,
-  Rational as R,
-  rational,
-  durationToRational,
-  durationToTicks,
-  isNotatable,
-  timeCapacity,
-  DEFAULT_DIVISIONS,
-} from '@polyhymnia/notation-model';
+import { noteValueLength, Rational as R, rational } from '@polyhymnia/notation-model';
+import type { NoteValueBase } from '@polyhymnia/notation-model';
 import { normalize } from '../src/layout/normalize.js';
+import type { NormalizedElement } from '../src/layout/normalize.js';
 import { temporal } from '../src/layout/temporal.js';
-import { fillRests } from '../src/apply/fillRests.js';
+import { DEFAULT_DIVISIONS, decomposeLength, noteValueSpecLength } from '../src/layout/records.js';
+import { fixture, measure, mnx, note, tuplet } from './mnx.js';
 
-beforeEach(() => resetIdCounter());
+function eventLengths(doc: Parameters<typeof normalize>[0]) {
+  return normalize(doc)
+    .staves[0]!.measures[0]!.voices[0]!.events.filter((e): e is NormalizedElement => e.kind !== 'space')
+    .map((e) => e.length);
+}
 
 describe('Rational', () => {
   it('normalizes by gcd with the sign on the numerator', () => {
@@ -72,15 +66,13 @@ describe('Rational', () => {
   it('round-trips ticks at divisions=3360 for every notatable duration', () => {
     fc.assert(
       fc.property(
-        fc.constantFrom('breve', 'whole', 'half', 'quarter', 'eighth', '16th', '32nd'),
+        fc.constantFrom<NoteValueBase>('breve', 'whole', 'half', 'quarter', 'eighth', '16th', '32nd'),
         fc.constantFrom(0, 1, 2),
         (base, dots) => {
-          const duration = { base, dots } as never;
-          const ticks = durationToTicks(duration, DEFAULT_DIVISIONS);
+          const length = noteValueLength({ base, dots })!;
+          const ticks = R.toTicks(length, DEFAULT_DIVISIONS);
           expect(Number.isInteger(ticks)).toBe(true);
-          expect(R.equals(R.fromTicks(ticks, DEFAULT_DIVISIONS), durationToRational(duration))).toBe(
-            true,
-          );
+          expect(R.equals(R.fromTicks(ticks, DEFAULT_DIVISIONS), length)).toBe(true);
         },
       ),
     );
@@ -89,25 +81,18 @@ describe('Rational', () => {
 
 describe('tuplet arithmetic', () => {
   it('3 x triplet-eighth === 1 quarter, exactly', () => {
-    const [a, b, c] = tuplet(3, 2, note('C4', '8'), note('D4', '8'), note('E4', '8'));
-    const lengths = [a!, b!, c!].map((el) => durationToRational(el.duration));
+    const lengths = eventLengths(
+      mnx({}, measure(tuplet([3, '8'], [2, '8'], note('C4', '8'), note('D4', '8'), note('E4', '8')), note('F4', 'h.'))),
+    ).slice(0, 3);
     const total = lengths.reduce((sum, l) => R.add(sum, l), R.ZERO);
 
     expect(lengths[0]).toEqual({ n: 1, d: 12 });
-    expect(R.equals(total, durationToRational({ base: 'quarter', dots: 0 }))).toBe(true);
+    expect(R.equals(total, noteValueLength({ base: 'quarter' })!)).toBe(true);
     expect(total).toEqual({ n: 1, d: 4 });
   });
 
   it('keeps onsets integral through the temporal stage', () => {
-    const doc = score(
-      { clef: 'treble' },
-      measure(
-        ...tuplet(3, 2, note('C4', 'q'), note('D4', 'q'), note('E4', 'q')),
-        note('F4', 'q'),
-        note('G4', 'q'),
-      ),
-    );
-    const map = temporal(normalize(doc));
+    const map = temporal(normalize(fixture('triplet')));
 
     expect(map.elements.map((e) => [e.tick, e.durationTicks])).toEqual([
       [0, 2240],
@@ -121,45 +106,42 @@ describe('tuplet arithmetic', () => {
   });
 
   it('a 5:4 sixteenth septuplet-free quintuplet still lands on integer ticks', () => {
-    const five = tuplet(5, 4, ...Array.from({ length: 5 }, () => note('C4', '16')));
-    const total = five
-      .map((el) => durationToRational(el.duration))
+    const five = tuplet([5, '16'], [4, '16'], ...Array.from({ length: 5 }, () => note('C4', '16')));
+    const doc = mnx({}, measure(five, note('D4', 'h.')));
+    const total = eventLengths(doc)
+      .slice(0, 5)
       .reduce((sum, l) => R.add(sum, l), R.ZERO);
     expect(total).toEqual({ n: 1, d: 4 });
-    expect(durationToTicks(five[0]!.duration, DEFAULT_DIVISIONS)).toBe(672);
+    expect(temporal(normalize(doc)).elements[0]!.durationTicks).toBe(672);
   });
 });
 
 describe('capacities and decomposition', () => {
   it('knows which meters have no single notatable rest', () => {
-    expect(isNotatable(timeCapacity(4, 4))).toBe(true);
-    expect(isNotatable(timeCapacity(3, 4))).toBe(true);
-    expect(isNotatable(timeCapacity(6, 8))).toBe(true);
-    expect(isNotatable(timeCapacity(9, 8))).toBe(false);
-    expect(isNotatable(timeCapacity(5, 4))).toBe(false);
-    expect(isNotatable(timeCapacity(11, 8))).toBe(false);
+    const single = (count: number, unit: number): boolean => decomposeLength(rational(count, unit)).length === 1;
+    expect(single(4, 4)).toBe(true);
+    expect(single(3, 4)).toBe(true);
+    expect(single(6, 8)).toBe(true);
+    expect(single(9, 8)).toBe(false);
+    expect(single(5, 4)).toBe(false);
+    expect(single(11, 8)).toBe(false);
   });
 
-  it('fillRests takes the largest shape that fits and recurses', () => {
-    const sixteenth = DEFAULT_DIVISIONS / 4;
-    expect(fillRests(5 * sixteenth, DEFAULT_DIVISIONS).map((r) => r.duration)).toEqual([
+  it('decomposition takes the largest shape that fits and recurses', () => {
+    expect(decomposeLength(rational(5, 16))).toEqual([
       { base: 'quarter', dots: 0 },
       { base: '16th', dots: 0 },
     ]);
-    expect(fillRests(3 * DEFAULT_DIVISIONS, DEFAULT_DIVISIONS).map((r) => r.duration)).toEqual([
-      { base: 'half', dots: 1 },
-    ]);
-    expect(fillRests(0, DEFAULT_DIVISIONS)).toEqual([]);
-    expect(fillRests(-1, DEFAULT_DIVISIONS)).toEqual([]);
+    expect(decomposeLength(rational(3, 4))).toEqual([{ base: 'half', dots: 1 }]);
+    expect(decomposeLength(R.ZERO)).toEqual([]);
+    expect(decomposeLength(rational(-1, 16))).toEqual([]);
   });
 
-  it('never emits wholeBar rests — that is spliceVoice territory', () => {
+  it('decomposition always sums back to the length it was given', () => {
     fc.assert(
       fc.property(fc.integer({ min: 1, max: 40 }), (sixteenths) => {
-        const rests = fillRests(sixteenths * (DEFAULT_DIVISIONS / 4), DEFAULT_DIVISIONS);
-        expect(rests.every((r) => r.wholeBar === undefined)).toBe(true);
-        const total = rests
-          .map((r) => durationToRational(r.duration))
+        const total = decomposeLength(rational(sixteenths, 16))
+          .map(noteValueSpecLength)
           .reduce((sum, l) => R.add(sum, l), R.ZERO);
         expect(total).toEqual(rational(sixteenths, 16));
       }),

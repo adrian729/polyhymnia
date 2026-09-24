@@ -4,8 +4,8 @@
 // on top of them: tie merging (a tied pair is ONE entry, so the sampler starts one
 // sound), MIDI numbers, and the sp coordinates only the emit stage knows.
 
-import { baseLength, midiOf, Rational as R } from '@polyhymnia/notation-model';
-import type { ChordEl, DurationBase, NoteEl, NoteId, TempoMap } from '@polyhymnia/notation-model';
+import { Rational as R } from '@polyhymnia/notation-model';
+import { midiOf, noteValueSpecLength, type NoteId, type NoteValueSpec, type TempoMap } from '../layout/records.js';
 import type { TemporalElement } from '../layout/temporal.js';
 import type { SystemBox } from '../layout/types.js';
 
@@ -68,7 +68,7 @@ export interface TimeMapInput {
 /** playback.md leaves an empty `TempoMap` to the implementation; 120 bpm on the quarter
  *  is the conventional default and the one an exercise plays at. */
 export const DEFAULT_TEMPO_BPM = 120;
-const DEFAULT_BEAT_UNIT: DurationBase = 'quarter';
+const DEFAULT_BEAT_UNIT: NoteValueSpec = { base: 'quarter', dots: 0 };
 
 export function buildTimeMap(input: TimeMapInput): TimeMap {
   const entries = buildEntries(input);
@@ -181,7 +181,7 @@ function buildEntries(input: TimeMapInput): TimeMapEntry[] {
       .slice(i, last + 1)
       .reduce((sum, e) => sum + e.durationTicks, 0);
     const place = input.placement.get(head.id);
-    const notes = notesOf(head);
+    const notes = head.notes;
     entries.push({
       ids: notes.length > 0 ? notes.map((n) => n.id) : [head.id],
       tick: head.tick,
@@ -203,24 +203,18 @@ function buildEntries(input: TimeMapInput): TimeMapEntry[] {
   return entries;
 }
 
-function notesOf(el: TemporalElement): readonly NoteEl[] {
-  if (el.kind === 'note') return [el.element as NoteEl];
-  if (el.kind === 'chord') return (el.element as ChordEl).notes;
-  return [];
-}
-
 function tiesInto(a: TemporalElement, b: TemporalElement): boolean {
   if (a.voice !== b.voice) return false;
   if (a.tick + a.durationTicks !== b.tick) return false;
-  const from = notesOf(a);
-  const to = notesOf(b);
+  const from = a.notes;
+  const to = b.notes;
   if (from.length === 0 || from.length !== to.length) return false;
   if (!from.every((n) => n.tie === 'start' || n.tie === 'continue')) return false;
   if (!to.every((n) => n.tie === 'stop' || n.tie === 'continue')) return false;
   return from.every((n, i) => samePitch(n, to[i]!));
 }
 
-function samePitch(a: NoteEl, b: NoteEl): boolean {
+function samePitch(a: TemporalElement['notes'][number], b: TemporalElement['notes'][number]): boolean {
   return (
     a.pitch.step === b.pitch.step &&
     a.pitch.alter === b.pitch.alter &&
@@ -259,7 +253,7 @@ function buildTempoSegments(tempo: TempoMap, divisions: number): TempoSegment[] 
   return segments;
 }
 
-function ticksPerBeat(beatUnit: DurationBase | undefined, divisions: number): number {
-  const quarters = R.toNumber(baseLength(beatUnit ?? DEFAULT_BEAT_UNIT)) * 4;
+function ticksPerBeat(beatUnit: NoteValueSpec | undefined, divisions: number): number {
+  const quarters = R.toNumber(noteValueSpecLength(beatUnit ?? DEFAULT_BEAT_UNIT)) * 4;
   return divisions * quarters;
 }

@@ -10,16 +10,14 @@
 export { Notation, describeScore, viewBoxAttr } from './Notation.js';
 export type { NotationProps, NotationHandle } from './Notation.js';
 
-// Content authoring (interface.md "## Content authoring") — the builders, the token
-// parsers and their types.
-export * from '@polyhymnia/notation-model/build';
-
 // Layout: the pure entry point and the shapes a consumer of `onLayout` / `getLayout()`
 // reads.
 export { layoutScore, DEFAULT_OPTIONS } from '@polyhymnia/notation-engine';
 export type {
+  ClefSpec,
   ElementBox,
   GlyphRun,
+  KeySpec,
   LayoutResult,
   NotationOptions,
   PathShape,
@@ -27,14 +25,11 @@ export type {
   SystemBox,
   TimeMap,
   TimeMapEntry,
+  TimeSpec,
   ViewBox,
 } from '@polyhymnia/notation-engine';
-export type {
-  ClefSpec,
-  Diagnostic,
-  KeySpec,
-  NoteId,
-  Pitch,
-  ScoreDoc,
-  TimeSpec,
-} from '@polyhymnia/notation-model';
+
+// The score format (AGENTS.md "Score format" — MNX only). `parsePitch` is the one
+// piece of content authoring apps genuinely need: pitch props stay `'C4'` strings.
+export { parsePitch } from '@polyhymnia/notation-model';
+export type { Diagnostic, MnxDocument, NoteValue, Pitch } from '@polyhymnia/notation-model';

@@ -7,7 +7,8 @@
 
 import type { NotationOptions } from '../options.js';
 import { DEFAULT_OPTIONS } from '../options.js';
-import type { ChordEl, Diagnostic, NoteEl, NoteId, Pitch } from '@polyhymnia/notation-model';
+import type { Diagnostic } from '@polyhymnia/notation-model';
+import type { NoteId, Pitch } from './records.js';
 import { accidentalGlyph, keyAlterations } from './staff.js';
 import type { NormalizedScore } from './normalize.js';
 import type { TemporalElement, TemporalScore } from './temporal.js';
@@ -55,11 +56,11 @@ export function accidentals(
       const elements = measureElements(score, staff.index, measure.index);
 
       for (const el of elements) {
-        for (const note of notesOf(el)) {
+        for (const note of el.notes) {
           const { pitch } = note;
           const slot = `${pitch.step}:${pitch.octave}`;
           const effective = state.get(slot) ?? key.get(pitch.step) ?? 0;
-          const policy = note.accidental ?? 'auto';
+          const policy = note.accidentalPolicy ?? 'auto';
 
           const tieSlot = tieKey(pitch);
           const tiedIn =
@@ -142,8 +143,3 @@ function measureElements(
     .sort((a, b) => a.tick - b.tick || a.voice - b.voice);
 }
 
-export function notesOf(el: TemporalElement): readonly NoteEl[] {
-  if (el.kind === 'note') return [el.element as NoteEl];
-  if (el.kind === 'chord') return (el.element as ChordEl).notes;
-  return [];
-}

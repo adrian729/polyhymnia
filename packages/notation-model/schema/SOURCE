@@ -1,0 +1,11 @@
+Vendored from: https://github.com/w3c-cg/mnx
+Commit: 25b7d367fd9ee8be2758354d9d754debd51c4503
+Commit date: 2026-09-24T09:43:48Z
+Schema $id: https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/40
+Document mnx.version (runtime-checked): 1
+
+Files:
+  schema/mnx-schema.json           <- docs/mnx-schema.json
+  schema/examples/<slug>.json      <- docs/static/examples/json/<slug>.json (52 files)
+
+Update with: pnpm mnx:update <commit>

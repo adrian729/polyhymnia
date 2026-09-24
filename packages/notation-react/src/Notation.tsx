@@ -17,7 +17,7 @@ import type {
   TimeMap,
   ViewBox,
 } from '@polyhymnia/notation-engine';
-import type { NoteId, ScoreDoc } from '@polyhymnia/notation-model';
+import type { MnxDocument } from '@polyhymnia/notation-model';
 
 /**
  * The imperative handle (interface.md "## Imperative handle").
@@ -40,11 +40,11 @@ export interface NotationHandle {
   /** @throws always — no cursor animation yet (roadmap.md Phase 3+). */
   animateCursor(span: unknown): never;
   /** @throws always — needs the per-element focus targets interaction.md adds. */
-  focus(id: NoteId): never;
+  focus(id: string): never;
 }
 
 export interface NotationProps {
-  score: ScoreDoc;
+  score: MnxDocument;
   options?: NotationOptions;
   className?: string;
   style?: CSSProperties;
@@ -178,7 +178,7 @@ function Glyph({ glyph }: { glyph: GlyphRun }): JSX.Element {
 // --- helpers ----------------------------------------------------------------
 
 interface GlyphGroup {
-  el: NoteId | undefined;
+  el: string | undefined;
   glyphs: GlyphRun[];
 }
 

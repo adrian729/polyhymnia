@@ -7,7 +7,8 @@
 // bracket suppression from whether a span beams as one run — has something to read.
 
 import type { NotationOptions } from '../options.js';
-import type { Diagnostic, NoteId } from '@polyhymnia/notation-model';
+import type { Diagnostic } from '@polyhymnia/notation-model';
+import type { NoteId } from './records.js';
 import type { TemporalElement, TemporalScore } from './temporal.js';
 
 /** engraving.md "## Tuplets". `bracket` is provisional: the beaming stage suppresses it
@@ -37,7 +38,7 @@ export function grouping(score: TemporalScore, _options?: NotationOptions): Grou
   );
 
   for (const el of ordered) {
-    const ref = el.element.duration.tuplet;
+    const ref = el.tuplet;
     if (!ref) continue;
     // A span is per voice and per measure — `temporal` already rejects one that crosses
     // a barline, so the key only has to keep two voices' identically-named runs apart.

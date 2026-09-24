@@ -1,24 +1,26 @@
-// Stages 1-8 + 11 through the real entry point: `ScoreDoc -> layoutScore() ->
+// Stages 1-8 + 11 through the real entry point: `MnxDocument -> layoutScore() ->
 // LayoutResult`, never a stage in isolation (roadmap.md's testing philosophy).
 
-import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  chord,
-  measure,
-  note,
-  rest,
-  resetIdCounter,
-  score,
-  voice,
-  wholeBarRest,
-} from '@polyhymnia/notation-model';
-import type { NoteId } from '@polyhymnia/notation-model';
+import { describe, expect, it } from 'vitest';
+import type { Clef } from '@polyhymnia/notation-model';
 import { layoutScore } from '../src/layout/index.js';
+import type { NoteId } from '../src/layout/records.js';
 import { glyphBBox } from '../src/font/metadata.js';
 import { GLYPH_CODEPOINT } from '../src/font/glyphs.js';
 import type { ElementBox, GlyphRun, LayoutResult } from '../src/layout/types.js';
-
-beforeEach(() => resetIdCounter());
+import {
+  ALTO,
+  BASS,
+  TENOR,
+  chord,
+  fixture,
+  measure,
+  mnx,
+  note,
+  rest,
+  voices,
+  withGlobal,
+} from './mnx.js';
 
 const cp = (name: string): number => GLYPH_CODEPOINT[name]!;
 
@@ -33,10 +35,7 @@ function boxes(layout: LayoutResult): ElementBox[] {
 describe('chords are addressable per member', () => {
   it('emits one ElementBox per notehead, sharing x and tick', () => {
     const layout = layoutScore(
-      score(
-        { clef: 'treble' },
-        measure(chord([note('C4', 'w'), note('E4', 'w'), note('G4', 'w'), note('B4', 'w')])),
-      ),
+      mnx({}, measure(chord(['C4', 'E4', 'G4', 'B4'], 'w'))),
     );
     const members = boxes(layout).filter((b) => b.kind === 'chord');
 
@@ -62,7 +61,7 @@ describe('chords are addressable per member', () => {
 
   it('shifts a chord member a second above its neighbour off the stem', () => {
     const layout = layoutScore(
-      score({ clef: 'treble' }, measure(chord([note('C4', 'q'), note('D4', 'q')]), rest('h.'))),
+      mnx({}, measure(chord(['C4', 'D4'], 'q'), rest('h.'))),
     );
     const members = boxes(layout)
       .filter((b) => b.kind === 'chord')
@@ -77,8 +76,8 @@ describe('chords are addressable per member', () => {
 describe('accidentals', () => {
   it('suppresses accidentals already carried by the key signature', () => {
     const layout = layoutScore(
-      score(
-        { clef: 'treble', key: 2 },
+      mnx(
+        { key: 2 },
         measure(note('D4', 'q'), note('E4', 'q'), note('F#4', 'q'), note('G4', 'q')),
         measure(note('A4', 'q'), note('B4', 'q'), note('C#5', 'q'), note('D5', 'q')),
       ),
@@ -94,14 +93,7 @@ describe('accidentals', () => {
   });
 
   it('writes an accidental once per measure, again in the next, never on a tie-stop', () => {
-    const layout = layoutScore(
-      score(
-        { clef: 'treble' },
-        measure(note('F#4', 'q'), note('F#4', 'q'), note('G4', 'h')),
-        measure(note('F#4', 'q'), note('A4', 'q'), note('F#4', 'h', { tie: 'start' })),
-        measure(note('F#4', 'h', { tie: 'stop' }), note('G4', 'h')),
-      ),
-    );
+    const layout = layoutScore(fixture('accidentals-ties'));
     const accidentals = glyphsOf(layout, 'accidental');
 
     // measure 1: one sharp for the pair; measure 2: state resets, one more; measure 3:
@@ -112,11 +104,11 @@ describe('accidentals', () => {
 
   it('honours the per-note policy override', () => {
     const layout = layoutScore(
-      score(
-        { clef: 'treble' },
+      mnx(
+        {},
         measure(
-          note('F4', 'q', { accidental: 'always' }),
-          note('F#4', 'q', { accidental: 'never' }),
+          note('F4', 'q', {}, { accidentalDisplay: { show: true } }),
+          note('F#4', 'q', {}, { accidentalDisplay: { show: false } }),
           note('G4', 'h'),
         ),
       ),
@@ -129,10 +121,7 @@ describe('accidentals', () => {
 
   it('stacks a chord’s accidentals into non-overlapping columns left of the notehead', () => {
     const layout = layoutScore(
-      score(
-        { clef: 'treble' },
-        measure(chord([note('C#4', 'w'), note('Eb4', 'w'), note('G#4', 'w')])),
-      ),
+      mnx({}, measure(chord(['C#4', 'Eb4', 'G#4'], 'w'))),
     );
     const accidentals = glyphsOf(layout, 'accidental');
     const noteX = boxes(layout)[0]!.x;
@@ -147,7 +136,7 @@ describe('accidentals', () => {
 describe('ledger lines', () => {
   it('draws every line crossed above and below the staff, but none for a note in a space', () => {
     const layout = layoutScore(
-      score({ clef: 'treble' }, measure(note('C6', 'h'), note('C3', 'h'))),
+      mnx({}, measure(note('C6', 'h'), note('C3', 'h'))),
     );
     const ledgers = layout.rects.filter((r) => r.cls === 'ledger-line');
     const staffTop = layout.systems[0]!.y;
@@ -166,12 +155,12 @@ describe('ledger lines', () => {
     // G5 sits in the space above the top line; A5, a step higher, lands on the first
     // ledger line and so gets it.
     expect(
-      layoutScore(score({ clef: 'treble' }, measure(note('G5', 'w')))).rects.filter(
+      layoutScore(mnx({}, measure(note('G5', 'w')))).rects.filter(
         (r) => r.cls === 'ledger-line',
       ),
     ).toHaveLength(0);
     expect(
-      layoutScore(score({ clef: 'treble' }, measure(note('A5', 'w')))).rects.filter(
+      layoutScore(mnx({}, measure(note('A5', 'w')))).rects.filter(
         (r) => r.cls === 'ledger-line',
       ),
     ).toHaveLength(1);
@@ -181,7 +170,7 @@ describe('ledger lines', () => {
 describe('rests', () => {
   it('draws one centred whole rest for a whole-bar rest in 9/8', () => {
     const layout = layoutScore(
-      score({ clef: 'treble', time: { beats: 9, beatType: 8 } }, measure(wholeBarRest())),
+      mnx({ time: { count: 9, unit: 8 } }, { sequences: [{ content: [], fullMeasure: {} }] }),
     );
     const rests = glyphsOf(layout, 'rest');
     const box = boxes(layout)[0]!;
@@ -201,8 +190,8 @@ describe('rests', () => {
 
   it('anchors rests where the Bravura glyph metadata says, not where engraving.md guesses', () => {
     const layout = layoutScore(
-      score(
-        { clef: 'treble' },
+      mnx(
+        {},
         measure(rest('q'), rest('q'), rest('h')),
         measure(rest('8'), rest('8'), rest('q'), rest('h')),
       ),
@@ -225,7 +214,7 @@ describe('rests', () => {
     expect(glyphBBox('restWhole').bBoxNE[1]).toBeCloseTo(0.036, 3);
     expect(glyphBBox('restWhole').bBoxSW[1]).toBeCloseTo(-0.54, 3);
 
-    const whole = layoutScore(score({ clef: 'treble' }, measure(rest('w'))));
+    const whole = layoutScore(mnx({}, measure(rest('w'))));
     const wholeGlyph = glyphsOf(whole, 'rest')[0]!;
     expect(+(wholeGlyph.y - whole.systems[0]!.y).toFixed(3)).toBe(1);
   });
@@ -233,8 +222,8 @@ describe('rests', () => {
 
 describe('systems', () => {
   it('breaks greedily at options.widthSp and keeps column x strictly increasing', () => {
-    const doc = score(
-      { clef: 'treble' },
+    const doc = mnx(
+      {},
       ...Array.from({ length: 8 }, () =>
         measure(note('C4', 'q'), note('D4', 'q'), note('E4', 'q'), note('F4', 'q')),
       ),
@@ -257,20 +246,14 @@ describe('systems', () => {
     expect(glyphsOf(layout, 'clef')).toHaveLength(layout.systems.length);
   });
 
-  it('honours a forced systemBreak', () => {
-    const layout = layoutScore(
-      score(
-        { clef: 'treble' },
-        measure({ systemBreak: true }, note('C4', 'w')),
-        measure(note('D4', 'w')),
-      ),
-    );
+  it('honours the systems of the score layout', () => {
+    const layout = layoutScore(fixture('system-break'));
     expect(layout.systems).toHaveLength(2);
     expect(boxes(layout).map((b) => b.systemIndex).sort()).toEqual([0, 1]);
   });
 
   it('does not force the last system to the full width', () => {
-    const layout = layoutScore(score({ clef: 'treble' }, measure(note('C4', 'w'))), {
+    const layout = layoutScore(mnx({}, measure(note('C4', 'w'))), {
       widthSp: 100,
     });
     // maxLastSystemFill 0.65 — stretched to 65sp at most, never to 100.
@@ -280,15 +263,7 @@ describe('systems', () => {
 
 describe('chrome', () => {
   it('draws clef, key and time once, and restates them on a change', () => {
-    const layout = layoutScore(
-      score(
-        { clef: 'treble', key: 1, time: { beats: 4, beatType: 4 } },
-        measure(note('C4', 'w')),
-        measure({ key: -2, time: { beats: 3, beatType: 4 } }, note('D4', 'h.')),
-        measure(note('E4', 'h.')),
-      ),
-      { widthSp: 200 },
-    );
+    const layout = layoutScore(fixture('chrome-changes'), { widthSp: 200 });
 
     expect(glyphsOf(layout, 'clef')).toHaveLength(1);
     // 4/4 then 3/4 — two digits each, drawn twice.
@@ -301,7 +276,7 @@ describe('chrome', () => {
   });
 
   it('places the treble key signature where engraving.md says', () => {
-    const layout = layoutScore(score({ clef: 'treble', key: 3 }, measure(note('C4', 'w'))));
+    const layout = layoutScore(mnx({ key: 3 }, measure(note('C4', 'w'))));
     const staffTop = layout.systems[0]!.y;
     expect(glyphsOf(layout, 'key-accidental').map((g) => +(g.y - staffTop).toFixed(3))).toEqual([
       0, 1.5, -0.5,
@@ -309,21 +284,21 @@ describe('chrome', () => {
   });
 
   it('derives bass, alto and tenor key placement from the treble pattern', () => {
-    const at = (kind: 'bass' | 'alto' | 'tenor'): number[] => {
-      const layout = layoutScore(score({ clef: kind, key: 2 }, measure(note('C3', 'w'))));
+    const at = (clef: Clef): number[] => {
+      const layout = layoutScore(mnx({ clef, key: 2 }, measure(note('C3', 'w'))));
       const staffTop = layout.systems[0]!.y;
       return glyphsOf(layout, 'key-accidental').map((g) => +(g.y - staffTop).toFixed(3));
     };
-    expect(at('bass')).toEqual([1, 2.5]); // treble pattern one space lower
-    expect(at('alto')).toEqual([0.5, 2]);
+    expect(at(BASS)).toEqual([1, 2.5]); // treble pattern one space lower
+    expect(at(ALTO)).toEqual([0.5, 2]);
     // Tenor is the irregularity: F#/C# an octave down, off the ledger line.
-    expect(at('tenor')).toEqual([3, 1]);
+    expect(at(TENOR)).toEqual([3, 1]);
   });
 
   it('draws an octave-up bass clef with its own glyph', () => {
-    const glyphAt = (octaveShift: -1 | 0 | 1): number =>
+    const glyphAt = (octave: -1 | 0 | 1): number =>
       glyphsOf(
-        layoutScore(score({ clef: 'bass', octaveShift }, measure(note('D3', 'w')))),
+        layoutScore(mnx({ clef: { ...BASS, octave } }, measure(note('D3', 'w')))),
         'clef',
       )[0]!.cp;
 
@@ -336,7 +311,7 @@ describe('chrome', () => {
 
   it('draws a final barline thin-then-thick at the measure edge', () => {
     const layout = layoutScore(
-      score({ clef: 'treble' }, measure({ barlineEnd: 'final' }, note('C4', 'w'))),
+      mnx({}, withGlobal({ barline: { type: 'final' } }, measure(note('C4', 'w')))),
     );
     const barlines = layout.rects.filter((r) => r.cls === 'barline').sort((a, b) => a.x - b.x);
     expect(barlines.map((r) => r.w)).toEqual([0.16, 0.5]);
@@ -345,7 +320,7 @@ describe('chrome', () => {
 
   it('draws a dashed barline as dash segments spanning the staff, not one rect', () => {
     const layout = layoutScore(
-      score({ clef: 'treble' }, measure({ barlineEnd: 'dashed' }, note('C4', 'w'))),
+      mnx({}, withGlobal({ barline: { type: 'dashed' } }, measure(note('C4', 'w')))),
     );
     const staffTop = layout.systems[0]!.y;
     const dashes = layout.rects.filter((r) => r.cls === 'barline').sort((a, b) => a.y - b.y);
@@ -368,27 +343,23 @@ describe('chrome', () => {
   });
 
   it('gives a dashed barline the same width contribution as a single one', () => {
-    const at = (barlineEnd: 'dashed' | 'single' | 'none'): number => {
+    const at = (type: 'dashed' | 'regular' | 'noBarline'): number => {
       const layout = layoutScore(
-        score(
-          { clef: 'treble' },
-          measure({ barlineEnd }, note('C4', 'w')),
-          measure(note('D4', 'w')),
-        ),
+        mnx({}, withGlobal({ barline: { type } }, measure(note('C4', 'w'))), measure(note('D4', 'w'))),
       );
       return boxes(layout).sort((a, b) => a.tick - b.tick)[1]!.x;
     };
     // A dashed barline is a thin line's worth of space — broken vertically, not
     // horizontally — so it pushes the next measure exactly as far as `single` does.
-    expect(at('dashed')).toBeCloseTo(at('single'), 6);
-    expect(at('dashed')).toBeGreaterThan(at('none'));
+    expect(at('dashed')).toBeCloseTo(at('regular'), 6);
+    expect(at('dashed')).toBeGreaterThan(at('noBarline'));
   });
 });
 
 describe('stems and flags', () => {
   it('points stems away from the middle line and down when on it', () => {
     const layout = layoutScore(
-      score({ clef: 'treble' }, measure(note('C4', 'q'), note('B4', 'q'), note('G5', 'h'))),
+      mnx({}, measure(note('C4', 'q'), note('B4', 'q'), note('G5', 'h'))),
     );
     const staffTop = layout.systems[0]!.y;
     const stems = layout.rects.filter((r) => r.cls === 'stem').sort((a, b) => a.x - b.x);
@@ -406,10 +377,7 @@ describe('stems and flags', () => {
 
   it('flags eighths and shorter, since beaming is a later stage', () => {
     const layout = layoutScore(
-      score(
-        { clef: 'treble' },
-        measure(note('C4', '8'), note('D4', '8'), note('E4', '16'), rest('16'), rest('h'), rest('8')),
-      ),
+      mnx({}, measure(note('C4', '8'), note('D4', '8'), note('E4', '16'), rest('16'), rest('h'), rest('8'))),
     );
     const flags = glyphsOf(layout, 'flag');
     expect(flags.map((g) => g.cp)).toEqual([cp('flag8thUp'), cp('flag8thUp'), cp('flag16thUp')]);
@@ -417,11 +385,7 @@ describe('stems and flags', () => {
 
   it('draws augmentation dots off the staff line', () => {
     const layout = layoutScore(
-      score(
-        { clef: 'treble', time: { beats: 3, beatType: 4 } },
-        measure(note('B4', 'h.')),
-        measure(note('A4', 'h.')),
-      ),
+      mnx({ time: { count: 3, unit: 4 } }, measure(note('B4', 'h.')), measure(note('A4', 'h.'))),
     );
     const staffTop = layout.systems[0]!.y;
     const dots = [...glyphsOf(layout, 'dot')].sort((a, b) => a.x - b.x);
@@ -435,9 +399,7 @@ describe('stems and flags', () => {
 
 describe('breath marks', () => {
   it('draws the mark just past the note, above the staff, without consuming time', () => {
-    const layout = layoutScore(
-      score({ clef: 'treble' }, measure(note('C4', 'h', { breath: 'comma' }), note('D4', 'h'))),
-    );
+    const layout = layoutScore(fixture('breath'));
     const staffTop = layout.systems[0]!.y;
     const marks = glyphsOf(layout, 'breath');
     const notes = boxes(layout).sort((a, b) => a.tick - b.tick);
@@ -457,9 +419,7 @@ describe('breath marks', () => {
   });
 
   it('uses the caesura glyph for a caesura', () => {
-    const layout = layoutScore(
-      score({ clef: 'treble' }, measure(note('C4', 'h', { breath: 'caesura' }), note('D4', 'h'))),
-    );
+    const layout = layoutScore(fixture('caesura'));
     expect(glyphsOf(layout, 'breath').map((g) => g.cp)).toEqual([0xe4d1]);
   });
 
@@ -467,10 +427,10 @@ describe('breath marks', () => {
     const xs = (breath: boolean): number[] =>
       boxes(
         layoutScore(
-          score(
-            { clef: 'treble' },
+          mnx(
+            {},
             measure(
-              note('C4', '8', breath ? { breath: 'comma' } : {}),
+              note('C4', '8', breath ? { markings: { breath: {} } } : {}),
               note('D4', '8'),
               note('E4', 'h.'),
             ),
@@ -489,25 +449,7 @@ describe('breath marks', () => {
 
 describe('diagnostics', () => {
   it('carries normalize and temporal diagnostics through, and flags a second voice', () => {
-    const layout = layoutScore({
-      id: 'hand',
-      divisions: 3360,
-      tempo: [],
-      staves: [
-        {
-          id: 's',
-          clef: { kind: 'treble' },
-          key: { fifths: 0 },
-          time: { beats: 4, beatType: 4 },
-          measures: [
-            {
-              id: 'm0' as never,
-              voices: [voice(0, note('C4', 'q')), voice(1, note('E4', 'q'))],
-            },
-          ],
-        },
-      ],
-    });
+    const layout = layoutScore(mnx({}, measure(note('C4', 'w')), voices([note('C4', 'q')], [note('E4', 'q')])));
     const codes = layout.diagnostics.map((d) => d.code);
 
     expect(codes).toContain('measure-underfull'); // temporal
@@ -526,10 +468,7 @@ describe('diagnostics', () => {
 describe('timemap', () => {
   it('mirrors ElementBox addressing and defaults to 120bpm', () => {
     const layout = layoutScore(
-      score(
-        { clef: 'treble' },
-        measure(chord([note('C4', 'h'), note('E4', 'h')]), note('G4', 'h')),
-      ),
+      mnx({}, measure(chord(['C4', 'E4'], 'h'), note('G4', 'h'))),
     );
     const tm = layout.timemap;
 
@@ -554,13 +493,7 @@ describe('timemap', () => {
   });
 
   it('merges a tie into one entry', () => {
-    const layout = layoutScore(
-      score(
-        { clef: 'treble' },
-        measure(note('C4', 'h'), note('C4', 'h', { tie: 'start' })),
-        measure(note('C4', 'h', { tie: 'stop' }), note('D4', 'h')),
-      ),
-    );
+    const layout = layoutScore(fixture('tie-merge'));
     const tm = layout.timemap;
 
     expect(tm.entries).toHaveLength(3);
@@ -572,20 +505,13 @@ describe('timemap', () => {
   });
 
   it('follows a custom tempo map', () => {
-    const doc = score(
-      { clef: 'treble', tempo: [{ tick: 0, bpm: 60 }] },
-      measure(note('C4', 'w')),
-    );
-    expect(layoutScore(doc).timemap.tickToSeconds(3360)).toBeCloseTo(1, 6);
+    expect(layoutScore(fixture('tempo')).timemap.tickToSeconds(3360)).toBeCloseTo(1, 6);
   });
 });
 
 describe('purity and glyph coverage', () => {
-  it('is deterministic — the same ScoreDoc lays out identically twice', () => {
-    const doc = score(
-      { clef: 'bass', key: -3 },
-      measure(note('E2', 'q'), chord([note('G2', 'q'), note('Bb2', 'q')]), note('C3', 'h')),
-    );
+  it('is deterministic — the same document lays out identically twice', () => {
+    const doc = mnx({ clef: BASS, key: -3 }, measure(note('E2', 'q'), chord(['G2', 'Bb2'], 'q'), note('C3', 'h')));
     const a = layoutScore(doc);
     const b = layoutScore(doc);
     expect(JSON.stringify({ g: b.glyphs, r: b.rects, e: b.elements })).toBe(
@@ -594,13 +520,7 @@ describe('purity and glyph coverage', () => {
   });
 
   it('resolves every emitted glyph to a real codepoint', () => {
-    const layout = layoutScore(
-      score(
-        { clef: 'alto', key: 4, time: { beats: 6, beatType: 8 } },
-        measure({ barlineStart: 'repeat-start', barlineEnd: 'repeat-end' },
-          note('C4', '8.'), note('D4', '16'), note('E4', 'q'), note('F4', 'q')),
-      ),
-    );
+    const layout = layoutScore(fixture('repeat-alto'));
     expect(layout.glyphs.length).toBeGreaterThan(0);
     expect(layout.glyphs.every((g) => g.cp >= 0xe000)).toBe(true);
   });
@@ -608,13 +528,7 @@ describe('purity and glyph coverage', () => {
 
 describe('viewBox', () => {
   it('covers every system', () => {
-    const layout = layoutScore(
-      score(
-        { clef: 'treble' },
-        measure({ systemBreak: true }, note('C4', 'w')),
-        measure(note('D4', 'w')),
-      ),
-    );
+    const layout = layoutScore(fixture('system-break'));
     const last = layout.systems[layout.systems.length - 1]!;
     expect(layout.viewBox.h).toBeGreaterThanOrEqual(last.y + last.h);
     expect(layout.viewBox.w).toBeGreaterThanOrEqual(

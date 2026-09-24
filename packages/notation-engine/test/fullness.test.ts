@@ -1,154 +1,140 @@
-// The fullness rule, exercised through the real builder API (roadmap.md's
-// integration-first testing philosophy) rather than through the internal helpers.
+// The fullness policy, exercised through the real normalize/temporal stages on MNX
+// documents rather than through internal helpers.
 
-import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  BuildError,
-  buildDiagnostics,
-  chord,
-  measure,
-  note,
-  resetIdCounter,
-  rest,
-  score,
-  tuplet,
-  voice,
-  wholeBarRest,
-} from '@polyhymnia/notation-model';
-import type { RestEl, ScoreDoc, TimeSpec } from '@polyhymnia/notation-model';
+import { describe, expect, it } from 'vitest';
+import type { MnxDocument } from '@polyhymnia/notation-model';
+import { layoutScore } from '../src/layout/index.js';
 import { normalize } from '../src/layout/normalize.js';
 import { temporal } from '../src/layout/temporal.js';
+import { chord, fixture, measure, mnx, note, tuplet } from './mnx.js';
 
-const TREBLE = { clef: 'treble' } as const;
-const NINE_EIGHT: TimeSpec = { beats: 9, beatType: 8 };
-
-beforeEach(() => resetIdCounter());
-
-function voice0(doc: ScoreDoc, measureIndex = 0) {
-  return doc.staves[0]!.measures[measureIndex]!.voices[0]!;
+function run(doc: MnxDocument) {
+  return temporal(normalize(doc));
 }
 
-function ticksOf(doc: ScoreDoc, measureIndex = 0) {
-  const map = temporal(normalize(doc));
-  return map.elements
-    .filter((e) => e.measureIndex === measureIndex)
+function elementsOf(doc: MnxDocument, measureIndex = 0, voice: 0 | 1 = 0) {
+  return run(doc).elements.filter((e) => e.measureIndex === measureIndex && e.voice === voice);
+}
+
+function ticksOf(doc: MnxDocument, measureIndex = 0) {
+  return run(doc)
+    .elements.filter((e) => e.measureIndex === measureIndex)
     .map((e) => [e.tick, e.durationTicks] as const);
 }
 
+const FULL = measure(note('C4', 'w'));
+
 describe('underfull', () => {
   it('auto-pads a trailing rest and warns', () => {
-    const doc = score(TREBLE, measure(note('C4', 'q')));
-    const elements = voice0(doc).elements;
+    const doc = mnx({}, FULL, measure(note('C4', 'q')));
+    const elements = elementsOf(doc, 1);
 
     expect(elements).toHaveLength(2);
     expect(elements[1]!.kind).toBe('rest');
     // Greedy largest-that-fits: 3 quarters is one dotted half, not half + quarter.
-    expect(elements[1]!.duration).toEqual({ base: 'half', dots: 1 });
+    expect([elements[1]!.base, elements[1]!.dots]).toEqual(['half', 1]);
 
-    const diagnostics = buildDiagnostics(doc);
+    const diagnostics = run(doc).diagnostics;
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0]).toMatchObject({
       severity: 'warning',
       code: 'measure-underfull',
-      measureIndex: 0,
+      measureIndex: 1,
       voice: 0,
     });
   });
 
   it('pads each voice independently', () => {
-    const doc = score(
-      TREBLE,
-      measure(voice(0, note('C4', 'h'), note('D4', 'h')), voice(1, note('G3', 'q'))),
-    );
-    const [first, second] = doc.staves[0]!.measures[0]!.voices;
-    expect(first!.elements).toHaveLength(2);
-    expect(second!.elements).toHaveLength(2);
-    expect(buildDiagnostics(doc)).toHaveLength(1);
-    expect(buildDiagnostics(doc)[0]!.voice).toBe(1);
+    const doc = fixture('two-voices');
+    expect(elementsOf(doc, 0, 0)).toHaveLength(2);
+    expect(elementsOf(doc, 0, 1)).toHaveLength(2);
+    expect(run(doc).diagnostics).toHaveLength(1);
+    expect(run(doc).diagnostics[0]!.voice).toBe(1);
   });
 
   it('leaves an exactly-full measure untouched', () => {
-    const doc = score(TREBLE, measure(note('C4', 'h'), note('D4', 'q'), note('E4', 'q')));
-    expect(voice0(doc).elements).toHaveLength(3);
-    expect(buildDiagnostics(doc)).toHaveLength(0);
+    const doc = mnx({}, measure(note('C4', 'h'), note('D4', 'q'), note('E4', 'q')));
+    expect(elementsOf(doc)).toHaveLength(3);
+    expect(run(doc).diagnostics).toHaveLength(0);
   });
 });
 
 describe('overfull', () => {
-  it('is a hard build error — the one throwing path in the system', () => {
-    expect(() =>
-      score(TREBLE, measure(note('C4', 'q'), note('D4', 'q'), note('E4', 'q'), note('F4', 'q'), note('G4', 'q'))),
-    ).toThrow(BuildError);
+  it('is an error diagnostic, never a throw', () => {
+    const doc = mnx({}, measure(note('C4', 'q'), note('D4', 'q'), note('E4', 'q'), note('F4', 'q'), note('G4', 'q')));
+    expect(() => layoutScore(doc)).not.toThrow();
+    expect(run(doc).diagnostics).toEqual([
+      expect.objectContaining({ severity: 'error', code: 'measure-overfull' }),
+    ]);
   });
 
-  it('throws from measure() already when the measure states its own meter', () => {
-    expect(() => measure({ time: { beats: 2, beatType: 4 } }, note('C4', 'h'), note('D4', 'h'))).toThrow(
-      /overfull/,
-    );
+  it('measures against the meter the measure itself states', () => {
+    const doc = mnx({ time: { count: 2, unit: 4 } }, measure(note('C4', 'h'), note('D4', 'h')));
+    expect(run(doc).diagnostics.map((d) => d.code)).toEqual(['measure-overfull']);
+    expect(ticksOf(doc)).toEqual([[0, 6720]]);
   });
 
   it('carries a diagnostic naming the measure and voice', () => {
-    try {
-      score(TREBLE, measure(note('C4', 'w')), measure(note('C4', 'w'), note('D4', 'q')));
-      expect.unreachable();
-    } catch (error) {
-      expect(error).toBeInstanceOf(BuildError);
-      expect((error as BuildError).diagnostic).toMatchObject({
-        code: 'measure-overfull',
-        measureIndex: 1,
-        voice: 0,
-      });
-    }
+    const doc = mnx({}, FULL, measure(note('C4', 'w'), note('D4', 'q')));
+    expect(run(doc).diagnostics[0]).toMatchObject({
+      code: 'measure-overfull',
+      measureIndex: 1,
+      voice: 0,
+    });
   });
 });
 
 describe('pickup measures', () => {
+  const pickup = mnx({}, measure(note('G3', 'q')), FULL);
+
   it('are exempt: no auto-pad, no diagnostic', () => {
-    const doc = score(TREBLE, measure({ pickup: true }, note('G3', 'q')), measure(note('C4', 'w')));
-    expect(voice0(doc).elements).toHaveLength(1);
-    expect(buildDiagnostics(doc)).toHaveLength(0);
+    expect(elementsOf(pickup)).toHaveLength(1);
+    expect(run(pickup).diagnostics).toHaveLength(0);
   });
 
   it('shorten the measure rather than the score: capacity is what the content sums to', () => {
-    const doc = score(TREBLE, measure({ pickup: true }, note('G3', 'q')), measure(note('C4', 'w')));
-    const map = temporal(normalize(doc));
+    const map = run(pickup);
     expect(map.measures[0]!.capacityTicks).toBe(3360);
     expect(map.measures[1]!.startTick).toBe(3360);
     expect(map.measures[1]!.endTick).toBe(3360 + 13440);
     expect(map.diagnostics).toHaveLength(0);
   });
 
-  it('does not restate the meter — a pickup sets no TimeSpec of its own', () => {
-    const doc = score(TREBLE, measure({ pickup: true }, note('G3', 'q')), measure(note('C4', 'w')));
-    expect(doc.staves[0]!.measures[0]!.time).toBeUndefined();
+  it('does not change the meter — only the first measure’s capacity is shortened', () => {
+    const measures = normalize(pickup).staves[0]!.measures;
+    expect(measures[0]!.time).toEqual({ beats: 4, beatType: 4 });
+    expect(measures[1]!.time).toEqual({ beats: 4, beatType: 4 });
+    expect(measures[1]!.pickup).toBe(false);
   });
 });
 
 describe('whole-bar rests in unrepresentable meters', () => {
   it('renders as a whole rest but consumes 9/8 of ticks', () => {
-    const doc = score({ ...TREBLE, time: NINE_EIGHT }, measure(wholeBarRest()));
-    const restEl = voice0(doc).elements[0] as RestEl;
+    const doc = mnx({ time: { count: 9, unit: 8 } }, { sequences: [{ content: [], fullMeasure: {} }] });
+    const elements = elementsOf(doc);
 
-    expect(restEl.wholeBar).toBe(true);
+    expect(elements[0]!.wholeBar).toBe(true);
     // Pinned to a whole rest whatever the meter — never a breve or a dotted shape.
-    expect(restEl.duration).toEqual({ base: 'whole', dots: 0 });
-    expect(voice0(doc).elements).toHaveLength(1);
-    expect(buildDiagnostics(doc)).toHaveLength(0);
+    expect([elements[0]!.base, elements[0]!.dots]).toEqual(['whole', 0]);
+    expect(elements).toHaveLength(1);
+    expect(run(doc).diagnostics).toHaveLength(0);
 
     // 9 eighths at 3360 ticks/quarter = 9 x 1680, NOT the whole note's 13440.
     expect(ticksOf(doc)).toEqual([[0, 15120]]);
   });
 
-  it('works the same via rest(duration, { wholeBar: true })', () => {
-    const doc = score({ ...TREBLE, time: { beats: 5, beatType: 4 } }, measure(rest('h', { wholeBar: true })));
-    const restEl = voice0(doc).elements[0] as RestEl;
-    expect(restEl.duration.base).toBe('whole');
+  it('draws a whole rest whatever visualDuration a full-measure rest states', () => {
+    const doc = mnx(
+      { time: { count: 5, unit: 4 } },
+      { sequences: [{ content: [], fullMeasure: { visualDuration: { base: 'half' } } }] },
+    );
+    expect(elementsOf(doc)[0]!.base).toBe('whole');
     expect(ticksOf(doc)).toEqual([[0, 16800]]);
   });
 
   it('takes only the remaining capacity when the bar has other content', () => {
-    const doc = score({ ...TREBLE, time: NINE_EIGHT }, measure(note('C4', 'q'), wholeBarRest()));
-    expect(buildDiagnostics(doc)).toHaveLength(0);
+    const doc = mnx({ time: { count: 9, unit: 8 } }, { sequences: [{ content: [note('C4', 'q')], fullMeasure: {} }] });
+    expect(run(doc).diagnostics).toHaveLength(0);
     expect(ticksOf(doc)).toEqual([
       [0, 3360],
       [3360, 15120 - 3360],
@@ -157,27 +143,30 @@ describe('whole-bar rests in unrepresentable meters', () => {
 });
 
 describe('chords and tuplets', () => {
-  it('infers a chord duration from members that agree', () => {
-    const doc = score(TREBLE, measure(chord([note('C4', 'w'), note('E4', 'w'), note('G4', 'w')])));
-    const ch = voice0(doc).elements[0]!;
+  it('takes a chord duration from its event', () => {
+    const doc = mnx({}, measure(chord(['C4', 'E4', 'G4'], 'w')));
+    const ch = elementsOf(doc)[0]!;
     expect(ch.kind).toBe('chord');
-    expect(ch.duration).toEqual({ base: 'whole', dots: 0 });
-    expect(buildDiagnostics(doc)).toHaveLength(0);
+    expect([ch.base, ch.dots]).toEqual(['whole', 0]);
+    expect(run(doc).diagnostics).toHaveLength(0);
   });
 
-  it('falls back to the shortest member when they disagree', () => {
-    const ch = chord([note('C4', 'h'), note('E4', 'q')]);
-    expect(ch.duration).toEqual({ base: 'quarter', dots: 0 });
-    expect(ch.notes.every((n) => n.duration.base === 'quarter')).toBe(true);
+  it('gives every chord member the one event duration', () => {
+    const layout = layoutScore(mnx({}, measure(chord(['C4', 'E4'], 'q'), note('D4', 'h.'))));
+    const members = Object.values(layout.elements).filter((b) => b.kind === 'chord');
+    expect(members).toHaveLength(2);
+    expect(members.every((b) => b.durationTicks === 3360)).toBe(true);
   });
 
   it('shares one tuplet id across the group and fills the bar exactly', () => {
-    const triplet = tuplet(3, 2, note('C4', 'q'), note('D4', 'q'), note('E4', 'q'));
-    const doc = score(TREBLE, measure(...triplet, note('F4', 'h')));
-    const ids = new Set(voice0(doc).elements.slice(0, 3).map((e) => e.duration.tuplet?.id));
+    const doc = mnx(
+      {},
+      measure(tuplet([3, 'q'], [2, 'q'], note('C4', 'q'), note('D4', 'q'), note('E4', 'q')), note('F4', 'h')),
+    );
+    const ids = new Set(elementsOf(doc).slice(0, 3).map((e) => e.tuplet?.id));
 
     expect(ids.size).toBe(1);
     expect([...ids][0]).toBeDefined();
-    expect(buildDiagnostics(doc)).toHaveLength(0);
+    expect(run(doc).diagnostics).toHaveLength(0);
   });
 });
