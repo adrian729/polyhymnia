@@ -1,0 +1,103 @@
+{
+  "mnx": {
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "time": {
+          "count": 4,
+          "unit": 4
+        },
+        "barline": {
+          "type": "final"
+        }
+      }
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "F",
+                "staffPosition": 2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "C",
+                        "octave": 3
+                      }
+                    },
+                    {
+                      "pitch": {
+                        "step": "E",
+                        "octave": 3,
+                        "alter": -1
+                      },
+                      "accidentalDisplay": {
+                        "show": true
+                      }
+                    },
+                    {
+                      "pitch": {
+                        "step": "G",
+                        "octave": 3
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "F",
+                        "octave": 3,
+                        "alter": 1
+                      },
+                      "accidentalDisplay": {
+                        "show": true
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "F",
+                        "octave": 3,
+                        "alter": 1
+                      },
+                      "accidentalDisplay": {
+                        "show": false
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
