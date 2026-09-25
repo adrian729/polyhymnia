@@ -11,43 +11,21 @@ exports[`official MNX examples lay out without throwing > articulations 1`] = `
 ]
 `;
 
-exports[`official MNX examples lay out without throwing > beam-hooks 1`] = `
-[
-  "Unsupported MNX: beams in measure 0; flags are drawn instead.",
-]
-`;
+exports[`official MNX examples lay out without throwing > beam-hooks 1`] = `[]`;
 
-exports[`official MNX examples lay out without throwing > beams 1`] = `
-[
-  "Unsupported MNX: beams in measure 0; flags are drawn instead.",
-  "Unsupported MNX: beams in measure 1; flags are drawn instead.",
-]
-`;
+exports[`official MNX examples lay out without throwing > beams 1`] = `[]`;
 
-exports[`official MNX examples lay out without throwing > beams-across-barlines 1`] = `
-[
-  "Unsupported MNX: beams in measure 0; flags are drawn instead.",
-]
-`;
+exports[`official MNX examples lay out without throwing > beams-across-barlines 1`] = `[]`;
 
 exports[`official MNX examples lay out without throwing > beams-inner-grace-notes 1`] = `
 [
-  "Unsupported MNX: beams in measure 0; flags are drawn instead.",
   "Unsupported MNX: grace notes in measure 0; not drawn.",
 ]
 `;
 
-exports[`official MNX examples lay out without throwing > beams-secondary-beam-breaks 1`] = `
-[
-  "Unsupported MNX: beams in measure 0; flags are drawn instead.",
-]
-`;
+exports[`official MNX examples lay out without throwing > beams-secondary-beam-breaks 1`] = `[]`;
 
-exports[`official MNX examples lay out without throwing > beams-secondary-beam-breaks-implied 1`] = `
-[
-  "Unsupported MNX: beams in measure 0; flags are drawn instead.",
-]
-`;
+exports[`official MNX examples lay out without throwing > beams-secondary-beam-breaks-implied 1`] = `[]`;
 
 exports[`official MNX examples lay out without throwing > clef-changes 1`] = `
 [
@@ -80,7 +58,6 @@ exports[`official MNX examples lay out without throwing > grace-note 1`] = `
 
 exports[`official MNX examples lay out without throwing > grace-notes-beamed 1`] = `
 [
-  "Unsupported MNX: beams in measure 0; flags are drawn instead.",
   "Unsupported MNX: grace notes in measure 0; not drawn.",
 ]
 `;
@@ -89,9 +66,7 @@ exports[`official MNX examples lay out without throwing > grand-staff 1`] = `
 [
   "Unsupported MNX: a part with 2 staves; only staff 1 is laid out.",
   "Unsupported MNX: clef on staff 2 in measure 0; ignored.",
-  "Unsupported MNX: beams in measure 0; flags are drawn instead.",
   "Unsupported MNX: sequence on staff 2 in measure 0; not laid out.",
-  "Unsupported MNX: beams in measure 1; flags are drawn instead.",
   "Unsupported MNX: sequence on staff 2 in measure 1; not laid out.",
 ]
 `;
@@ -278,10 +253,6 @@ exports[`official MNX examples lay out without throwing > time-signature-glyphs 
 
 exports[`official MNX examples lay out without throwing > time-signatures 1`] = `[]`;
 
-exports[`official MNX examples lay out without throwing > tuplets 1`] = `
-[
-  "Unsupported MNX: beams in measure 0; flags are drawn instead.",
-]
-`;
+exports[`official MNX examples lay out without throwing > tuplets 1`] = `[]`;
 
 exports[`official MNX examples lay out without throwing > two-bar-c-major-scale 1`] = `[]`;

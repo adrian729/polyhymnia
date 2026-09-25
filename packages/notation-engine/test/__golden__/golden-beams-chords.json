@@ -1,0 +1,389 @@
+{
+  "version": 1,
+  "viewBox": {
+    "x": -1,
+    "y": 0,
+    "w": 67,
+    "h": 12
+  },
+  "systems": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 4,
+      "w": 65,
+      "h": 4
+    }
+  ],
+  "glyphs": [
+    {
+      "x": 0,
+      "y": 7,
+      "cp": 57424,
+      "cls": "clef"
+    },
+    {
+      "x": 3.284,
+      "y": 5,
+      "cp": 57476,
+      "cls": "time-signature"
+    },
+    {
+      "x": 3.284,
+      "y": 7,
+      "cp": 57476,
+      "cls": "time-signature"
+    },
+    {
+      "x": 5.764,
+      "y": 9,
+      "cp": 57508,
+      "cls": "notehead",
+      "el": "m0.s0.e0.n0"
+    },
+    {
+      "x": 5.764,
+      "y": 8,
+      "cp": 57508,
+      "cls": "notehead",
+      "el": "m0.s0.e0.n1"
+    },
+    {
+      "x": 5.764,
+      "y": 7,
+      "cp": 57508,
+      "cls": "notehead",
+      "el": "m0.s0.e0.n2"
+    },
+    {
+      "x": 19.781,
+      "y": 8.5,
+      "cp": 57508,
+      "cls": "notehead",
+      "el": "m0.s0.e1.n0"
+    },
+    {
+      "x": 19.781,
+      "y": 7.5,
+      "cp": 57508,
+      "cls": "notehead",
+      "el": "m0.s0.e1.n1"
+    },
+    {
+      "x": 19.781,
+      "y": 6.5,
+      "cp": 57508,
+      "cls": "notehead",
+      "el": "m0.s0.e1.n2"
+    },
+    {
+      "x": 33.797,
+      "y": 6,
+      "cp": 58596,
+      "cls": "rest",
+      "el": "m0.s0.e2"
+    }
+  ],
+  "rects": [
+    {
+      "x": 0,
+      "y": 3.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 4.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 5.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 6.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 7.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 64.5,
+      "y": 4,
+      "w": 0.5,
+      "h": 4,
+      "cls": "barline"
+    },
+    {
+      "x": 63.94,
+      "y": 4,
+      "w": 0.16,
+      "h": 4,
+      "cls": "barline"
+    },
+    {
+      "x": 5.364,
+      "y": 8.92,
+      "w": 1.98,
+      "h": 0.16,
+      "cls": "ledger-line",
+      "el": "m0.s0.e0.n0"
+    },
+    {
+      "x": 6.824,
+      "y": 3,
+      "w": 0.12,
+      "h": 5.832,
+      "cls": "stem",
+      "el": "m0.s0.e0.n0"
+    },
+    {
+      "x": 20.841,
+      "y": 2.5,
+      "w": 0.12,
+      "h": 5.832,
+      "cls": "stem",
+      "el": "m0.s0.e1.n0"
+    }
+  ],
+  "paths": [
+    {
+      "d": "M6.824,3.500 L20.960633404621348,2.996 L20.960633404621348,2.496 L6.824,3.000 Z",
+      "cls": "beam",
+      "el": "m0.s0.e0.beam"
+    }
+  ],
+  "elements": {
+    "m0.s0.e0.n0": {
+      "id": "m0.s0.e0.n0",
+      "kind": "chord",
+      "systemIndex": 0,
+      "measureIndex": 0,
+      "voice": 0,
+      "x": 5.764,
+      "y": 8.5,
+      "w": 1.18,
+      "h": 1,
+      "hitBox": {
+        "x": 5.614,
+        "y": 8.35,
+        "w": 1.48,
+        "h": 1.3
+      },
+      "staffPosition": 5,
+      "tick": 0,
+      "durationTicks": 1680,
+      "label": "C 4, eighth note, measure 1"
+    },
+    "m0.s0.e0.n1": {
+      "id": "m0.s0.e0.n1",
+      "kind": "chord",
+      "systemIndex": 0,
+      "measureIndex": 0,
+      "voice": 0,
+      "x": 5.764,
+      "y": 7.5,
+      "w": 1.18,
+      "h": 1,
+      "hitBox": {
+        "x": 5.614,
+        "y": 7.35,
+        "w": 1.48,
+        "h": 1.3
+      },
+      "staffPosition": 4,
+      "tick": 0,
+      "durationTicks": 1680,
+      "label": "E 4, eighth note, measure 1"
+    },
+    "m0.s0.e0.n2": {
+      "id": "m0.s0.e0.n2",
+      "kind": "chord",
+      "systemIndex": 0,
+      "measureIndex": 0,
+      "voice": 0,
+      "x": 5.764,
+      "y": 6.5,
+      "w": 1.18,
+      "h": 1,
+      "hitBox": {
+        "x": 5.614,
+        "y": 6.35,
+        "w": 1.48,
+        "h": 1.3
+      },
+      "staffPosition": 3,
+      "tick": 0,
+      "durationTicks": 1680,
+      "label": "G 4, eighth note, measure 1"
+    },
+    "m0.s0.e1.n0": {
+      "id": "m0.s0.e1.n0",
+      "kind": "chord",
+      "systemIndex": 0,
+      "measureIndex": 0,
+      "voice": 0,
+      "x": 19.781,
+      "y": 8,
+      "w": 1.18,
+      "h": 1,
+      "hitBox": {
+        "x": 19.631,
+        "y": 7.85,
+        "w": 1.48,
+        "h": 1.3
+      },
+      "staffPosition": 4.5,
+      "tick": 1680,
+      "durationTicks": 1680,
+      "label": "D 4, eighth note, measure 1"
+    },
+    "m0.s0.e1.n1": {
+      "id": "m0.s0.e1.n1",
+      "kind": "chord",
+      "systemIndex": 0,
+      "measureIndex": 0,
+      "voice": 0,
+      "x": 19.781,
+      "y": 7,
+      "w": 1.18,
+      "h": 1,
+      "hitBox": {
+        "x": 19.631,
+        "y": 6.85,
+        "w": 1.48,
+        "h": 1.3
+      },
+      "staffPosition": 3.5,
+      "tick": 1680,
+      "durationTicks": 1680,
+      "label": "F 4, eighth note, measure 1"
+    },
+    "m0.s0.e1.n2": {
+      "id": "m0.s0.e1.n2",
+      "kind": "chord",
+      "systemIndex": 0,
+      "measureIndex": 0,
+      "voice": 0,
+      "x": 19.781,
+      "y": 6,
+      "w": 1.18,
+      "h": 1,
+      "hitBox": {
+        "x": 19.631,
+        "y": 5.85,
+        "w": 1.48,
+        "h": 1.3
+      },
+      "staffPosition": 2.5,
+      "tick": 1680,
+      "durationTicks": 1680,
+      "label": "A 4, eighth note, measure 1"
+    },
+    "m0.s0.e2": {
+      "id": "m0.s0.e2",
+      "kind": "rest",
+      "systemIndex": 0,
+      "measureIndex": 0,
+      "voice": 0,
+      "x": 33.797,
+      "y": 5.432,
+      "w": 1.132,
+      "h": 0.576,
+      "hitBox": {
+        "x": 33.647,
+        "y": 5.282,
+        "w": 1.432,
+        "h": 0.876
+      },
+      "staffPosition": 2,
+      "tick": 3360,
+      "durationTicks": 6720,
+      "label": "half rest, measure 1"
+    }
+  },
+  "slots": [],
+  "diagnostics": [],
+  "timemap": {
+    "divisions": 3360,
+    "entries": [
+      {
+        "ids": [
+          "m0.s0.e0.n0",
+          "m0.s0.e0.n1",
+          "m0.s0.e0.n2"
+        ],
+        "tick": 0,
+        "durationTicks": 1680,
+        "measureIndex": 0,
+        "voice": 0,
+        "systemIndex": 0,
+        "x": 5.764,
+        "y": 9,
+        "kind": "chord",
+        "midiNotes": [
+          60,
+          64,
+          67
+        ]
+      },
+      {
+        "ids": [
+          "m0.s0.e1.n0",
+          "m0.s0.e1.n1",
+          "m0.s0.e1.n2"
+        ],
+        "tick": 1680,
+        "durationTicks": 1680,
+        "measureIndex": 0,
+        "voice": 0,
+        "systemIndex": 0,
+        "x": 19.781,
+        "y": 8.5,
+        "kind": "chord",
+        "midiNotes": [
+          62,
+          65,
+          69
+        ]
+      },
+      {
+        "ids": [
+          "m0.s0.e2"
+        ],
+        "tick": 3360,
+        "durationTicks": 6720,
+        "measureIndex": 0,
+        "voice": 0,
+        "systemIndex": 0,
+        "x": 33.797,
+        "y": 6,
+        "kind": "rest"
+      }
+    ],
+    "measures": [
+      {
+        "index": 0,
+        "startTick": 0,
+        "endTick": 10080,
+        "systemIndex": 0,
+        "x": 0,
+        "w": 65
+      }
+    ],
+    "tempo": []
+  }
+}

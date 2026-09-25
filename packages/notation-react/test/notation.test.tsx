@@ -6,6 +6,7 @@ import { parsePitch } from '@polyhymnia/notation-model';
 import type { Event, MnxDocument, NoteValue } from '@polyhymnia/notation-model';
 import { Notation } from '../src/Notation.js';
 import type { NotationHandle } from '../src/Notation.js';
+import type { PlaybackView } from '../src/Notation.js';
 import { ScaleReveal } from '../src/presets/ScaleReveal.js';
 import { scalePitches, fittingMeter } from '../src/presets/shared.js';
 
@@ -151,9 +152,161 @@ describe('NotationHandle', () => {
     expect(svg).toContain('http://www.w3.org/2000/svg');
 
     expect(() => handle.hitTest({ x: 0, y: 0 })).toThrow(/not implemented yet/);
-    expect(() => handle.setPlaybackTick(0)).toThrow(/roadmap/);
     expect(() => handle.animateCursor(null)).toThrow(/roadmap/);
     expect(() => handle.focus('n1')).toThrow(/roadmap/);
+    expect(() => handle.setPlaybackTick(0)).not.toThrow();
+  });
+});
+
+// A beamed pair (`bn1`/`bn2`, auto-beamed eighths, same beat) and a tied pair (`bn3`
+// tie-start, `bn4` tie-stop — the timemap merges these into one entry for sound, but
+// `activeAt` still reports each on its own written span, playback.md "Timemap"). Explicit
+// ids throughout: interface.md's ID rule requires a real MNX id for anything an app
+// targets by NoteId.
+function beamAndTieScore(): MnxDocument {
+  return {
+    mnx: { version: 1 },
+    global: { measures: [{ time: { count: 4, unit: 4 } }] },
+    parts: [
+      {
+        measures: [
+          {
+            clefs: [{ clef: { sign: 'G', staffPosition: -2 } }],
+            sequences: [
+              {
+                content: [
+                  { duration: { base: 'eighth' }, notes: [{ pitch: parsePitch('C4'), id: 'bn1' }] },
+                  { duration: { base: 'eighth' }, notes: [{ pitch: parsePitch('D4'), id: 'bn2' }] },
+                  {
+                    duration: { base: 'quarter' },
+                    notes: [{ pitch: parsePitch('E4'), id: 'bn3', ties: [{ target: 'bn4' }] }],
+                  },
+                  { duration: { base: 'quarter' }, notes: [{ pitch: parsePitch('E4'), id: 'bn4' }] },
+                  restEvent(QUARTER),
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+describe('playback highlighting', () => {
+  it('mode "notes" sets data-pn-playing on exactly the given ids', () => {
+    const doc = beamAndTieScore();
+    const { container } = render(
+      <Notation score={doc}>
+        <Notation.Playback view={{ mode: 'notes', activeIds: ['bn1', 'bn3'] }} />
+      </Notation>,
+    );
+
+    expect(container.querySelector('g[data-pn="element"][data-pn-el="bn1"]')?.getAttribute('data-pn-playing')).toBe('true');
+    expect(container.querySelector('g[data-pn="element"][data-pn-el="bn3"]')?.getAttribute('data-pn-playing')).toBe('true');
+    expect(container.querySelector('g[data-pn="element"][data-pn-el="bn2"]')?.hasAttribute('data-pn-playing')).toBe(false);
+    expect(container.querySelector('g[data-pn="element"][data-pn-el="bn4"]')?.hasAttribute('data-pn-playing')).toBe(false);
+  });
+
+  it('mode "cursor" does not throw and highlights nothing (deferred to step 7b)', () => {
+    const doc = beamAndTieScore();
+    const view: PlaybackView = { mode: 'cursor', position: { tick: 0 } };
+    expect(() => render(
+      <Notation score={doc}>
+        <Notation.Playback view={view} />
+      </Notation>,
+    )).not.toThrow();
+  });
+
+  it('setPlaybackTick highlights exactly the notes sounding at a tick, via the timemap', () => {
+    const doc = beamAndTieScore();
+    const ref = createRef<NotationHandle>();
+    const { container } = render(<Notation score={doc} ref={ref} />);
+    const handle = ref.current!;
+    const timemap = handle.getTimeMap();
+
+    // Inside the first beamed eighth (bn1) — only bn1 sounds.
+    handle.setPlaybackTick(timemap.byId('bn1')!.tick + 10);
+    expect(container.querySelector('g[data-pn="element"][data-pn-el="bn1"]')?.getAttribute('data-pn-playing')).toBe('true');
+    expect(container.querySelector('g[data-pn="element"][data-pn-el="bn2"]')?.hasAttribute('data-pn-playing')).toBe(false);
+
+    // Inside the tied continuation's own written span (bn4) — bn4 lights, not bn3, even
+    // though the timemap still merges bn3+bn4 into one entry for sound.
+    const bn3 = timemap.byId('bn3')!;
+    handle.setPlaybackTick(bn3.tick + bn3.durationTicks - 10);
+    expect(container.querySelector('g[data-pn="element"][data-pn-el="bn4"]')?.getAttribute('data-pn-playing')).toBe('true');
+    expect(container.querySelector('g[data-pn="element"][data-pn-el="bn3"]')?.hasAttribute('data-pn-playing')).toBe(false);
+    expect(container.querySelector('g[data-pn="element"][data-pn-el="bn1"]')?.hasAttribute('data-pn-playing')).toBe(false);
+  });
+
+  it('setPlaybackTick clears previous highlights when nothing is active at the new tick', () => {
+    const doc = beamAndTieScore();
+    const ref = createRef<NotationHandle>();
+    const { container } = render(<Notation score={doc} ref={ref} />);
+    const handle = ref.current!;
+    const timemap = handle.getTimeMap();
+
+    handle.setPlaybackTick(timemap.byId('bn1')!.tick + 10);
+    expect(container.querySelector('g[data-pn="element"][data-pn-el="bn1"]')?.getAttribute('data-pn-playing')).toBe('true');
+
+    handle.setPlaybackTick(timemap.measures[0]!.endTick + 10_000);
+    expect(container.querySelector('g[data-pn="element"][data-pn-el="bn1"]')?.hasAttribute('data-pn-playing')).toBe(false);
+    expect(container.querySelectorAll('[data-pn-playing]').length).toBe(0);
+  });
+
+  it('reapplies highlights when the score re-lays out and the highlighted element gets a new DOM node', () => {
+    const oneNote: MnxDocument = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          measures: [
+            {
+              clefs: [{ clef: { sign: 'G', staffPosition: -2 } }],
+              sequences: [{ content: [{ duration: { base: 'quarter' }, notes: [{ pitch: parsePitch('C4'), id: 'x' }] }] }],
+            },
+          ],
+        },
+      ],
+    };
+    const twoNotes: MnxDocument = {
+      ...oneNote,
+      parts: [
+        {
+          measures: [
+            {
+              clefs: [{ clef: { sign: 'G', staffPosition: -2 } }],
+              sequences: [
+                {
+                  content: [
+                    { duration: { base: 'quarter' }, notes: [{ pitch: parsePitch('D4'), id: 'y' }] },
+                    { duration: { base: 'quarter' }, notes: [{ pitch: parsePitch('C4'), id: 'x' }] },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    // Same `view` reference across both renders, so the effect's `playbackView` dep does
+    // not change — only `layout` does. `x` moves from the first `<g>` in the glyph-group
+    // list to the second, a key React has never rendered before, so it mounts a fresh DOM
+    // node with no `data-pn-playing` attribute until the effect re-applies it.
+    const view: PlaybackView = { mode: 'notes', activeIds: ['x'] };
+    const { container, rerender } = render(
+      <Notation score={oneNote}>
+        <Notation.Playback view={view} />
+      </Notation>,
+    );
+    expect(container.querySelector('g[data-pn="element"][data-pn-el="x"]')?.getAttribute('data-pn-playing')).toBe('true');
+
+    rerender(
+      <Notation score={twoNotes}>
+        <Notation.Playback view={view} />
+      </Notation>,
+    );
+    expect(container.querySelector('g[data-pn="element"][data-pn-el="x"]')?.getAttribute('data-pn-playing')).toBe('true');
   });
 });
 

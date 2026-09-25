@@ -29,10 +29,35 @@ export interface NoteValueSpec {
   dots: Dots;
 }
 
+export type TupletBracketSetting = 'yes' | 'no' | 'auto';
+export type TupletNumberSetting = 'noNumber' | 'inner' | 'both';
+
+export interface TupletDisplay {
+  bracket?: TupletBracketSetting;
+  showNumber?: TupletNumberSetting;
+  placement?: 'above' | 'below' | 'auto';
+}
+
 export interface TupletRef {
   id: string;
   actual: number;
   normal: number;
+  display?: TupletDisplay;
+}
+
+export interface BeamSegment {
+  level: number;
+  first: NoteId;
+  last: NoteId;
+  hook?: 'left' | 'right';
+}
+
+export interface NormalizedBeam {
+  id: string;
+  measureIndex: number;
+  voice: 0 | 1;
+  elements: readonly NoteId[];
+  segments: readonly BeamSegment[];
 }
 
 export interface Duration extends NoteValueSpec {

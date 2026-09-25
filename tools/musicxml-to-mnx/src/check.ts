@@ -8,7 +8,7 @@ const SCHEMA_PATH = fileURLToPath(
   new URL('../../../packages/notation-model/schema/mnx-schema.json', import.meta.url),
 );
 
-export const UNSUPPORTED_ALLOWLIST: readonly string[] = ['beams'];
+export const UNSUPPORTED_ALLOWLIST: readonly string[] = [];
 
 function isAllowedUnsupported(diagnostic: Diagnostic): boolean {
   if (diagnostic.code !== 'mnx-unsupported') return false;

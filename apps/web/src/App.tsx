@@ -22,12 +22,18 @@ import wholeBarRest from './scores/whole-bar-rest.mnx.json';
 import mixedRests from './scores/mixed-rests.mnx.json';
 import ledgerLines from './scores/ledger-lines.mnx.json';
 import underfull from './scores/underfull.mnx.json';
+import rhythm44 from './scores/rhythm-4-4.mnx.json';
+import rhythm68 from './scores/rhythm-6-8.mnx.json';
+import triplets from './scores/triplets.mnx.json';
 
 const MELODY = melody as MnxDocument;
 const WHOLE_BAR_REST = wholeBarRest as MnxDocument;
 const MIXED_RESTS = mixedRests as MnxDocument;
 const LEDGER_LINES = ledgerLines as MnxDocument;
 const UNDERFULL = underfull as MnxDocument;
+const RHYTHM_4_4 = rhythm44 as MnxDocument;
+const RHYTHM_6_8 = rhythm68 as MnxDocument;
+const TRIPLETS = triplets as MnxDocument;
 
 const KEY_EXAMPLES: readonly { label: string; doc: MnxDocument }[] = [
   { label: 'C major — no accidentals', doc: keyCMajor as MnxDocument },
@@ -54,8 +60,9 @@ export function App() {
         Every stave below is <code>@polyhymnia/notation-engine</code>&rsquo;s{' '}
         <code>layoutScore()</code> rendered by <code>&lt;Notation&gt;</code>: SVG in staff-space
         units, glyphs from the subsetted Bravura build, no colour anywhere but the
-        stylesheet. Beams, ties, slurs and tuplets are later pipeline stages — eighth notes
-        carry flags here, by design.
+        stylesheet. Beams and tuplet brackets are drawn, auto-grouped per the meter when a
+        score doesn&rsquo;t specify <code>support.useBeams</code>; ties, slurs, second voices
+        and every interactive affordance are later pipeline stages.
       </p>
 
       <h2>Chords</h2>
@@ -200,6 +207,30 @@ export function App() {
         {(onLayout) => <Notation score={LEDGER_LINES} onLayout={onLayout} />}
       </Example>
 
+      <h2>Beams and tuplets</h2>
+      <p className="note">
+        Beams are auto-grouped from the meter&rsquo;s beat structure; tuplet brackets are drawn
+        from <code>type: &quot;tuplet&quot;</code> events.
+      </p>
+      <Example
+        title="4/4 — 8ths, 16ths, dotted 8th+16th"
+        caption="Mixed subdivisions beamed per beat"
+      >
+        {(onLayout) => <Notation score={RHYTHM_4_4} onLayout={onLayout} />}
+      </Example>
+      <Example
+        title="6/8 — compound groupings"
+        caption="Beam groups follow the dotted-quarter pulse, not straight beats"
+      >
+        {(onLayout) => <Notation score={RHYTHM_6_8} onLayout={onLayout} />}
+      </Example>
+      <Example
+        title="Triplets"
+        caption="Two beamed eighth-note triplets, then a quarter-note triplet"
+      >
+        {(onLayout) => <Notation score={TRIPLETS} onLayout={onLayout} />}
+      </Example>
+
       <h2>Diagnostics</h2>
       <p className="note">
         A malformed score degrades visibly instead of throwing. This bar holds one quarter
@@ -211,9 +242,9 @@ export function App() {
       </Example>
 
       <footer>
-        Not rendered yet, and deliberately absent: beams (eighths carry flags), ties and
-        slurs (<code>paths</code> is empty), tuplet brackets, second voices, and every
-        interactive affordance — pointer hit-testing, the playback cursor and the
+        Not rendered yet, and deliberately absent: ties and slurs (<code>paths</code> is
+        empty), second voices, and every interactive affordance — pointer hit-testing, the
+        playback cursor and the
         <code> Notation.Interaction</code>/<code>Notation.Playback</code> compound children.
         Those land with the engine stages behind them.
       </footer>

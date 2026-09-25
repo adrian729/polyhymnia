@@ -84,10 +84,10 @@ describe('check', () => {
     expect(result.problems.some((p) => /mnx-unsupported/.test(p.message))).toBe(true);
   });
 
-  it('allows beams (the one explicit mnx-unsupported allowlist entry)', () => {
+  it('lays out explicit beams with no mnx-unsupported diagnostic (empty allowlist)', () => {
     const result = check(DOC_WITH_BEAMS);
     expect(result.ok).toBe(true);
     expect(result.problems).toEqual([]);
-    expect(result.diagnostics.some((d) => d.code === 'mnx-unsupported' && d.message.includes('beams'))).toBe(true);
+    expect(result.diagnostics.some((d) => d.code === 'mnx-unsupported')).toBe(false);
   });
 });

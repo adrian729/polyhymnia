@@ -13,7 +13,7 @@
 import { engravingDefaults, glyphAdvanceWidth, glyphAnchor, glyphBBox } from '../font/metadata.js';
 import type { NotationOptions } from '../options.js';
 import type { Diagnostic } from '@polyhymnia/notation-model';
-import type { Duration, DurationBase, NoteId, Pitch } from './records.js';
+import type { ClefSpec, Duration, DurationBase, NoteId, Pitch } from './records.js';
 import { accidentalOf, type AccidentalScore } from './accidentals.js';
 import type { NormalizedMeasure, NormalizedScore } from './normalize.js';
 import { MIDDLE_LINE, staffPositionOf } from './staff.js';
@@ -148,6 +148,7 @@ export function vertical(
 ): VerticalScore {
   const diagnostics: Diagnostic[] = [];
   const elements: VerticalElement[] = [];
+  const elementBeam = beamDirectionsByElement(normalized, score, diagnostics);
 
   for (const staff of normalized.staves) {
     for (const measure of staff.measures) {
@@ -157,11 +158,79 @@ export function vertical(
           (e) => e.staffIndex === staff.index && e.measureIndex === measure.index && e.voice === 0,
         )
         .sort((a, b) => a.tick - b.tick);
-      for (const row of rows) elements.push(layOut(row, measure, resolved));
+      for (const row of rows) elements.push(layOut(row, measure, resolved, elementBeam.get(row.id)));
     }
   }
 
   return { elements, diagnostics };
+}
+
+interface BeamMembership {
+  beamId: string;
+  dir: 1 | -1;
+}
+
+function beamDirectionsByElement(
+  normalized: NormalizedScore,
+  score: TemporalScore,
+  diagnostics: Diagnostic[],
+): Map<NoteId, BeamMembership> {
+  const clefByMeasure = new Map<number, ClefSpec>();
+  for (const staff of normalized.staves) {
+    for (const measure of staff.measures) clefByMeasure.set(measure.index, measure.clef);
+  }
+  const byId = new Map<NoteId, TemporalElement>();
+  for (const el of score.elements) byId.set(el.id, el);
+
+  const result = new Map<NoteId, BeamMembership>();
+  for (const beam of normalized.beams) {
+    const notes = beam.elements
+      .map((id) => byId.get(id))
+      .filter((el): el is TemporalElement => el !== undefined && el.kind !== 'rest');
+    if (notes.length === 0) continue;
+
+    const overrides = notes
+      .map((el) => el.stem)
+      .filter((s): s is 'up' | 'down' => s === 'up' || s === 'down');
+
+    let dir: 1 | -1;
+    if (overrides.length > 0) {
+      const first = overrides[0]!;
+      if (overrides.some((o) => o !== first)) {
+        diagnostics.push({
+          severity: 'warning',
+          code: 'mnx-unsupported',
+          message: 'mixed stem directions in a beam',
+          measureIndex: beam.measureIndex,
+          voice: beam.voice,
+        });
+      }
+      dir = first === 'up' ? 1 : -1;
+    } else {
+      const clef = clefByMeasure.get(beam.measureIndex) ?? { kind: 'treble' as const };
+      let furthest = 0;
+      let below = false;
+      let above = false;
+      for (const el of notes) {
+        for (const note of el.notes) {
+          const pos = staffPositionOf(note.pitch, clef);
+          const dist = Math.abs(pos - MIDDLE_LINE);
+          if (dist > furthest + 1e-9) {
+            furthest = dist;
+            below = pos > MIDDLE_LINE;
+            above = pos < MIDDLE_LINE;
+          } else if (Math.abs(dist - furthest) < 1e-9) {
+            below = below || pos > MIDDLE_LINE;
+            above = above || pos < MIDDLE_LINE;
+          }
+        }
+      }
+      dir = below && !above ? 1 : -1;
+    }
+
+    for (const id of beam.elements) result.set(id, { beamId: beam.id, dir });
+  }
+  return result;
 }
 
 function reportVoiceOne(
@@ -187,6 +256,7 @@ function layOut(
   row: TemporalElement,
   measure: NormalizedMeasure,
   resolved: AccidentalScore,
+  beamInfo?: BeamMembership,
 ): VerticalElement {
   const duration: Duration = {
     base: row.base,
@@ -225,7 +295,7 @@ function layOut(
     staffPosition: staffPositionOf(note.pitch, measure.clef),
   }));
 
-  const dir = stemDirection(heads, row.stem);
+  const dir = beamInfo ? beamInfo.dir : stemDirection(heads, row.stem);
   const shifts = secondShifts(heads, width);
 
   const noteheads: NoteheadLayout[] = heads.map((head, i) => {
@@ -258,7 +328,7 @@ function layOut(
   const headExtent = noteheads.reduce((max, n) => Math.max(max, n.dx + n.width), 0);
   for (const head of noteheads) head.dots = dotPositions(duration.dots, headExtent, head.staffPosition);
 
-  const stem = layOutStem(duration, dir, noteheads, row.stem);
+  const stem = layOutStem(duration, dir, noteheads, row.stem, beamInfo !== undefined);
   const noteRight = headExtent + dotsWidth(duration.dots);
   const breath = layOutBreath(row.breath, noteRight);
 
@@ -387,6 +457,7 @@ function layOutStem(
   dir: 1 | -1,
   noteheads: readonly NoteheadLayout[],
   stemOverride: TemporalElement['stem'],
+  beamed: boolean,
 ): StemLayout | undefined {
   if (STEMLESS.has(duration.base) || noteheads.length === 0) return undefined;
   const glyph = noteheads[0]!.glyph;
@@ -403,7 +474,7 @@ function layOutStem(
   const dx = dir === 1 ? attachX - thickness : attachX;
   const drawn = stemOverride !== 'none';
 
-  const flagPair = FLAG_GLYPH[duration.base];
+  const flagPair = beamed ? undefined : FLAG_GLYPH[duration.base];
   const flag = flagPair
     ? {
         glyph: dir === 1 ? flagPair[0] : flagPair[1],
@@ -417,6 +488,10 @@ function layOutStem(
 
 function stemThickness(): number {
   return engravingDefaults.stemThickness;
+}
+
+export function stemX(elementX: number, stem: StemLayout): number {
+  return elementX + stem.dx;
 }
 
 // --- ledger lines, dots, accidental packing ---------------------------------

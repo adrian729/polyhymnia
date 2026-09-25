@@ -13,6 +13,7 @@ import {
   note,
   rest,
   tuplet,
+  voices,
   withGlobal,
   withPart,
 } from './mnx.js';
@@ -448,5 +449,349 @@ describe('nested tuplets', () => {
     expect(unsupported(doc)).toContainEqual(
       "Unsupported MNX: tuplet with an unsupported note value in measure 0; its content keeps only the outer tuplet's ratio.",
     );
+  });
+});
+
+describe('beams', () => {
+  function useBeamsTrue(doc: MnxDocument): MnxDocument {
+    return { ...doc, mnx: { ...doc.mnx, support: { ...doc.mnx.support, useBeams: true } } };
+  }
+
+  it('reads an explicit primary beam group, dropping any element not referenced', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ events: ['a', 'b'] }] },
+        measure(
+          note('C4', '8', { id: 'a' }),
+          note('D4', '8', { id: 'b' }),
+          note('E4', 'q'),
+          note('F4', 'q'),
+        ),
+      ),
+    );
+    const beams = normalize(doc).beams;
+    expect(beams).toHaveLength(1);
+    expect(beams[0]).toMatchObject({ measureIndex: 0, voice: 0, elements: ['a', 'b'] });
+    expect(beams[0]!.id).toBe('a.beam');
+  });
+
+  it('keeps a rest the beam spans in `elements`', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ events: ['a', 'b'] }] },
+        measure(note('C4', '8', { id: 'a' }), rest('8'), note('D4', '8', { id: 'b' })),
+      ),
+    );
+    const beam = normalize(doc).beams[0]!;
+    expect(beam.elements).toHaveLength(3);
+    expect(beam.elements[1]).not.toBe('a');
+    expect(beam.elements[1]).not.toBe('b');
+  });
+
+  it('honors an explicit MNX id on the beam', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ id: 'my-beam', events: ['a', 'b'] }] },
+        measure(note('C4', '8', { id: 'a' }), note('D4', '8', { id: 'b' })),
+      ),
+    );
+    expect(normalize(doc).beams[0]!.id).toBe('my-beam');
+  });
+
+  it('reads explicit nested beams into levels and hook directions', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        {
+          beams: [
+            {
+              events: ['a', 'b', 'c'],
+              beams: [{ events: ['a'], direction: 'right' }, { events: ['c'], direction: 'left' }],
+            },
+          ],
+        },
+        measure(note('C5', '16', { id: 'a' }), note('D5', '8', { id: 'b' }), note('E5', '16', { id: 'c' })),
+      ),
+    );
+    const beam = normalize(doc).beams[0]!;
+    expect(beam.segments).toEqual([
+      { level: 2, first: 'a', last: 'a', hook: 'right' },
+      { level: 2, first: 'c', last: 'c', hook: 'left' },
+    ]);
+  });
+
+  it('derives implied secondary segments and hooks from durations when nested beams are absent', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ events: ['a', 'b'] }] },
+        measure(note('C5', '8.', { id: 'a' }), note('D5', '16', { id: 'b' }), note('E5', 'h')),
+      ),
+    );
+    const beam = normalize(doc).beams[0]!;
+    expect(beam.segments).toEqual([{ level: 2, first: 'b', last: 'b', hook: 'left' }]);
+  });
+
+  it('derives a mid-group hook direction from the note onset, not its index parity', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ events: ['a', 'b', 'c', 'd'] }] },
+        measure(
+          note('C5', '8.', { id: 'a' }),
+          note('D5', '8', { id: 'b' }),
+          note('E5', '16', { id: 'c' }),
+          note('F5', '8', { id: 'd' }),
+        ),
+      ),
+    );
+    const beam = normalize(doc).beams[0]!;
+    expect(beam.segments).toEqual([{ level: 2, first: 'c', last: 'c', hook: 'left' }]);
+  });
+
+  it('derives a full secondary segment across a run at the same level', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ events: ['a', 'b', 'c', 'd'] }] },
+        measure(
+          note('C5', '16', { id: 'a' }),
+          note('D5', '16', { id: 'b' }),
+          note('E5', '16', { id: 'c' }),
+          note('F5', '16', { id: 'd' }),
+        ),
+      ),
+    );
+    const beam = normalize(doc).beams[0]!;
+    expect(beam.segments).toEqual([{ level: 2, first: 'a', last: 'd' }]);
+  });
+
+  it('auto-beams a measure with no explicit beams and support.useBeams unset', () => {
+    const doc = mnx(
+      {},
+      measure(
+        note('C5', '8', { id: 'a' }),
+        note('D5', '8', { id: 'b' }),
+        note('E5', '8', { id: 'c' }),
+        note('F5', '8', { id: 'd' }),
+        note('C5', '8', { id: 'e' }),
+        note('D5', '8', { id: 'f' }),
+        note('E5', '8', { id: 'g' }),
+        note('F5', '8', { id: 'h' }),
+      ),
+    );
+    const beams = normalize(doc).beams;
+    expect(beams.map((b) => b.elements)).toEqual([
+      ['a', 'b', 'c', 'd'],
+      ['e', 'f', 'g', 'h'],
+    ]);
+  });
+
+  it('does not invent beams when support.useBeams is true and a measure has no explicit beams', () => {
+    const doc = useBeamsTrue(
+      mnx(
+        {},
+        measure(
+          note('C5', '8'),
+          note('D5', '8'),
+          note('E5', '8'),
+          note('F5', '8'),
+        ),
+      ),
+    );
+    expect(normalize(doc).beams).toEqual([]);
+  });
+
+  it('lets an explicit beam in one measure coexist with auto-beaming absent elsewhere', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ events: ['a', 'b'] }] },
+        measure(note('C5', '8', { id: 'a' }), note('D5', '8', { id: 'b' }), note('E5', 'q'), note('F5', 'q')),
+      ),
+      measure(note('G5', '8'), note('A5', '8'), note('B5', 'q'), note('C6', 'q')),
+    );
+    const beams = normalize(doc).beams;
+    expect(beams.map((b) => b.measureIndex)).toEqual([0, 1]);
+  });
+
+  it('drops a beam referencing an unknown id, with a beam-invalid diagnostic', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ events: ['nope', 'also-nope'] }] },
+        measure(note('C5', '8'), note('D5', '8'), note('E5', 'q'), note('F5', 'q')),
+      ),
+    );
+    const normalized = normalize(doc);
+    expect(normalized.beams).toEqual([]);
+    expect(normalized.diagnostics).toContainEqual(
+      expect.objectContaining({ severity: 'warning', code: 'beam-invalid', measureIndex: 0 }),
+    );
+  });
+
+  it('drops a beam that references events in two different measures', () => {
+    const doc = mnx(
+      {},
+      withPart({ beams: [{ events: ['a', 'b'] }] }, measure(note('C5', '8', { id: 'a' }), rest('8'), rest('h'))),
+      measure(note('D5', '8', { id: 'b' }), rest('8'), rest('h')),
+    );
+    const normalized = normalize(doc);
+    expect(normalized.beams).toEqual([]);
+    expect(normalized.diagnostics.filter((d) => d.code === 'beam-invalid')).toHaveLength(1);
+  });
+
+  it('drops a beam that references events in two different voices', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ events: ['a', 'b'] }] },
+        voices(
+          [note('C5', '8', { id: 'a' }), note('D5', 'q'), note('E5', 'q'), note('F5', 'q')],
+          [note('C4', '8', { id: 'b' }), note('D4', 'q'), note('E4', 'q'), note('F4', 'q')],
+        ),
+      ),
+    );
+    const normalized = normalize(doc);
+    expect(normalized.beams).toEqual([]);
+    expect(normalized.diagnostics.filter((d) => d.code === 'beam-invalid')).toHaveLength(1);
+  });
+
+  it('drops a beam covering fewer than two notes', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ events: ['a', 'rest-id'] }] },
+        measure(note('C5', '8', { id: 'a' }), rest('8', { id: 'rest-id' }), rest('h')),
+      ),
+    );
+    const normalized = normalize(doc);
+    expect(normalized.beams).toEqual([]);
+    expect(normalized.diagnostics.filter((d) => d.code === 'beam-invalid')).toHaveLength(1);
+  });
+
+  it('drops a beam that would reference a note that is a quarter or longer', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ events: ['a', 'b'] }] },
+        measure(note('C5', '8', { id: 'a' }), note('D5', 'q', { id: 'b' }), note('E5', 'q')),
+      ),
+    );
+    const normalized = normalize(doc);
+    expect(normalized.beams).toEqual([]);
+    expect(normalized.diagnostics.filter((d) => d.code === 'beam-invalid')).toHaveLength(1);
+  });
+
+  it('drops a beam that claims an event already claimed by an earlier beam', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        {
+          beams: [
+            { events: ['a', 'b'] },
+            { events: ['b', 'c'] },
+          ],
+        },
+        measure(
+          note('C5', '8', { id: 'a' }),
+          note('D5', '8', { id: 'b' }),
+          note('E5', '8', { id: 'c' }),
+          rest('8'),
+        ),
+      ),
+    );
+    const normalized = normalize(doc);
+    expect(normalized.beams).toHaveLength(1);
+    expect(normalized.beams[0]!.elements).toEqual(['a', 'b']);
+    expect(normalized.diagnostics.filter((d) => d.code === 'beam-invalid')).toHaveLength(1);
+  });
+
+  it('drops a duplicated event id from a beam instead of letting it through as one note', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ events: ['a', 'a'] }] },
+        measure(note('C5', '8', { id: 'a' }), rest('8'), rest('h')),
+      ),
+    );
+    const normalized = normalize(doc);
+    expect(normalized.beams).toEqual([]);
+    expect(normalized.diagnostics.filter((d) => d.code === 'beam-invalid')).toHaveLength(1);
+  });
+
+  it('auto-beams chords the same as single notes', () => {
+    const doc = mnx({}, measure(chord(['C4', 'E4'], '8'), chord(['D4', 'F4'], '8'), rest('h')));
+    const normalized = normalize(doc);
+    expect(normalized.beams).toHaveLength(1);
+    expect(normalized.beams[0]!.elements).toHaveLength(2);
+  });
+
+  it('clips an auto-beam group at the measure capacity instead of referencing dropped events', () => {
+    const doc = mnx(
+      {},
+      measure(
+        note('C4', '8', { id: 'a' }),
+        note('C4', '8', { id: 'b' }),
+        note('C4', '8', { id: 'c' }),
+        note('C4', '8', { id: 'd' }),
+        note('C4', '8', { id: 'e' }),
+        note('C4', '8', { id: 'f' }),
+        note('C4', '8', { id: 'g' }),
+        note('C4', '8', { id: 'h' }),
+        note('C4', '16', { id: 'overflow1' }),
+        note('C4', '16', { id: 'overflow2' }),
+      ),
+    );
+    const normalized = normalize(doc);
+    const referenced = normalized.beams.flatMap((b) => b.elements);
+    expect(referenced).not.toContain('overflow1');
+    expect(referenced).not.toContain('overflow2');
+    const laidOut = layoutScore(doc);
+    expect(laidOut.diagnostics.some((d) => d.code === 'measure-overfull')).toBe(true);
+  });
+
+  it('clips an explicit beam at the measure capacity instead of referencing a dropped event', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ events: ['tail', 'overflow'] }] },
+        measure(
+          note('C4', 'h', { id: 'pad1' }),
+          note('C4', 'h', { id: 'pad2' }),
+          note('C4', '8', { id: 'tail' }),
+          note('C4', '8', { id: 'overflow' }),
+        ),
+      ),
+    );
+    const normalized = normalize(doc);
+    expect(normalized.beams).toEqual([]);
+    expect(() => layoutScore(doc)).not.toThrow();
+  });
+
+  it('reports beam-grouping-invalid once for an auto-beamed measure with a bad beatGrouping option', () => {
+    const doc = mnx({ time: { count: 7, unit: 8 } }, measure(...Array.from({ length: 7 }, (_, i) => note('C4', '8', { id: `e${i}` }))));
+    const options = { beaming: { beatGrouping: { '7/8': [3, 3] } } };
+    const normalized = normalize(doc, options);
+    expect(normalized.diagnostics.filter((d) => d.code === 'beam-grouping-invalid')).toHaveLength(1);
+    expect(normalized.beams.length).toBeGreaterThan(0);
+  });
+
+  it('breaks a derived secondary segment at a rest an explicit beam spans (two hooks, not a bridging run)', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ events: ['a', 'b'] }] },
+        measure(note('C5', '16', { id: 'a' }), rest('16'), note('D5', '16', { id: 'b' }), note('E5', 'h.')),
+      ),
+    );
+    const beam = normalize(doc).beams[0]!;
+    expect(beam.segments).toEqual([
+      { level: 2, first: 'a', last: 'a', hook: 'right' },
+      { level: 2, first: 'b', last: 'b', hook: 'left' },
+    ]);
   });
 });

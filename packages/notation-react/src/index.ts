@@ -8,7 +8,7 @@
 // wrappers.
 
 export { Notation, describeScore, viewBoxAttr } from './Notation.js';
-export type { NotationProps, NotationHandle } from './Notation.js';
+export type { NotationProps, NotationHandle, NotationPlaybackProps, PlaybackView } from './Notation.js';
 
 // Layout: the pure entry point and the shapes a consumer of `onLayout` / `getLayout()`
 // reads.

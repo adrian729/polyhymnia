@@ -26,7 +26,7 @@ Our reading of the FAQ, not legal advice — flagged in `roadmap.md` open questi
 
 ## Glyph set — 61 glyphs, full scope
 
-Staff lines, ledger lines, barlines (the lines themselves), stems, and beams are **not glyphs** — drawn as `<rect>`, thickness from `engravingDefaults` (`architecture.md`). All five need exact-length stretching (justification) or rotation (beams), which a glyph can't do. Repeat-barline dots ARE a glyph (below) — a fixed shape, no stretching needed.
+Staff lines, ledger lines, barlines (the lines themselves) and stems are **not glyphs** — drawn as `<rect>`, thickness from `engravingDefaults` (`architecture.md`); they need exact-length stretching (justification), which a glyph can't do. Beams are likewise not a glyph, but a `<path>` parallelogram (`architecture.md`'s `PathShape`) rather than a rect, since they slope. Repeat-barline dots ARE a glyph (below) — a fixed shape, no stretching needed.
 
 | Category | Codepoints | Count |
 | --- | --- | --- |

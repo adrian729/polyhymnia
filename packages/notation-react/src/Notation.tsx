@@ -5,8 +5,8 @@
 // `layoutScore` is pure, so StrictMode's double invocation produces identical output and
 // the component is SSR-safe.
 
-import { useEffect, useImperativeHandle, useMemo, useRef } from 'react';
-import type { CSSProperties, JSX, Ref } from 'react';
+import { Children, isValidElement, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import type { CSSProperties, JSX, ReactNode, Ref } from 'react';
 import { layoutScore } from '@polyhymnia/notation-engine';
 import type {
   ElementBox,
@@ -19,15 +19,25 @@ import type {
 } from '@polyhymnia/notation-engine';
 import type { MnxDocument } from '@polyhymnia/notation-model';
 
-/**
- * The imperative handle (interface.md "## Imperative handle").
- *
- * Only the three methods backed by code that exists return a value. `hitTest`,
- * `setPlaybackTick`, `animateCursor` and `focus` need the engine's `query/hitTest.ts` and the
- * playback cursor, neither of which is written yet, so they are typed `never` and throw:
- * a caller finds out at compile time, and at the latest loudly at runtime, rather than
- * against a silent no-op that looks like a layout bug.
- */
+export type PlaybackView =
+  | { mode: 'off' }
+  | { mode: 'notes'; activeIds: readonly string[] }
+  | {
+      mode: 'cursor';
+      position: { tick: number } | { seconds: number };
+      follow?: 'none' | 'scroll';
+      highlightActive?: boolean;
+    }
+  | { mode: 'manual' };
+
+export interface NotationPlaybackProps {
+  view: PlaybackView;
+}
+
+function PlaybackChild(_props: NotationPlaybackProps): null {
+  return null;
+}
+
 export interface NotationHandle {
   getLayout(): LayoutResult;
   getTimeMap(): TimeMap;
@@ -35,9 +45,7 @@ export interface NotationHandle {
   exportSVG(): string;
   /** @throws always — no engine `hitTest` yet (roadmap.md Phase 3+). */
   hitTest(point: { x: number; y: number }): never;
-  /** @throws always — no playback cursor yet (roadmap.md Phase 3+). */
-  setPlaybackTick(tick: number): never;
-  /** @throws always — no cursor animation yet (roadmap.md Phase 3+). */
+  setPlaybackTick(tick: number): void;
   animateCursor(span: unknown): never;
   /** @throws always — needs the per-element focus targets interaction.md adds. */
   focus(id: string): never;
@@ -46,6 +54,7 @@ export interface NotationHandle {
 export interface NotationProps {
   score: MnxDocument;
   options?: NotationOptions;
+  children?: ReactNode;
   className?: string;
   style?: CSSProperties;
   /** Declarative alternative to `handle.getLayout()`; fires whenever layout changes. */
@@ -60,6 +69,7 @@ const GLYPH_FONT_SIZE = 4;
 export function Notation({
   score,
   options,
+  children,
   className,
   style,
   onLayout,
@@ -67,10 +77,17 @@ export function Notation({
 }: NotationProps): JSX.Element {
   const layout = useMemo(() => layoutScore(score, options), [score, options]);
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const elementRefs = useRef(new Map<string, SVGGElement>());
+  const playbackView = extractPlaybackView(children);
 
   useEffect(() => {
     onLayout?.(layout);
   }, [layout, onLayout]);
+
+  useEffect(() => {
+    if (playbackView?.mode === 'notes') setPlaying(elementRefs.current, new Set(playbackView.activeIds));
+    else if (playbackView === undefined || playbackView.mode === 'off') setPlaying(elementRefs.current, EMPTY_IDS);
+  }, [playbackView, layout]);
 
   useImperativeHandle(
     ref,
@@ -79,7 +96,7 @@ export function Notation({
       getTimeMap: () => layout.timemap,
       exportSVG: () => serialize(svgRef.current),
       hitTest: () => notYet('hitTest'),
-      setPlaybackTick: () => notYet('setPlaybackTick'),
+      setPlaybackTick: (tick) => setPlaying(elementRefs.current, new Set(layout.timemap.activeAt(tick))),
       animateCursor: () => notYet('animateCursor'),
       focus: () => notYet('focus'),
     }),
@@ -100,8 +117,9 @@ export function Notation({
           <Rect key={`r${i}`} shape={r} />
         ))}
       </g>
-      {/* Ties and slurs are pipeline stage 10; `paths` is always empty today. The layer
-          exists so their arrival is a map over data, not a change of DOM shape. */}
+      {/* Beams (stage 9) render here now; ties and slurs are stage 10 and still empty.
+          One layer for every `PathShape`, so their arrival is a map over data, not a
+          change of DOM shape. */}
       <g data-pn="curves">
         {layout.paths.map((p, i) => (
           <path
@@ -124,6 +142,7 @@ export function Notation({
             // belong to insert/select mode, which does not exist yet.
             <g
               key={`g${i}`}
+              ref={elementRef(elementRefs.current, group.el)}
               role="img"
               aria-label={layout.elements[group.el]?.label ?? group.el}
               data-pn="element"
@@ -136,8 +155,13 @@ export function Notation({
           ),
         )}
       </g>
+      {children}
     </svg>
   );
+}
+
+export namespace Notation {
+  export const Playback = PlaybackChild;
 }
 
 function Rect({ shape }: { shape: RectShape }): JSX.Element {
@@ -147,8 +171,6 @@ function Rect({ shape }: { shape: RectShape }): JSX.Element {
       y={shape.y}
       width={shape.w}
       height={shape.h}
-      // A beam is a rotated rect (architecture.md); it rotates about its own top-left
-      // corner, which is the endpoint the layout engine positions.
       transform={
         shape.rot ? `rotate(${shape.rot} ${shape.x} ${shape.y})` : undefined
       }
@@ -214,6 +236,30 @@ function count(n: number, noun: string): string {
 
 function classNames(...parts: (string | undefined)[]): string {
   return parts.filter(Boolean).join(' ');
+}
+
+const EMPTY_IDS: ReadonlySet<string> = new Set();
+
+function extractPlaybackView(children: ReactNode): PlaybackView | undefined {
+  let view: PlaybackView | undefined;
+  Children.forEach(children, (child) => {
+    if (isValidElement<NotationPlaybackProps>(child) && child.type === PlaybackChild) view = child.props.view;
+  });
+  return view;
+}
+
+function elementRef(refs: Map<string, SVGGElement>, id: string) {
+  return (el: SVGGElement | null): void => {
+    if (el) refs.set(id, el);
+    else refs.delete(id);
+  };
+}
+
+function setPlaying(refs: Map<string, SVGGElement>, ids: ReadonlySet<string>): void {
+  for (const [id, el] of refs) {
+    if (ids.has(id)) el.setAttribute('data-pn-playing', 'true');
+    else el.removeAttribute('data-pn-playing');
+  }
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

@@ -34,7 +34,7 @@ Renders the `<svg>`, computes layout (`useMemo`, keyed on `score` identity), pro
 </Notation>
 ```
 
-- `Notation.Interaction` props = `NotationInteraction` (`interaction.md`). `Notation.Playback` props = `{ view: PlaybackView }` (`playback.md`).
+- `Notation.Interaction` props = `NotationInteraction` (`interaction.md`, not built yet). `Notation.Playback` props = `{ view: PlaybackView }` (`playback.md`) — implemented for `mode:'notes'`/`'off'`; `mode:'cursor'` is a no-op (deferred to plan `phase3-rhythm.md` step 7b), `mode:'manual'` is left untouched (driven only via `handle.setPlaybackTick`).
 - Render nothing themselves. `<Notation>` extracts their props via direct-child introspection (`React.Children`) — single render pass, no context round-trip. Must be direct children, same constraint as `<select><option>`.
 - One of each meaningful; duplicate = last wins.
 - `useNotationLayout()` exported for custom overlay components — same mechanism `Notation.Playback` uses internally.
@@ -54,6 +54,8 @@ interface NotationHandle {
 }
 ```
 
+Implemented in `notation-react` (plan `phase3-rhythm.md` step 7a): `getLayout`, `getTimeMap`, `exportSVG`, `setPlaybackTick` (drives `mode:'notes'` highlighting from `timemap.activeAt(tick)`, imperatively, no re-render). `hitTest`, `animateCursor`, `focus` still throw — no engine `hitTest`, no WAAPI cursor (step 7b), no interaction focus targets yet.
+
 ## Options
 
 One nested typed object, not flat props. Same type on the React prop and `layoutScore(doc, options)` (`architecture.md`) — one options surface, not two.
@@ -62,7 +64,7 @@ One nested typed object, not flat props. Same type on the React prop and `layout
 interface NotationOptions {
   divisions?: number;                                                                // mnx.md, default 3360 — engine option, not document data
   spacing?: { k?: number; base?: number };                                          // engraving.md, default k=0.55 base=3.2sp
-  beaming?: { halfBarBeaming?: boolean; beatGrouping?: readonly number[] };          // engraving.md; beatGrouping is a score-wide fallback for the future beam() function — no per-measure override, MNX's `time` carries none
+  beaming?: { mergeBeats?: boolean; beatGrouping?: Record<string, readonly number[]> }; // engraving.md; the engine reads this for its own auto-beaming (a measure with no explicit MNX `beams`)
   accidentals?: {
     courtesyPolicy?: 'none' | 'next-measure' | 'always';                            // default 'next-measure'
     parenthesizeCautionary?: boolean;

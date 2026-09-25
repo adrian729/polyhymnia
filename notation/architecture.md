@@ -14,7 +14,7 @@ packages/
     src/font/                metadata.ts metadata.json engravingDefaults.ts glyphs.ts   (name -> codepoint)
     src/layout/
       records.ts             flat engine-internal types: Pitch, Duration/NoteValueSpec, ClefSpec, KeySpec, TimeSpec, TempoEvent...
-      normalize.ts            the only stage that reads MnxDocument — emits NormalizedElement/NormalizedGap
+      normalize.ts normalize-measure.ts normalize-beams.ts   the only stage that reads MnxDocument — emits NormalizedElement/NormalizedGap
       temporal.ts             onset/duration ticks — emits TemporalElement, never reads MnxDocument
       accidentals.ts grouping.ts
       vertical.ts horizontal.ts break.ts justify.ts beams.ts curves.ts emit.ts
@@ -55,7 +55,7 @@ Each stage is a pure function `(input, options: NotationOptions) => output`, ind
 | 1 | normalize | resolved clef/key/time per measure | inherits forward; produces diagnostics, never throws |
 | 2 | temporal | onset/duration ticks per element | rational arithmetic, tuplet scaling, fullness policy (`mnx.md`). **Timemap is born here.** |
 | 3 | accidentals | resolved accidental per note | measure-scoped state, key seeding, tie carryover, cautionary rules — `engraving.md` |
-| 4 | grouping | beam groups, tuplet spans, tie/slur pairs | meter-driven beat grouping — `engraving.md` |
+| 4 | grouping | tuplet spans | tie/slur pairing and beam groups both happen in normalize (stage 1), not here — `engraving.md`; vertical (stage 5) only derives each beam group's shared stem direction from the groups normalize already built |
 | 5 | vertical | staff position, stem direction, *provisional* stem length, ledger lines | per-voice stem rules, chord shifting, accidental packing — `engraving.md`. Beamed notes' length is provisional here — stage 9 re-terminates it. |
 | 6 | horizontal | column x, intrinsic widths | spring/rod model — `engraving.md` |
 | 7 | break | system assignment | greedy fill to `options.widthSp` |
@@ -74,8 +74,8 @@ interface LayoutResult {
   viewBox: { x: number; y: number; w: number; h: number };     // sp units
   systems: readonly SystemBox[];
   glyphs: readonly GlyphRun[];
-  rects:  readonly RectShape[];   // staff lines, stems, beams, barlines, ledger lines, tuplet brackets
-  paths:  readonly PathShape[];   // slurs, ties
+  rects:  readonly RectShape[];   // staff lines, stems, barlines, ledger lines, tuplet brackets
+  paths:  readonly PathShape[];   // beams, slurs, ties
   elements: Readonly<Record<NoteId, ElementBox>>;
   slots: readonly Slot[];          // interaction.md
   timemap: TimeMap;                 // playback.md
@@ -84,6 +84,9 @@ interface LayoutResult {
 interface SystemBox { index: number; x: number; y: number; w: number; h: number }   // sp, one row of the score
 interface GlyphRun { x: number; y: number; cp: number; cls: string; el?: NoteId }
 interface RectShape { x: number; y: number; w: number; h: number; rot?: number; cls: string; el?: NoteId }
+// `rot` is degrees, matching SVG's `rotate()` (`notation-react`'s `Notation.tsx` passes it straight
+// through) — not radians. Nothing emits it today: beams (the one shape that used to need rotation)
+// are a `PathShape` instead, so no stage computes an `atan(slope)` value to feed it.
 interface PathShape { d: string; cls: string; el?: NoteId }
 interface ElementBox {
   id: NoteId; kind: 'note'|'chord'|'rest';
@@ -97,7 +100,7 @@ interface ElementBox {
 
 **Chords:** one `ElementBox` per member note id (one per notehead), not one per chord event. All members of a chord share `x`/`tick`/`durationTicks`/`systemIndex`/`measureIndex`; each has its own `y`/`staffPosition`/`hitBox`/`label`, `kind:'chord'`. No separate chord-level box — matches the one-`<g>`-per-note accessibility rule (`interaction.md`) and keeps `modifyPitch`/`deleteElements` addressable per pitch without a second ID scheme. `NoteId` (`layout/records.ts`) is a plain `string` — the MNX `id` when the document supplies one, else the positional id `mnx.md` documents. `HitResult.part:'notehead'` resolves to the member whose `staffPosition` is nearest the hit point.
 
-Beams are `RectShape` with `rot` (a rotated rect approximates a beam's parallelogram; sub-pixel error at 0.5sp thickness / 0.25 slope cap — becomes a 4-point `PathShape` if it ever shows).
+Beams are a 4-point `PathShape` (`cls: 'beam'`, `el` = the beam's own id — `mnx.md`), not a rotated `RectShape`: an exact parallelogram whose near edge is the line every re-terminated stem in it touches (`engraving.md` "Beaming").
 
 ## Coordinate system
 

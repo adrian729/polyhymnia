@@ -72,6 +72,7 @@ const DEFAULT_BEAT_UNIT: NoteValueSpec = { base: 'quarter', dots: 0 };
 
 export function buildTimeMap(input: TimeMapInput): TimeMap {
   const entries = buildEntries(input);
+  const writtenSpans = buildWrittenSpans(input);
   const segments = buildTempoSegments(input.tempo, input.divisions);
   const measures = [...input.measures].sort((a, b) => a.startTick - b.startTick);
   const byTick = [...entries].sort((a, b) => a.tick - b.tick);
@@ -149,8 +150,8 @@ export function buildTimeMap(input: TimeMapInput): TimeMap {
     positionAtTick,
     activeAt(tick) {
       const ids: NoteId[] = [];
-      for (const entry of entries) {
-        if (tick >= entry.tick && tick < entry.tick + entry.durationTicks) ids.push(...entry.ids);
+      for (const span of writtenSpans) {
+        if (tick >= span.tick && tick < span.tick + span.durationTicks) ids.push(...span.ids);
       }
       return ids;
     },
@@ -162,8 +163,32 @@ export function buildTimeMap(input: TimeMapInput): TimeMap {
 
 // --- entries ----------------------------------------------------------------
 
+function orderElements(input: TimeMapInput): TemporalElement[] {
+  return [...input.elements].sort((a, b) => a.tick - b.tick || a.voice - b.voice);
+}
+
+function toEntry(head: TemporalElement, input: TimeMapInput, durationTicks: number): TimeMapEntry {
+  const place = input.placement.get(head.id);
+  const notes = head.notes;
+  return {
+    ids: notes.length > 0 ? notes.map((n) => n.id) : [head.id],
+    tick: head.tick,
+    durationTicks,
+    measureIndex: head.measureIndex,
+    voice: head.voice,
+    systemIndex: place?.systemIndex ?? 0,
+    x: place?.x ?? 0,
+    y: place?.y ?? 0,
+    kind: head.kind,
+    ...(head.kind === 'note' && notes[0] ? { midi: midiOf(notes[0].pitch) } : {}),
+    ...(head.kind === 'chord'
+      ? { midiNotes: notes.map((n) => midiOf(n.pitch)) }
+      : {}),
+  };
+}
+
 function buildEntries(input: TimeMapInput): TimeMapEntry[] {
-  const ordered = [...input.elements].sort((a, b) => a.tick - b.tick || a.voice - b.voice);
+  const ordered = orderElements(input);
   const entries: TimeMapEntry[] = [];
 
   let i = 0;
@@ -180,27 +205,15 @@ function buildEntries(input: TimeMapInput): TimeMapEntry[] {
     const durationTicks = ordered
       .slice(i, last + 1)
       .reduce((sum, e) => sum + e.durationTicks, 0);
-    const place = input.placement.get(head.id);
-    const notes = head.notes;
-    entries.push({
-      ids: notes.length > 0 ? notes.map((n) => n.id) : [head.id],
-      tick: head.tick,
-      durationTicks,
-      measureIndex: head.measureIndex,
-      voice: head.voice,
-      systemIndex: place?.systemIndex ?? 0,
-      x: place?.x ?? 0,
-      y: place?.y ?? 0,
-      kind: head.kind,
-      ...(head.kind === 'note' && notes[0] ? { midi: midiOf(notes[0].pitch) } : {}),
-      ...(head.kind === 'chord'
-        ? { midiNotes: notes.map((n) => midiOf(n.pitch)) }
-        : {}),
-    });
+    entries.push(toEntry(head, input, durationTicks));
     i = last + 1;
   }
 
   return entries;
+}
+
+function buildWrittenSpans(input: TimeMapInput): TimeMapEntry[] {
+  return orderElements(input).map((el) => toEntry(el, input, el.durationTicks));
 }
 
 function tiesInto(a: TemporalElement, b: TemporalElement): boolean {

@@ -7,7 +7,6 @@
 
 import { noteValueLength, readMnx, tupletRatio, Rational as R } from '@polyhymnia/notation-model';
 import type {
-  Clef,
   Diagnostic,
   Event as MnxEvent,
   MeasureGlobal,
@@ -21,7 +20,6 @@ import type {
 } from '@polyhymnia/notation-model';
 import type { NotationOptions } from '../options.js';
 import {
-  DEFAULT_DIVISIONS,
   DEFAULT_TIME,
   type AccidentalPolicy,
   type Alter,
@@ -29,6 +27,7 @@ import {
   type Dots,
   type DurationBase,
   type KeySpec,
+  type NormalizedBeam,
   type NoteId,
   type NoteValueSpec,
   type Pitch,
@@ -39,6 +38,17 @@ import {
   type TupletRef,
 } from './records.js';
 import { MIDDLE_LINE } from './staff.js';
+import {
+  barlineEndOf,
+  isMidMeasure,
+  reportGlobalConstructs,
+  reportPartConstructs,
+  resolveClef,
+  resolveDivisions,
+  resolveKey,
+  resolveTime,
+} from './normalize-measure.js';
+import { resolveBeams } from './normalize-beams.js';
 
 /** One member of an element's `notes` — a single note, or one member of a chord. */
 export interface ElementNote {
@@ -104,6 +114,7 @@ export interface NormalizedScore {
   divisions: number;
   tempo: TempoMap;
   staves: readonly NormalizedStaff[];
+  beams: readonly NormalizedBeam[];
   diagnostics: readonly Diagnostic[];
   /** Every id already in use — explicit or synthesized — so later stages can keep
    *  disambiguating their own positional ids against it. */
@@ -116,14 +127,6 @@ const STEP_NUMBERS: Record<string, StepNumber> = { C: 0, D: 1, E: 2, F: 3, G: 4,
 const SUPPORTED_BASES = new Set<string>(['breve', 'whole', 'half', 'quarter', 'eighth', '16th', '32nd', '64th']);
 const HANDLED_MARKINGS = new Set(['breath', 'caesura', '_c', '_x', 'id']);
 
-const BARLINES: Partial<Record<string, NormalizedMeasure['barlineEnd']>> = {
-  regular: 'single',
-  double: 'double',
-  dashed: 'dashed',
-  final: 'final',
-  noBarline: 'none',
-};
-
 type MutableNote = { -readonly [K in keyof ElementNote]: ElementNote[K] };
 
 interface PendingTie {
@@ -132,7 +135,7 @@ interface PendingTie {
   measureIndex: number;
 }
 
-interface Reader {
+export interface Reader {
   diagnostics: Diagnostic[];
   unsupported(construct: string, measureIndex: number | undefined, consequence: string): void;
   notesById: Map<string, MutableNote>;
@@ -157,6 +160,7 @@ export function normalize(doc: MnxDocument, options?: NotationOptions): Normaliz
     divisions,
     tempo: [],
     staves: [],
+    beams: [],
     diagnostics,
     usedIds: new Set(),
   });
@@ -308,6 +312,7 @@ export function normalize(doc: MnxDocument, options?: NotationOptions): Normaliz
   resolveTies(reader);
   applySystemBreaks(source, globals, measures, reader);
   const tempo = resolveTempo(globals, measures, divisions, reader);
+  const beams = resolveBeams(source, partMeasures, measures, reader, options);
 
   return {
     id: idOf(source),
@@ -322,6 +327,7 @@ export function normalize(doc: MnxDocument, options?: NotationOptions): Normaliz
         measures,
       },
     ],
+    beams,
     diagnostics,
     usedIds: reader.usedIds,
   };
@@ -331,11 +337,11 @@ function idOf(source: MnxDocument): string {
   return typeof source.id === 'string' ? source.id : 'score';
 }
 
-function asArray(value: unknown): readonly unknown[] {
+export function asArray(value: unknown): readonly unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-function asObject(value: unknown): Record<string, any> | undefined {
+export function asObject(value: unknown): Record<string, any> | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, any>)
     : undefined;
@@ -370,7 +376,7 @@ function registerExplicitId(id: string, reader: Reader, measureIndex: number | u
   reader.usedIds.add(id);
 }
 
-function synthId(candidate: string, reader: Reader, measureIndex: number | undefined): string {
+export function synthId(candidate: string, reader: Reader, measureIndex: number | undefined): string {
   if (!reader.explicitIds.has(candidate) && !reader.usedIds.has(candidate)) {
     reader.usedIds.add(candidate);
     return candidate;
@@ -391,7 +397,7 @@ function synthId(candidate: string, reader: Reader, measureIndex: number | undef
   return id;
 }
 
-function resolveId(
+export function resolveId(
   explicit: unknown,
   candidate: string,
   reader: Reader,
@@ -402,156 +408,6 @@ function resolveId(
     return explicit;
   }
   return synthId(candidate, reader, measureIndex);
-}
-
-function resolveDivisions(value: unknown, diagnostics: Diagnostic[]): number {
-  if (typeof value === 'number' && Number.isInteger(value) && value > 0) return value;
-  if (value !== undefined) {
-    diagnostics.push({
-      severity: 'warning',
-      code: 'invalid-divisions',
-      message: `Invalid divisions ${JSON.stringify(value)}; using ${DEFAULT_DIVISIONS}.`,
-    });
-  }
-  return DEFAULT_DIVISIONS;
-}
-
-function resolveClef(value: unknown, measureIndex: number, reader: Reader): ClefSpec | null {
-  const clef = asObject(value) as Partial<Clef> | undefined;
-  if (!clef) return null;
-  const { sign, staffPosition } = clef;
-  let kind: ClefSpec['kind'] | undefined;
-  if (sign === 'G' && staffPosition === -2) kind = 'treble';
-  else if (sign === 'F' && staffPosition === 2) kind = 'bass';
-  else if (sign === 'C' && staffPosition === 0) kind = 'alto';
-  else if (sign === 'C' && staffPosition === 2) kind = 'tenor';
-
-  if (!kind) {
-    if (sign === 'P') {
-      reader.unsupported('percussion clef', measureIndex, 'the previous clef is kept');
-      return null;
-    }
-    const fallback = sign === 'F' ? 'bass' : sign === 'C' ? 'alto' : sign === 'G' ? 'treble' : undefined;
-    if (!fallback) {
-      reader.unsupported(
-        `unrecognized clef sign ${JSON.stringify(sign)}`,
-        measureIndex,
-        'the previous clef is kept',
-      );
-      return null;
-    }
-    reader.unsupported(
-      `${String(sign)} clef on staff position ${String(staffPosition)}`,
-      measureIndex,
-      `drawn as a ${fallback} clef`,
-    );
-    kind = fallback;
-  }
-
-  const octave = clef.octave ?? 0;
-  if (octave === 1 || octave === -1) return { kind, octaveShift: octave };
-  if (octave !== 0) {
-    reader.unsupported(`clef octave ${String(octave)}`, measureIndex, 'drawn without an octave shift');
-  }
-  return { kind };
-}
-
-function isMidMeasure(position: unknown): boolean {
-  const fraction = asArray(asObject(position)?.fraction);
-  return typeof fraction[0] === 'number' && fraction[0] > 0;
-}
-
-function resolveKey(
-  value: unknown,
-  fallback: KeySpec,
-  measureIndex: number,
-  reader: Reader,
-): KeySpec {
-  const fifths = asObject(value)?.fifths;
-  if (typeof fifths !== 'number' || !Number.isFinite(fifths)) {
-    reader.diagnostics.push({
-      severity: 'warning',
-      code: 'invalid-key-signature',
-      message: `Invalid key signature ${JSON.stringify(value)}; inheriting ${fallback.fifths} fifths.`,
-      measureIndex,
-    });
-    return fallback;
-  }
-  const clamped = Math.max(-7, Math.min(7, Math.round(fifths)));
-  if (clamped !== fifths) {
-    reader.unsupported(`key signature with ${fifths} fifths`, measureIndex, `drawn with ${clamped} fifths`);
-  }
-  return { fifths: clamped };
-}
-
-function resolveTime(
-  value: unknown,
-  fallback: TimeSpec,
-  measureIndex: number,
-  diagnostics: Diagnostic[],
-): TimeSpec {
-  const time = asObject(value);
-  const count = time?.count;
-  const unit = time?.unit;
-  const valid =
-    typeof count === 'number' &&
-    Number.isInteger(count) &&
-    count > 0 &&
-    typeof unit === 'number' &&
-    Number.isInteger(unit) &&
-    unit > 0;
-  if (!valid) {
-    diagnostics.push({
-      severity: 'warning',
-      code: 'invalid-time-signature',
-      message: `Invalid time signature ${JSON.stringify(value)}; inheriting ${fallback.beats}/${fallback.beatType}.`,
-      measureIndex,
-    });
-    return fallback;
-  }
-  const display = time?.display;
-  return display === 'common' || display === 'cut'
-    ? { beats: count, beatType: unit, symbol: display }
-    : { beats: count, beatType: unit };
-}
-
-function barlineEndOf(
-  g: MeasureGlobal,
-  measureIndex: number,
-  reader: Reader,
-): { barlineEnd?: NormalizedMeasure['barlineEnd'] } {
-  if (g.repeatEnd) {
-    const times = asObject(g.repeatEnd)?.times;
-    if (typeof times === 'number' && times !== 2) {
-      reader.unsupported(`repeat played ${times} times`, measureIndex, 'drawn as a plain end repeat');
-    }
-    return { barlineEnd: 'repeat-end' };
-  }
-  const type = asObject(g.barline)?.type;
-  if (type === undefined) return {};
-  const mapped = typeof type === 'string' ? BARLINES[type] : undefined;
-  if (mapped) return { barlineEnd: mapped };
-  reader.unsupported(`${String(type)} barline`, measureIndex, 'drawn as a single barline');
-  return { barlineEnd: 'single' };
-}
-
-function reportGlobalConstructs(g: MeasureGlobal, measureIndex: number, reader: Reader): void {
-  if (g.ending) reader.unsupported('ending', measureIndex, 'not drawn');
-  if (g.jump) reader.unsupported('jump', measureIndex, 'not drawn');
-  if (g.segno) reader.unsupported('segno', measureIndex, 'not drawn');
-  if (g.fine) reader.unsupported('fine', measureIndex, 'not drawn');
-  if (g.fermata) reader.unsupported('fermata', measureIndex, 'not drawn');
-  if (g.number !== undefined) reader.unsupported('measure number override', measureIndex, 'ignored');
-}
-
-function reportPartConstructs(pm: Partial<PartMeasure>, measureIndex: number, reader: Reader): void {
-  if (asArray(pm.beams).length > 0) reader.unsupported('beams', measureIndex, 'flags are drawn instead');
-  if (asArray(pm.dynamics).length > 0) reader.unsupported('dynamics', measureIndex, 'not drawn');
-  if (asArray(pm.ottavas).length > 0) reader.unsupported('ottavas', measureIndex, 'not drawn');
-  if (asArray(pm.arpeggios).length > 0) reader.unsupported('arpeggios', measureIndex, 'not drawn');
-  if (asArray(pm.nonArpeggios).length > 0) reader.unsupported('non-arpeggios', measureIndex, 'not drawn');
-  if (asArray(pm.staffConfigs).length > 0) reader.unsupported('staff configs', measureIndex, 'ignored');
-  if (pm.measureRepeat) reader.unsupported('measure repeat', measureIndex, 'not drawn');
 }
 
 function readSequences(sequences: readonly unknown[], measureIndex: number, reader: Reader): NormalizedVoice[] {
@@ -663,6 +519,15 @@ function readTuplet(
   if (typeof item.staff === 'number' && item.staff !== 1) {
     reader.unsupported('cross-staff tuplet', scope.measureIndex, 'laid out on staff 1');
   }
+  if (item.showValue !== undefined) {
+    reader.unsupported('tuplet showValue', scope.measureIndex, 'only the actual count is drawn');
+  }
+  const displayFields = {
+    ...(item.bracket !== undefined ? { bracket: item.bracket } : {}),
+    ...(item.showNumber !== undefined ? { showNumber: item.showNumber } : {}),
+    ...(item.placement !== undefined ? { placement: item.placement } : {}),
+  };
+  const display = Object.keys(displayFields).length > 0 ? { display: displayFields } : {};
   const ratio = quantityLength(item.inner) && quantityLength(item.outer) ? tupletRatio(item as never) : null;
   if (!ratio) {
     reader.unsupported(
@@ -672,9 +537,9 @@ function readTuplet(
     );
     return outer;
   }
-  if (!outer) return { id, actual: ratio.actual, normal: ratio.normal };
+  if (!outer) return { id, actual: ratio.actual, normal: ratio.normal, ...display };
   reader.unsupported('nested tuplet', scope.measureIndex, 'flattened into one tuplet');
-  return { id, actual: ratio.actual * outer.actual, normal: ratio.normal * outer.normal };
+  return { id, actual: ratio.actual * outer.actual, normal: ratio.normal * outer.normal, ...display };
 }
 
 function readEvent(
@@ -997,3 +862,4 @@ function voiceLength(events: readonly NormalizedEvent[]): Rational {
     R.ZERO,
   );
 }
+

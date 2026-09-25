@@ -13,7 +13,15 @@ const fixtureNames = readdirSync(FIXTURES)
   .map((f) => f.replace(/\.json$/, ''))
   .sort();
 
-const SELECTED_EXAMPLES = ['tuplets', 'key-signatures', 'dotted-notes'];
+const SELECTED_EXAMPLES = [
+  'tuplets',
+  'key-signatures',
+  'dotted-notes',
+  'beams',
+  'beam-hooks',
+  'beams-secondary-beam-breaks',
+  'beams-secondary-beam-breaks-implied',
+];
 
 function loadFixture(name: string): MnxDocument {
   return JSON.parse(readFileSync(`${FIXTURES}${name}.json`, 'utf8')) as MnxDocument;

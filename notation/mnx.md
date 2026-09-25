@@ -25,7 +25,8 @@ Reading `parts[0]` only, `staff 1` only, up to 2 sequences (voices) per measure:
 | `event` with `notes.length > 1` | chord — one `ElementNote` per member |
 | `event.rest` | rest; `rest.staffPosition` → the rest's forced staff line/space |
 | `sequence.fullMeasure` | a whole-bar rest (`wholeBar: true`) — see "Whole-bar rests" below |
-| `tuplet` container | flattened: children get a `TupletRef { id, actual, normal }`, `actual`/`normal` from `inner`/`outer` reduced to lowest terms (`tupletRatio`, `notation-model/src/mnx/time.ts`). A tuplet nested inside another is flattened into one combined ratio + `mnx-unsupported` (message says the content "keeps only the outer tuplet's ratio" when the inner ratio itself is unsupported, vs "laid out untupled" for an unnested tuplet) |
+| `tuplet` container | flattened: children get a `TupletRef { id, actual, normal, display? }`, `actual`/`normal` from `inner`/`outer` reduced to lowest terms (`tupletRatio`, `notation-model/src/mnx/time.ts`). `bracket`/`showNumber`/`placement` are carried through to `display` (only when at least one is given); `showValue` is not drawn, `mnx-unsupported`. A tuplet nested inside another is flattened into one combined ratio + `mnx-unsupported` (message says the content "keeps only the outer tuplet's ratio" when the inner ratio itself is unsupported, vs "laid out untupled" for an unnested tuplet); its `display` is the innermost tuplet's own |
+| `parts[0].measures[i].beams[]` | See "Beams" below |
 | `note.accidentalDisplay` | absent → `'auto'`; `show: false` → `'never'`; `show: true` → `'always'`; `show: true` + `enclosure.symbol: 'parentheses'` → `'cautionary'` |
 | `note.ties[].target`/`targetType` | resolved to a start/stop pair by MNX note id — the earlier note gets `tie: 'start'`/`'continue'`, the resolved target gets `'stop'`/`'continue'`. Only `targetType: 'nextNote'` or an absent `targetType` is drawn this way; `crossVoice`/`arpeggio`/`crossJump` are not drawn, + `mnx-unsupported`. An unresolved target → diagnostic `tie-target-unresolved`, no tie drawn. `tie.lv` (laissez-vibrer) is not drawn, `mnx-unsupported` |
 | `event.stemDirection` | `'up'`/`'down'` override; anything else is the engine's own resolution (`engraving.md`) |
@@ -46,7 +47,8 @@ Note values: `breve`, `whole`, `half`, `quarter`, `eighth`, `16th`, `32nd`, `64t
 - Multiple parts (only `parts[0]` is laid out), a part with `staves > 1` (only staff 1), a part's `transposition`/`kit` (percussion kits aren't laid out)
 - A 3rd+ sequence in a measure (`too-many-voices`, listed separately below since it isn't gated through `unsupported()`); a sequence on `staff !== 1`
 - Percussion clefs and other unrecognized clef sign/position pairs (fall back to the nearest of treble/bass/alto); a clef octave outside `-1..1`
-- Grace notes, multi-note tremolo (its time is left blank via a `space`), lyrics, slurs (not drawn yet), dynamics, ottavas, arpeggios/non-arpeggios, staff configs, measure repeats, beams (flags are drawn instead — beaming isn't implemented, `engraving.md`)
+- Grace notes, multi-note tremolo (its time is left blank via a `space`), lyrics, slurs (not drawn yet), dynamics, ottavas, arpeggios/non-arpeggios, staff configs, measure repeats
+- `tuplet.showValue` (only the actual count is drawn, per `showNumber`/`options.tuplets.showRatio`)
 - `ending`, `jump`, `segno`, `fine`, `fermata` (global or per-event), multimeasure rests
 - A measure's `number` override (ignored — measures are numbered positionally)
 - `note.written`/`note.perform` (sounding pitch is drawn instead; perform hints are ignored)
@@ -63,6 +65,32 @@ Two constructs the engine reads but doesn't yet lay out are downstream of `norma
 - A 2nd voice (`sequences[1]`) is parsed and carried through `temporal`, but `layout/vertical.ts` only lays out voice 0 today — diagnostic `voice-1-not-yet-supported` (warning), one per measure that has one.
 - Anything past 2 sequences never reaches `temporal` at all — diagnostic `too-many-voices` (warning), from `normalize.ts`, listing how many were dropped.
 
+## Beams
+
+`mnx.support.useBeams` decides whether the engine invents beams (`w3c-cg/mnx` support object docs; `phase3-rhythm.md` "DECISIONS FROM RESEARCH"):
+
+- **`useBeams: true`**: only what's explicitly in a measure's `beams[]` gets beamed. A measure with no `beams` entry is left entirely unbeamed (flags).
+- **`useBeams` false or absent** (the default): a measure with an explicit `beams[]` uses exactly that; a measure with none is auto-beamed by the engine, using `notation-model/src/mnx/beam.ts`'s `beamGroups` (driven by `options.beaming` — see `interface.md`). Auto-beaming never goes through MNX: it calls the model's grouping core directly with the engine's own element ids, so it never mints an id or mutates anything.
+
+Either way, the result is one `NormalizedBeam` per beamed run:
+
+```ts
+interface BeamSegment { level: number; first: NoteId; last: NoteId; hook?: 'left' | 'right'; }
+interface NormalizedBeam {
+  id: string;
+  measureIndex: number;
+  voice: 0 | 1;
+  elements: readonly NoteId[]; // every element in the group's span, including a rest it crosses
+  segments: readonly BeamSegment[]; // secondary levels (2 = 16th, 3 = 32nd, ...) and their hooks
+}
+```
+
+`elements` holds every id from the first to the last referenced event, in order — a rest an explicit beam spans stays in the span (MNX allows this; auto-beaming never beams over a rest, so this only happens for explicit `beams`). `segments` covers levels beyond the primary (eighth) beam: when the MNX `beams[].beams` nesting is present, its levels and `direction`s (or the derived direction, when a nested single-event group omits `direction`) are read directly; when it's absent, the engine derives them from each element's written duration — a maximal run of elements at the same level becomes one segment, a run of one becomes a hook (`left`/`right`, pointing at the group's own end when the singleton is first/last, otherwise `right` when its onset begins an even-numbered level unit since the group's start and `left` when it's the second of that pair — engraving.md "Beaming").
+
+**Validation** is one rule (`phase3-rhythm.md` "SCOPE ADJUSTMENTS"): a `beams[]` entry that references an unknown event id, an event in a different measure or voice, a note/chord whose written value is a quarter or longer, or has fewer than two real notes, is dropped — flags are drawn, diagnostic `beam-invalid` — including a beam crossing a barline (D11 called this out specifically; the general rule already covers it, since the referenced events resolve to different measures). An event already claimed by an earlier beam in the same measure is likewise dropped from any later one that reuses it. A repeated id in the same `beams[].events` list is deduplicated before the two-note check, and any member at or past the voice's own measure capacity (what `temporal.ts` would truncate as `measure-overfull`) is dropped first too, so a beam can never reference an event layout never produces.
+
+Beam id = the MNX `beams[].id` when given, otherwise `{firstElementId}.beam` via the same `synthId` every other positional id uses.
+
 ## ID rule
 
 Every element the engine lays out gets an id: the MNX `id` when the document supplies one, otherwise a deterministic positional id. Content an app references — playback highlight, quiz lookups, click targets — **must** carry a real MNX `id`; a positional id is stable only until the document is edited.
@@ -76,6 +104,7 @@ Positional id shapes (measure `m`, sequence `s`, event index `k` within its voic
 | A tuplet | `m{measure}.s{sequence}.t{k}` |
 | A full-measure rest | `m{measure}.s{sequence}.full` |
 | A synthetic padding rest (underfull measure) | `m{measure}.v{voice}.pad{k}` |
+| A beam | the MNX `beams[].id`, or `{firstElementId}.beam` |
 
 Every explicit `id` in the document is scanned up front, so a positional id is never silently assigned to two different elements: if a synthesized candidate collides with an id already in use (explicit or previously synthesized), it gets a deterministic `~2`, `~3`, … suffix instead, plus diagnostic `id-collision`. Two elements that explicitly share the same `id` also get `id-collision`; the first occurrence keeps the id, the rest are unaddressable by it.
 
@@ -136,6 +165,9 @@ Codes actually produced today (verify against `normalize.ts`/`temporal.ts`/`vert
 | `measure-underfull` | warning | `temporal` | A non-pickup measure doesn't fill its capacity; padded |
 | `measure-overfull` | error | `temporal` | A measure exceeds its capacity; truncated at the barline |
 | `voice-1-not-yet-supported` | warning | `vertical` | A measure has a 2nd sequence, parsed but not yet laid out |
+| `beam-invalid` | warning | `normalize` | A `beams[]` entry references an unknown/cross-measure/cross-voice/non-beamable event, has fewer than two notes (after deduplicating repeated ids and dropping members at or past the measure's capacity), or reuses an event another beam already claimed; dropped |
+| `beam-grouping-invalid` | warning | `normalize` | `options.beaming.beatGrouping[meter]` doesn't sum to the bar; falls back to the default table (`engraving.md`), once per meter |
+| `mnx-unsupported` ("mixed stem directions in a beam") | warning | `vertical` | Two notes in the same beam group carry conflicting explicit `stemDirection`; the first one wins |
 
 ## Pinned schema, examples, and updating
 
@@ -159,6 +191,6 @@ which re-downloads the schema and examples at that commit, regenerates the types
 ## Testing
 
 - **Schema test** (`notation-engine/test/schema.test.ts`): every fixture in `notation-engine/test/fixtures/` validates against the pinned `mnx-schema.json` with Ajv (devDependency only — never in a runtime bundle, `AGENTS.md`).
-- **Conformance test** (`notation-engine/test/conformance.test.ts`): runs all 52 vendored official examples through `layoutScore()`. Every one must lay out without throwing; each is asserted against an exact expected diagnostic-code list (`EXPECTED_CODES` in that file) — most produce `[]` or `['mnx-unsupported']`, a few hit `no-measures`/`system-measure-unresolved`/`voice-1-not-yet-supported`/`measure-underfull`/`measure-count-mismatch` for constructs described above. This is what actually proves the mapping table in this file, not the table itself — re-run it after any `normalize.ts`/`temporal.ts` change.
-- **MNX↔engine mapping test** (`notation-engine/test/mnx-mapping.test.ts`): targeted cases for individual mapping rules (clef resolution, tie resolution, tuplet ratios, barline types, …).
+- **Conformance test** (`notation-engine/test/conformance.test.ts`): runs all 52 vendored official examples through `layoutScore()`. Every one must lay out without throwing; each is asserted against an exact expected diagnostic-code list (`EXPECTED_CODES` in that file) — most produce `[]` or `['mnx-unsupported']`, a few hit `no-measures`/`system-measure-unresolved`/`voice-1-not-yet-supported`/`measure-underfull`/`measure-count-mismatch`/`beam-invalid` for constructs described above. This is what actually proves the mapping table in this file, not the table itself — re-run it after any `normalize.ts`/`temporal.ts` change.
+- **MNX↔engine mapping test** (`notation-engine/test/mnx-mapping.test.ts`): targeted cases for individual mapping rules (clef resolution, tie resolution, tuplet ratios, barline types, beam resolution/auto-beaming, …).
 - **Pipeline test** (`notation-engine/test/pipeline.test.ts`) keeps its malformed-input cases as malformed MNX — feeding `normalize`/`temporal` documents missing fields, invalid divisions, too many voices, etc., and asserting the diagnostic degrade path rather than a throw.

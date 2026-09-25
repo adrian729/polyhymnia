@@ -24,11 +24,13 @@ export { DEFAULT_DIVISIONS, describePitch, midiOf, stepIndex } from './layout/re
 export type {
   AccidentalPolicy,
   Alter,
+  BeamSegment,
   ClefSpec,
   Dots,
   Duration,
   DurationBase,
   KeySpec,
+  NormalizedBeam,
   NoteId,
   NoteValueSpec,
   Pitch,
@@ -36,6 +38,9 @@ export type {
   TempoEvent,
   TempoMap,
   TimeSpec,
+  TupletBracketSetting,
+  TupletDisplay,
+  TupletNumberSetting,
   TupletRef,
 } from './layout/records.js';
 

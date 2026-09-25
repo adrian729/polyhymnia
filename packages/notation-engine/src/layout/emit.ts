@@ -5,8 +5,7 @@
 // that an earlier stage owns — it only adds the staff origin of each system and turns
 // the results into flat records.
 //
-// Not emitted yet, by scope: beams (stage 9), tie/slur paths (stage 10, hence
-// `paths: []`) and tuplet brackets/numerals.
+// Not emitted yet, by scope: tie/slur paths (stage 10).
 
 import { engravingDefaults, glyphAdvanceWidth, glyphBBox } from '../font/metadata.js';
 import { glyphCodepoint } from '../font/glyphs.js';
@@ -20,6 +19,8 @@ import {
   type TimeSpec,
 } from './records.js';
 import type { NotationOptions } from '../options.js';
+import type { BeamsResult } from './beams.js';
+import type { TupletsResult } from './tuplets.js';
 import { buildTimeMap, type MeasureTime, type Placement } from '../query/timemap.js';
 import {
   KEY_GAP,
@@ -35,17 +36,17 @@ import type {
   ElementBox,
   GlyphRun,
   LayoutResult,
+  PathShape,
   RectShape,
   SystemBox,
 } from './types.js';
-import type { NoteheadLayout, VerticalElement } from './vertical.js';
+import { stemX, type NoteheadLayout, type VerticalElement } from './vertical.js';
 
-/** Room above the first staff for ledger lines, stems and flags. */
 const TOP_MARGIN = 4;
 const BOTTOM_MARGIN = 4;
 const SIDE_MARGIN = 1;
-/** Vertical gap between systems, on top of the 4sp staff itself. */
 const SYSTEM_GAP = 8;
+const CONTENT_PAD = 0.5;
 
 export interface EmitInput {
   justified: JustifiedScore;
@@ -53,20 +54,27 @@ export interface EmitInput {
   tempo: TempoMap;
   divisions: number;
   diagnostics: readonly Diagnostic[];
+  beams: BeamsResult;
+  tuplets: TupletsResult;
 }
 
 export function emit(input: EmitInput, _options?: NotationOptions): LayoutResult {
   const glyphs: GlyphRun[] = [];
   const rects: RectShape[] = [];
+  const paths: PathShape[] = [];
   const elements: Record<string, ElementBox> = {};
   const systems: SystemBox[] = [];
   const measureTimes: MeasureTime[] = [];
   const placement = new Map<NoteId, Placement>();
 
   const width = Math.max(input.justified.width, 1);
+  const { above, below } = contentMargins(input.justified, input.beams, input.tuplets);
+  const topMargin = Math.max(TOP_MARGIN, above);
+  const bottomMargin = Math.max(BOTTOM_MARGIN, below);
+  const systemGap = Math.max(SYSTEM_GAP, above + below);
 
   for (const system of input.justified.systems) {
-    const staffTop = TOP_MARGIN + system.index * (STAFF_HEIGHT + SYSTEM_GAP);
+    const staffTop = topMargin + system.index * (STAFF_HEIGHT + systemGap);
     systems.push({ index: system.index, x: 0, y: staffTop, w: system.width, h: STAFF_HEIGHT });
 
     for (let line = 0; line < STAFF_LINES; line += 1) {
@@ -102,17 +110,44 @@ export function emit(input: EmitInput, _options?: NotationOptions): LayoutResult
             rects,
             elements,
             placement,
+            stemOverrides: input.beams.stemOverrides,
           });
         }
       });
     }
   }
 
+  const staffTopOf = new Map(systems.map((s) => [s.index, s.y] as const));
+  for (const poly of input.beams.polygons) {
+    const staffTop = staffTopOf.get(poly.systemIndex) ?? 0;
+    paths.push({
+      d: pathFrom(poly.points, staffTop),
+      cls: 'beam',
+      el: poly.el,
+    });
+  }
+
+  for (const rect of input.tuplets.brackets) {
+    const staffTop = staffTopOf.get(rect.systemIndex) ?? 0;
+    rects.push({
+      x: rect.x,
+      y: staffTop + rect.y,
+      w: rect.w,
+      h: rect.h,
+      cls: 'tuplet-bracket',
+      el: rect.el,
+    });
+  }
+  for (const numeral of input.tuplets.numerals) {
+    const staffTop = staffTopOf.get(numeral.systemIndex) ?? 0;
+    glyphs.push(glyph(numeral.name, numeral.x, staffTop + numeral.y, 'tuplet-number', numeral.el));
+  }
+
   const height =
-    TOP_MARGIN +
+    topMargin +
     Math.max(1, systems.length) * STAFF_HEIGHT +
-    Math.max(0, systems.length - 1) * SYSTEM_GAP +
-    BOTTOM_MARGIN;
+    Math.max(0, systems.length - 1) * systemGap +
+    bottomMargin;
 
   const timemap = buildTimeMap({
     divisions: input.divisions,
@@ -131,7 +166,7 @@ export function emit(input: EmitInput, _options?: NotationOptions): LayoutResult
     systems,
     glyphs,
     rects,
-    paths: [], // ties and slurs are stage 10 — not in this slice
+    paths, // beams (stage 9); ties and slurs are stage 10, not in this slice
     elements,
     // TODO(interaction.md): `query/slots.ts` generates the slot bands from the column
     // x-ranges this stage already knows; until it lands there are no slots.
@@ -318,6 +353,7 @@ interface ElementContext {
   rects: RectShape[];
   elements: Record<string, ElementBox>;
   placement: Map<NoteId, Placement>;
+  stemOverrides?: ReadonlyMap<NoteId, { yTop: number; yBottom: number }>;
 }
 
 function emitElement(element: VerticalElement, ctx: ElementContext): void {
@@ -375,18 +411,19 @@ function emitElement(element: VerticalElement, ctx: ElementContext): void {
   const stem = element.stem;
   if (stem?.drawn) {
     const owner = element.noteheads[0]?.id;
+    const override = ctx.stemOverrides?.get(element.id);
+    const yTop = override?.yTop ?? stem.yTop;
+    const yBottom = override?.yBottom ?? stem.yBottom;
     ctx.rects.push({
-      x: ctx.x + stem.dx,
-      y: staffTop + stem.yTop,
+      x: stemX(ctx.x, stem),
+      y: staffTop + yTop,
       w: stem.width,
-      h: stem.yBottom - stem.yTop,
+      h: yBottom - yTop,
       cls: 'stem',
       ...(owner ? { el: owner } : {}),
     });
     if (stem.flag) {
-      ctx.glyphs.push(
-        glyph(stem.flag.glyph, ctx.x + stem.flag.dx, staffTop + stem.flag.y, 'flag', owner),
-      );
+      ctx.glyphs.push(glyph(stem.flag.glyph, stemX(ctx.x, stem), staffTop + stem.flag.y, 'flag', owner));
     }
   }
 
@@ -496,6 +533,67 @@ export function describeDuration(duration: Duration, kind: 'note' | 'rest'): str
 function restLabel(element: VerticalElement, wholeBar: boolean): string {
   const what = wholeBar ? 'whole-bar rest' : describeDuration(element.duration, 'rest');
   return `${what}, measure ${element.measureIndex + 1}`;
+}
+
+function contentMargins(
+  justified: JustifiedScore,
+  beamsResult: BeamsResult,
+  tupletsResult: TupletsResult,
+): { above: number; below: number } {
+  let minY = 0;
+  let maxY = STAFF_HEIGHT;
+
+  for (const system of justified.systems) {
+    for (const measure of system.measures) {
+      for (const column of measure.columns) {
+        for (const el of column.elements) {
+          for (const head of el.noteheads) {
+            for (const y of head.ledgerLines) {
+              minY = Math.min(minY, y);
+              maxY = Math.max(maxY, y);
+            }
+          }
+          if (el.stem?.drawn) {
+            const override = beamsResult.stemOverrides.get(el.id);
+            minY = Math.min(minY, override?.yTop ?? el.stem.yTop);
+            maxY = Math.max(maxY, override?.yBottom ?? el.stem.yBottom);
+          }
+          if (el.rest) {
+            minY = Math.min(minY, el.rest.y - 1);
+            maxY = Math.max(maxY, el.rest.y + 1);
+          }
+        }
+      }
+    }
+  }
+
+  for (const poly of beamsResult.polygons) {
+    for (const [, y] of poly.points) {
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+    }
+  }
+
+  for (const rect of tupletsResult.brackets) {
+    minY = Math.min(minY, rect.y);
+    maxY = Math.max(maxY, rect.y + rect.h);
+  }
+  for (const numeral of tupletsResult.numerals) {
+    const bbox = glyphBBox(numeral.name);
+    minY = Math.min(minY, numeral.y - bbox.bBoxNE[1]);
+    maxY = Math.max(maxY, numeral.y - bbox.bBoxSW[1]);
+  }
+
+  return {
+    above: Math.max(0, -minY) + CONTENT_PAD,
+    below: Math.max(0, maxY - STAFF_HEIGHT) + CONTENT_PAD,
+  };
+}
+
+function pathFrom(points: readonly (readonly [number, number])[], staffTop: number): string {
+  return points
+    .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x},${(staffTop + y).toFixed(3)}`)
+    .join(' ') + ' Z';
 }
 
 // --- primitives -------------------------------------------------------------

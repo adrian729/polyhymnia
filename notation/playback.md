@@ -26,8 +26,8 @@ interface TimeMap {
   tickToSeconds(tick: number): number;
   secondsToTick(seconds: number): number;
   positionAtTick(tick: number): { systemIndex: number; x: number; yTop: number; yBottom: number } | null;
-  activeAt(tick: number): readonly NoteId[];    // flattens every active entry's `ids`
-  byId(id: NoteId): TimeMapEntry | undefined;   // searches each entry's `ids`
+  activeAt(tick: number): readonly NoteId[];    // written spans — a tie continuation lights on its own, not the tie head
+  byId(id: NoteId): TimeMapEntry | undefined;   // tie-merged entries — sound still spans the whole tie
 }
 ```
 
@@ -81,7 +81,7 @@ type PlaybackView =
   | { mode: 'manual' };   // driven entirely via the imperative handle
 ```
 
-`notes` is the common case — a `Set` membership check while emitting, `data-pn-playing="true"` on matches. Costs nothing (a chord-ID quiz playing four notes is the whole feature). `cursor` is continuous playback; `highlightActive: true` derives `activeIds` from `timemap.activeAt(tick)` so the caller never maintains both.
+`notes` is the common case — a `Set` membership check written imperatively onto each element's `<g>` ref, `data-pn-playing="true"` on matches. Costs nothing (a chord-ID quiz playing four notes is the whole feature). Implemented (`notation-react`, plan `phase3-rhythm.md` step 7a): `<Notation.Playback view={{mode:'notes', activeIds}} />` for the declarative case, or `handle.setPlaybackTick(tick)` to derive the same highlight from `timemap.activeAt(tick)` without a `Playback` child. `activeAt` looks up each written note/chord's own span, not the tie-merged `entries` (`## Timemap` above) — so a tied continuation lights when playback reaches it, and the tie start unlights; `byId` still resolves to the merged entry, so anything scheduling sound off it keeps hearing one note across the tie. `cursor` is continuous playback; `highlightActive: true` derives `activeIds` from `timemap.activeAt(tick)` so the caller never maintains both — deferred to step 7b, currently a no-op in `<Notation.Playback>` (doesn't throw).
 
 `positionAtTick` interpolates piecewise-linearly between column x positions, timed so the cursor reaches column *i* exactly when it sounds — NOT time-proportional, since spacing follows the power law in `engraving.md` and proportional motion would drift off the noteheads for mixed durations.
 
@@ -105,4 +105,4 @@ None of these create/remove/reparent DOM nodes: the cursor `<g>` is created and 
 
 ## Presentation
 
-CSS only. The component emits `<g data-pn-cursor><rect/></g>` spanning the staff height — it doesn't decide line vs. band vs. glow vs. off. `mode:'notes'` only sets `data-pn-playing` — styling is entirely the app's call (`architecture.md` theming contract).
+CSS only. The component emits `<g data-pn-cursor><rect/></g>` spanning the staff height — it doesn't decide line vs. band vs. glow vs. off (not built yet, step 7b). `mode:'notes'` only sets `data-pn-playing` — styling is entirely the app's call (`architecture.md` theming contract).

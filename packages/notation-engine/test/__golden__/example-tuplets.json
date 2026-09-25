@@ -63,13 +63,6 @@
       "el": "ev3"
     },
     {
-      "x": 14.774,
-      "y": 4.5,
-      "cp": 57920,
-      "cls": "flag",
-      "el": "ev3"
-    },
-    {
       "x": 16.948,
       "y": 7.5,
       "cp": 57508,
@@ -77,24 +70,10 @@
       "el": "ev4"
     },
     {
-      "x": 18.008,
-      "y": 4,
-      "cp": 57920,
-      "cls": "flag",
-      "el": "ev4"
-    },
-    {
       "x": 20.182,
       "y": 7,
       "cp": 57508,
       "cls": "notehead",
-      "el": "ev5"
-    },
-    {
-      "x": 21.242,
-      "y": 3.5,
-      "cp": 57920,
-      "cls": "flag",
       "el": "ev5"
     },
     {
@@ -152,6 +131,27 @@
       "cp": 57508,
       "cls": "notehead",
       "el": "m1.s0.e5"
+    },
+    {
+      "x": 8.12,
+      "y": 2.052,
+      "cp": 59523,
+      "cls": "tuplet-number",
+      "el": "m0.s0.t0"
+    },
+    {
+      "x": 16.946,
+      "y": 3.241,
+      "cp": 59523,
+      "cls": "tuplet-number",
+      "el": "m0.s0.t1"
+    },
+    {
+      "x": 47.932,
+      "y": 2.088,
+      "cp": 59523,
+      "cls": "tuplet-number",
+      "el": "m1.s0.t0"
     }
   ],
   "rects": [
@@ -215,25 +215,25 @@
     },
     {
       "x": 14.774,
-      "y": 4.5,
+      "y": 4,
       "w": 0.12,
-      "h": 3.332,
+      "h": 3.832,
       "cls": "stem",
       "el": "ev3"
     },
     {
       "x": 18.008,
-      "y": 4,
+      "y": 3.5,
       "w": 0.12,
-      "h": 3.332,
+      "h": 3.832,
       "cls": "stem",
       "el": "ev4"
     },
     {
       "x": 21.242,
-      "y": 3.5,
+      "y": 3,
       "w": 0.12,
-      "h": 3.332,
+      "h": 3.832,
       "cls": "stem",
       "el": "ev5"
     },
@@ -307,9 +307,63 @@
       "h": 3.332,
       "cls": "stem",
       "el": "m1.s0.e5"
+    },
+    {
+      "x": 5.764,
+      "y": 2.384,
+      "w": 5.896,
+      "h": 0.16,
+      "cls": "tuplet-bracket",
+      "el": "m0.s0.t0"
+    },
+    {
+      "x": 5.684,
+      "y": 2.464,
+      "w": 0.16,
+      "h": 0.5,
+      "cls": "tuplet-bracket",
+      "el": "m0.s0.t0"
+    },
+    {
+      "x": 11.58,
+      "y": 2.464,
+      "w": 0.16,
+      "h": 0.5,
+      "cls": "tuplet-bracket",
+      "el": "m0.s0.t0"
+    },
+    {
+      "x": 36.144,
+      "y": 2.42,
+      "w": 24.76,
+      "h": 0.16,
+      "cls": "tuplet-bracket",
+      "el": "m1.s0.t0"
+    },
+    {
+      "x": 36.064,
+      "y": 2.5,
+      "w": 0.16,
+      "h": 0.5,
+      "cls": "tuplet-bracket",
+      "el": "m1.s0.t0"
+    },
+    {
+      "x": 60.824,
+      "y": 2.5,
+      "w": 0.16,
+      "h": 0.5,
+      "cls": "tuplet-bracket",
+      "el": "m1.s0.t0"
     }
   ],
-  "paths": [],
+  "paths": [
+    {
+      "d": "M14.774129797763775,4.500 L21.36248570152857,3.481 L21.36248570152857,2.981 L14.774129797763775,4.000 Z",
+      "cls": "beam",
+      "el": "ev3.beam"
+    }
+  ],
   "elements": {
     "m0.s0.e0": {
       "id": "m0.s0.e0",
@@ -586,14 +640,7 @@
     }
   },
   "slots": [],
-  "diagnostics": [
-    {
-      "severity": "warning",
-      "code": "mnx-unsupported",
-      "message": "Unsupported MNX: beams in measure 0; flags are drawn instead.",
-      "measureIndex": 0
-    }
-  ],
+  "diagnostics": [],
   "timemap": {
     "divisions": 3360,
     "entries": [

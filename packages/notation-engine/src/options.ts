@@ -7,8 +7,10 @@ export interface NotationOptions {
   divisions?: number;
   /** engraving.md spring/rod spacing, default k=0.55 base=3.2sp */
   spacing?: { k?: number; base?: number };
-  /** default halfBarBeaming=true; `beatGrouping` is a score-wide fallback */
-  beaming?: { halfBarBeaming?: boolean; beatGrouping?: readonly number[] };
+  /** engraving.md "Beaming". `mergeBeats` (default true) governs the 2/4, 3/4 and 4/4
+   *  plain-eighths merge; `beatGrouping` overrides the default per-meter grouping, keyed
+   *  `${beats}/${beatType}`, sizes in eighth notes. */
+  beaming?: { mergeBeats?: boolean; beatGrouping?: Readonly<Record<string, readonly number[]>> };
   accidentals?: {
     courtesyPolicy?: 'none' | 'next-measure' | 'always'; // default 'next-measure'
     parenthesizeCautionary?: boolean;
@@ -30,7 +32,7 @@ export interface NotationOptions {
 export const DEFAULT_OPTIONS = {
   divisions: 3360,
   spacing: { k: 0.55, base: 3.2 },
-  beaming: { halfBarBeaming: true },
+  beaming: { mergeBeats: true },
   accidentals: {
     courtesyPolicy: 'next-measure' as const,
     parenthesizeCautionary: false,

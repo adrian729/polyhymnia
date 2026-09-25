@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { Clef } from '@polyhymnia/notation-model';
 import { layoutScore } from '../src/layout/index.js';
 import type { NoteId } from '../src/layout/records.js';
-import { glyphBBox } from '../src/font/metadata.js';
+import { engravingDefaults, glyphBBox } from '../src/font/metadata.js';
 import { GLYPH_CODEPOINT } from '../src/font/glyphs.js';
 import type { ElementBox, GlyphRun, LayoutResult } from '../src/layout/types.js';
 import {
@@ -18,8 +18,10 @@ import {
   mnx,
   note,
   rest,
+  tuplet,
   voices,
   withGlobal,
+  withPart,
 } from './mnx.js';
 
 const cp = (name: string): number => GLYPH_CODEPOINT[name]!;
@@ -375,12 +377,121 @@ describe('stems and flags', () => {
     expect(stems.every((s) => Math.abs(s.h - (3.5 - 0.168)) < 1e-6)).toBe(true);
   });
 
-  it('flags eighths and shorter, since beaming is a later stage', () => {
-    const layout = layoutScore(
-      mnx({}, measure(note('C4', '8'), note('D4', '8'), note('E4', '16'), rest('16'), rest('h'), rest('8'))),
-    );
+  it('flags an unbeamed run shorter than a quarter', () => {
+    const layout = layoutScore(mnx({}, measure(note('C4', '8'), rest('h.'))));
     const flags = glyphsOf(layout, 'flag');
-    expect(flags.map((g) => g.cp)).toEqual([cp('flag8thUp'), cp('flag8thUp'), cp('flag16thUp')]);
+    expect(flags.map((g) => g.cp)).toEqual([cp('flag8thUp')]);
+  });
+});
+
+function pathPoints(d: string): [number, number][] {
+  return d
+    .replace(/Z$/, '')
+    .trim()
+    .split(' ')
+    .map((seg) => seg.slice(1).split(',').map(Number) as [number, number]);
+}
+
+function beamLineAt(points: readonly [number, number][], x: number): number {
+  const [x0, y0] = points[0]!;
+  const [x1, y1] = points[1]!;
+  if (Math.abs(x1 - x0) < 1e-9) return y0;
+  return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
+}
+
+describe('beaming', () => {
+  it('draws no flag on a beamed note', () => {
+    const layout = layoutScore(mnx({}, measure(note('C4', '8'), note('D4', '8'), rest('h'))));
+    expect(glyphsOf(layout, 'flag')).toHaveLength(0);
+    expect(layout.paths.filter((p) => p.cls === 'beam')).not.toHaveLength(0);
+  });
+
+  it('ends every beamed stem on its beam\'s outer edge', () => {
+    const layout = layoutScore(
+      mnx({}, measure(note('C4', '8'), note('A5', '8'), note('D4', '8'), note('E4', '8'))),
+    );
+    const staffTop = layout.systems[0]!.y;
+    const beamPath = layout.paths.find((p) => p.cls === 'beam')!;
+    const [, , far1, far0] = pathPoints(beamPath.d);
+    const points = [far0!, far1!];
+    const stems = layout.rects.filter((r) => r.cls === 'stem').sort((a, b) => a.x - b.x);
+
+    for (const stem of stems) {
+      const beamY = beamLineAt(points, stem.x) - staffTop;
+      const stemEnd = stem.y - staffTop + stem.h;
+      const stemStart = stem.y - staffTop;
+      const onLine = Math.abs(beamY - stemEnd) < 1e-2 || Math.abs(beamY - stemStart) < 1e-2;
+      expect(onLine).toBe(true);
+    }
+  });
+
+  it('never shortens a beamed stem past MIN_STEM (3.0sp)', () => {
+    const layout = layoutScore(
+      mnx({}, measure(note('B4', '8'), note('B4', '8'), note('C5', '8'), note('C5', '8'))),
+    );
+    const stems = layout.rects.filter((r) => r.cls === 'stem');
+    expect(stems.length).toBeGreaterThan(0);
+    for (const stem of stems) expect(stem.h).toBeGreaterThanOrEqual(3.0 - 1e-6);
+  });
+
+  it('shares one stem direction across a beam group', () => {
+    const layout = layoutScore(mnx({}, measure(note('C4', '8'), note('F5', '8'), rest('h'))));
+    const stems = layout.rects.filter((r) => r.cls === 'stem').sort((a, b) => a.x - b.x);
+    expect(stems).toHaveLength(2);
+    const staffTop = layout.systems[0]!.y;
+    const beamPath = layout.paths.find((p) => p.cls === 'beam')!;
+    const [, , far1, far0] = pathPoints(beamPath.d);
+    const points = [far0!, far1!];
+    for (const stem of stems) {
+      const beamY = beamLineAt(points, stem.x) - staffTop;
+      const stemEnd = stem.y - staffTop + stem.h;
+      const stemStart = stem.y - staffTop;
+      const onLine = Math.abs(beamY - stemEnd) < 1e-2 || Math.abs(beamY - stemStart) < 1e-2;
+      expect(onLine).toBe(true);
+    }
+  });
+
+  it('hooks a dotted-eighth + sixteenth toward the dotted note', () => {
+    const layout = layoutScore(mnx({}, measure(note('C4', '8.'), note('D4', '16'), rest('h'))));
+    const beamPaths = layout.paths.filter((p) => p.cls === 'beam');
+    expect(beamPaths.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('bounds an outward-pointing explicit hook by the far gap, not the full 1.0sp stub', () => {
+    const layout = layoutScore(
+      mnx(
+        { time: { count: 4, unit: 16 } },
+        withPart(
+          {
+            beams: [
+              {
+                events: ['e0', 'e1', 'e2'],
+                beams: [{ events: ['e0'], direction: 'left' }],
+              },
+            ],
+          },
+          measure(
+            note('C4', '16', { id: 'e0' }),
+            note('D4', '16', { id: 'e1' }),
+            note('E4', '16', { id: 'e2' }),
+            rest('16'),
+          ),
+        ),
+      ),
+      { maxLastSystemFill: 0 },
+    );
+    const stems = layout.rects.filter((r) => r.cls === 'stem').sort((a, b) => a.x - b.x);
+    const [stem0, stem1] = stems;
+    const halfGap = Math.abs(stem1!.x - stem0!.x) / 2;
+    expect(halfGap).toBeLessThan(1.0);
+    const beamPaths = layout.paths.filter((p) => p.cls === 'beam');
+    const widths = beamPaths.map((p) => {
+      const xs = pathPoints(p.d).map(([x]) => x);
+      return Math.max(...xs) - Math.min(...xs);
+    });
+    const hookWidth = Math.min(...widths);
+    expect(hookWidth).toBeLessThan(1.0 - 1e-6);
+    expect(hookWidth).toBeCloseTo(halfGap + engravingDefaults.stemThickness, 5);
   });
 
   it('draws augmentation dots off the staff line', () => {
@@ -504,6 +615,15 @@ describe('timemap', () => {
     ]);
   });
 
+  it('highlights the tie continuation on its own written span, not the tie head', () => {
+    const layout = layoutScore(fixture('tie-merge'));
+    const tm = layout.timemap;
+
+    expect(tm.activeAt(6720)).toEqual(['c-start']);
+    expect(tm.activeAt(13440)).toEqual(['c-stop']);
+    expect(tm.byId('c-start')!.durationTicks).toBe(13440); // sound still spans the merged tie
+  });
+
   it('follows a custom tempo map', () => {
     expect(layoutScore(fixture('tempo')).timemap.tickToSeconds(3360)).toBeCloseTo(1, 6);
   });
@@ -523,6 +643,96 @@ describe('purity and glyph coverage', () => {
     const layout = layoutScore(fixture('repeat-alto'));
     expect(layout.glyphs.length).toBeGreaterThan(0);
     expect(layout.glyphs.every((g) => g.cp >= 0xe000)).toBe(true);
+  });
+});
+
+describe('tuplets', () => {
+  it('omits the bracket when the whole span beams as one run, drawing only the numeral', () => {
+    const layout = layoutScore(
+      mnx({}, measure(tuplet([3, '8'], [2, '8'], note('C4', '8'), note('D4', '8'), note('E4', '8')), rest('h'), rest('q'))),
+    );
+    expect(layout.rects.filter((r) => r.cls === 'tuplet-bracket')).toHaveLength(0);
+    expect(layout.glyphs.filter((g) => g.cls === 'tuplet-number')).not.toHaveLength(0);
+    expect(layout.paths.filter((p) => p.cls === 'beam')).not.toHaveLength(0);
+  });
+
+  it('draws a bracket when the span cannot beam (quarters)', () => {
+    const layout = layoutScore(
+      mnx({}, measure(tuplet([3, 'q'], [2, 'q'], note('C4', 'q'), note('D4', 'q'), note('E4', 'q')), note('F4', 'q'), note('G4', 'q'))),
+    );
+    expect(layout.rects.filter((r) => r.cls === 'tuplet-bracket')).not.toHaveLength(0);
+    expect(layout.glyphs.filter((g) => g.cls === 'tuplet-number')).not.toHaveLength(0);
+  });
+
+  it('draws a bracket when a rest sits inside an otherwise-beamable span', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        measure(
+          tuplet([3, '8'], [2, '8'], note('C4', '8'), rest('8'), note('D4', '8')),
+          rest('h'),
+          rest('q'),
+        ),
+      ),
+    );
+    expect(layout.rects.filter((r) => r.cls === 'tuplet-bracket')).not.toHaveLength(0);
+  });
+
+  it('draws a bracket when only part of the span is beamed', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        withPart(
+          { beams: [{ events: ['pb1', 'pb2'] }] },
+          measure(
+            tuplet(
+              [3, '8'],
+              [2, '8'],
+              note('C4', '8', { id: 'pb1' }),
+              note('D4', '8', { id: 'pb2' }),
+              note('E4', '8', { id: 'pb3' }),
+            ),
+            rest('h'),
+            rest('q'),
+          ),
+        ),
+      ),
+    );
+    expect(layout.rects.filter((r) => r.cls === 'tuplet-bracket')).not.toHaveLength(0);
+  });
+
+  it("MNX bracket: 'yes' forces a bracket even on a fully-beamed run", () => {
+    const forced = { ...tuplet([3, '8'], [2, '8'], note('C4', '8'), note('D4', '8'), note('E4', '8')), bracket: 'yes' as const };
+    const layout = layoutScore(mnx({}, measure(forced, rest('h'), rest('q'))));
+    expect(layout.rects.filter((r) => r.cls === 'tuplet-bracket')).not.toHaveLength(0);
+  });
+
+  it("MNX bracket: 'no' suppresses a bracket the auto rule would otherwise draw", () => {
+    const forced = {
+      ...tuplet([3, 'q'], [2, 'q'], note('C4', 'q'), note('D4', 'q'), note('E4', 'q')),
+      bracket: 'no' as const,
+    };
+    const layout = layoutScore(mnx({}, measure(forced, note('F4', 'q'), note('G4', 'q'))));
+    expect(layout.rects.filter((r) => r.cls === 'tuplet-bracket')).toHaveLength(0);
+  });
+
+  it("showNumber: 'noNumber' draws no numeral", () => {
+    const silent = {
+      ...tuplet([3, 'q'], [2, 'q'], note('C4', 'q'), note('D4', 'q'), note('E4', 'q')),
+      showNumber: 'noNumber' as const,
+    };
+    const layout = layoutScore(mnx({}, measure(silent, note('F4', 'q'), note('G4', 'q'))));
+    expect(layout.glyphs.filter((g) => g.cls === 'tuplet-number')).toHaveLength(0);
+  });
+
+  it("showNumber: 'both' draws actual and normal digits", () => {
+    const both = {
+      ...tuplet([3, 'q'], [2, 'q'], note('C4', 'q'), note('D4', 'q'), note('E4', 'q')),
+      showNumber: 'both' as const,
+    };
+    const layout = layoutScore(mnx({}, measure(both, note('F4', 'q'), note('G4', 'q'))));
+    const numerals = layout.glyphs.filter((g) => g.cls === 'tuplet-number');
+    expect(numerals).toHaveLength(3);
   });
 });
 

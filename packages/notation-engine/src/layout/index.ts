@@ -3,12 +3,13 @@
 // composition is pure: StrictMode double-invocation produces identical output, and the
 // result is testable in Node with no DOM and no font loaded.
 //
-// Stages 9 (beams) and 10 (curves) are not implemented yet: eighth notes and shorter
-// carry flags rather than beams, and `paths` is always empty.
+// Stage 10 (curves) is not implemented yet: `paths` carries beams only, ties/slurs
+// still need drawing.
 
 import type { NotationOptions } from '../options.js';
 import type { Diagnostic, MnxDocument } from '@polyhymnia/notation-model';
 import { accidentals } from './accidentals.js';
+import { beams } from './beams.js';
 import { breakSystems } from './break.js';
 import { emit } from './emit.js';
 import { grouping } from './grouping.js';
@@ -16,6 +17,7 @@ import { horizontal } from './horizontal.js';
 import { justify } from './justify.js';
 import { normalize } from './normalize.js';
 import { temporal } from './temporal.js';
+import { tuplets } from './tuplets.js';
 import type { LayoutResult } from './types.js';
 import { vertical } from './vertical.js';
 
@@ -23,11 +25,13 @@ export function layoutScore(doc: MnxDocument, options?: NotationOptions): Layout
   const normalized = normalize(doc, options);
   const timed = temporal(normalized, options);
   const resolvedAccidentals = accidentals(normalized, timed, options);
-  const groups = grouping(timed, options);
+  const groups = grouping(normalized, timed, options);
   const placed = vertical(normalized, timed, resolvedAccidentals, options);
   const spaced = horizontal(normalized, timed, placed, options);
   const broken = breakSystems(spaced, options);
   const justified = justify(broken, options);
+  const beamed = beams(justified, normalized.beams);
+  const tupletShapes = tuplets(justified, groups.tuplets, normalized.beams, beamed, options);
 
   const diagnostics: Diagnostic[] = [
     ...normalized.diagnostics,
@@ -38,6 +42,8 @@ export function layoutScore(doc: MnxDocument, options?: NotationOptions): Layout
     ...spaced.diagnostics,
     ...broken.diagnostics,
     ...justified.diagnostics,
+    ...beamed.diagnostics,
+    ...tupletShapes.diagnostics,
   ];
 
   return emit(
@@ -47,6 +53,8 @@ export function layoutScore(doc: MnxDocument, options?: NotationOptions): Layout
       tempo: normalized.tempo,
       divisions: normalized.divisions,
       diagnostics,
+      beams: beamed,
+      tuplets: tupletShapes,
     },
     options,
   );

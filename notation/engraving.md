@@ -24,70 +24,80 @@ Direction and length for every notehead outside a beam group (stage 5, `vertical
 
 ## Beaming
 
-**Not implemented yet**, neither the grouping nor the drawing (`AGENTS.md`'s Phase-2 note, plan's "Out of scope"). Today: `normalize.ts` reads a measure's MNX `beams` (`PartMeasure.beams`, a `BeamList`) only to report it — `mnx-unsupported`, "flags are drawn instead" — every event still gets its own flag glyph (`font.md`'s flag block), regardless of duration or meter. Beat grouping is **not document data**: MNX's `time` object carries no per-measure grouping field (unlike the old model's `TimeSpec.beatGrouping`), and the engine's own `TimeSpec` (`layout/records.ts`) doesn't add one back.
+Grouping and drawing are both implemented (`mnx.md` "Beams"): an eighth note or shorter that lands in a beam group gets no flag, and its stem is re-terminated at the beam line by `layout/beams.ts` (stage 9).
 
-The planned design, once built, is two pieces:
+One piece, per `phase3-rhythm.md` "DECISIONS FROM RESEARCH":
 
-1. **`beam(doc: MnxDocument, { beatGrouping? }) → MnxDocument`**, in `notation-model` — a pure MNX→MNX function (same shape as `applyIntent`, `interaction.md`), not an engine stage. It resolves beat-group boundaries for each measure (table below), decides beam-break conditions (a rest not under `beamOverRests`, a duration ≥ quarter, crossing a beat-group boundary), and **writes the result as explicit MNX `beams`** — a tree of `{ events: Id[], beams?: BeamList, direction?: 'left'|'right'|'auto' }`, top-level entries are primary beam groups, nested `beams` are the secondary-beam/hook subdivisions, `direction` disambiguates a hook's point. Content generators and `applyIntent` call it after any edit that can change note values in a measure; hand-authored MNX can also just write `beams` directly and skip the function entirely.
-2. **Beam drawing in the engine**, reading those explicit `beams` instead of inferring groups from onset math at layout time — the geometry algorithm below (slope, secondary beams, hooks) stays the same, it just starts from an already-grouped tree rather than computing the grouping itself.
+**The grouping core**, `beamGroups(meter, events, options?, pickupOffset?)` in `notation-model/src/mnx/beam.ts` — pure, given one voice's events (id, kind, written base/dots, tuplet-scaled length) in order, returns the primary groups (≥2 beamable events each) as arrays of ids. It never mints ids and never touches MNX. Its only caller is **the engine's auto-beaming**, `layout/normalize.ts`: for a measure with no explicit `beams` and `mnx.support.useBeams !== true`, it calls `beamGroups` directly with the engine's own element ids (never through MNX), and derives secondary levels/hooks from written durations itself (`mnx.md` "Beams"). A measure *with* explicit `beams` uses exactly those, nested levels/hooks included when given. There is deliberately no MNX-writing counterpart to `beamGroups` — nothing consumes explicit beams as input yet, so one was never built (AGENTS.md: no speculative code).
 
-Only durations < quarter beam. `beam()`'s beat-group boundaries — resolution order once irregular-meter grouping is ambiguous: `options.beaming.beatGrouping` passed to the call (a score-wide default) > the guessed default below (diagnostic emitted when guessing). There is no per-measure override anymore — that tier existed only because the old model's `TimeSpec` carried it; MNX doesn't, so the highest tier `beam()` has is its own call-time option:
+Only durations < quarter beam; a rest never joins an auto-beamed group (explicit MNX `beams` may still span one — mnx.md). The engine's beat-group boundaries are resolved by `beamGroups`' `options` (`GroupingOptions`/`NotationOptions.beaming`): a supplied `beatGrouping[meter]` (validated to sum to the bar; invalid → diagnostic `beam-grouping-invalid`, falls back to the default below) beats the default table, which is fixed — no "guessed, with a diagnostic" tier anymore, since every meter below has one deterministic answer:
 
-| Meter | Group unit | Boundaries (quarters from bar start) | Note |
-| --- | --- | --- | --- |
-| 2/4, 3/4 | quarter | 1, 2, (3) | |
-| 4/4 | quarter | 1, 2, 3 | `options.beaming.halfBarBeaming` default **on** for 8ths only: beam 4-at-a-time across 1–2 and 3–4, never across the bar middle |
-| 2/2, cut | half | 2 | |
-| 3/8 | whole bar | — | |
-| 6/8, 9/8, 12/8 | dotted quarter | 1.5, 3, (4.5), (6) | groups by the dotted beat, not the eighth |
-| 5/8, 7/8, 5/4, 7/4, 11/8… | explicit | from resolved `beatGrouping` (above) | default guess [3,2] / [2,2,3] / [3,2]; emits a diagnostic when guessing |
+| Meter | Group sizes (eighths) | Note |
+| --- | --- | --- |
+| 2/4 | `mergeBeats` (default true): `[4]`; else `[2,2]` | merges to one group only when every note is a plain unbroken eighth — 16ths/dotted rhythms use the per-beat `[2,2]` regardless |
+| 3/4 | `[6]` / `[2,2,2]` | same plain-eighths condition |
+| 4/4 | `[4,4]` / `[2,2,2,2]` | merges within each half, **never across the middle**, even with `mergeBeats` on |
+| 2/2 | `[4,4]` | per half-note beat, unaffected by `mergeBeats` |
+| 3/8 | `[3]` | whole bar |
+| 6/8, 9/8, 12/8 | `[3,3]`, `[3,3,3]`, `[3,3,3,3]` | groups of 3 eighths (the dotted-quarter beat) |
+| 5/4 | `[2,2,2,2,2]` | per quarter |
+| 5/8 | `[3,2]` | |
+| 7/8 | `[2,2,3]` | |
+| other odd `n`/8 | 3s then a final 2 | e.g. 11/8 → `[3,3,3,2]` |
 
-Geometry, per group, drawn from the MNX `beams` tree, run **after justification** (needs final x):
+Non-plain content (any 16th/32nd/64th, or a dotted note, present in the measure) always uses the *unmerged* per-beat sizes (the "else" column above, or one group per beat for the other meters) — "16ths and mixed rhythms: per beat, never merged." Tuplet content is never mixed with plain notes in the same group — a beam breaks entering/leaving/switching a `tuplet`, and inside one, only the rest/quarter-or-longer breaks apply, not the beat-boundary check (there's no outer beat inside a tuplet's own written-time bubble). A pickup measure's boundaries are anchored to the *end* of the bar (`pickupOffset` = full bar length − the voice's own content length), not the start.
+
+Secondary levels/hooks, when derived (no nested MNX `beams`): for level `L` = 2 (16th), 3 (32nd), 4 (64th) — a maximal run of consecutive notes whose written value needs at least `L` beams becomes one `BeamSegment`; a run of one becomes a hook. A hook points at the group's own end when the singleton sits at the start/end of the *primary* group (`right`/`left`); otherwise it points `right` when the note's onset begins an even-numbered level-`L` unit since the group's start (the first of a pair) and `left` when it's the second — e.g. the 16th in a dotted-8th+16th hooks `left`, toward the dotted note it pairs with; 16th-8th-16th hooks `right` then `left`. A rest inside the span breaks a run/hook exactly like a too-long note would (it never joins one). When nested MNX `beams` are given instead, their levels and `direction`s are read as-is (an explicit direction always wins; an omitted or `auto` one on a single-event nested beam falls back to the same start/end/onset rule).
+
+Group stem rule (`vertical.ts`): every note in a beam group shares one stem direction, voted by the notehead furthest from the middle line across the whole group (chord members included), tie → down. An explicit MNX `stemDirection` on any member wins; members that disagree keep the first one's direction and report `mnx-unsupported` ("mixed stem directions in a beam"). A rest inside the group gets no stem; a beamed note gets no flag.
+
+Geometry, per group, computed by `layout/beams.ts` (stage 9) from the resolved `NormalizedBeam` (`mnx.md`), run **after justification** (needs final x):
 
 ```
-1. stem direction: from Stems (above) — already resolved per-note/per-chord; 2-voice forces it
+1. stem direction: from Stems (above) — already resolved per group; 2-voice forces it
    instead (skip, see Two voices below).
 2. nominal stem ends: same font anchors as Stems (above), extend 3.5sp from notehead centre.
+   A chord's stem uses its outermost head in the stem direction, same as an unbeamed chord.
 3. raw slope from OUTER note endpoints (not regression — engraving convention anchors the
    outer notes; regression visibly disagrees with the first/last note).
 4. constrain:
-     all staffPositions equal          -> slope = 0
-     non-monotonic, first == last       -> slope = 0   (a "valley"/"peak" group)
+     outer endpoints equal (includes the "all equal" and "valley"/"peak" cases) -> slope = 0
      slope = clamp(slope, -0.25, 0.25)  sp/sp
      totalRise = clamp(slope * span, -2.5, 2.5) sp, recompute slope
 5. quantize left end to quarter-space grid (yLeft = round(yLeft*4)/4).
-6. shift the whole beam so every stem clears MIN_STEM = 3.0sp beamed.
-7. emit level-0: RectShape{ x:x0, y:yLeft, w:x1-x0, h:0.5, rot:atan(slope) }.
-   level n offset = n * 0.75sp (beamThickness 0.5 + beamSpacing 0.25) toward the noteheads.
-8. stems re-terminate at the beam line, not at nominalStem.
+6. shift the whole beam so every stem clears MIN_STEM = 3.0sp, measured to its own
+   *innermost* level (the beam line nearest its notehead — the binding constraint, since a
+   note's stem always continues on to the outer primary line regardless); a beamed stem on a
+   note far off the staff is shifted further still so it reaches at least the middle line.
+7. beam shape: a parallelogram `PathShape` (`cls: 'beam'`, `el` = the beam's own id) — a
+   thin slab (vertical thickness, not perpendicular) whose near edge is exactly the line
+   every re-terminated stem in it touches, and whose far edge sits `beamThickness` (0.5sp)
+   away from the notehead. Level `n` (n >= 2) offsets that edge `(n-1) * 0.75sp`
+   (beamThickness 0.5 + beamSpacing 0.25) further toward the noteheads.
+8. stems re-terminate at the primary (level-1) beam line, not at nominalStem — the single
+   source of truth `emit.ts` applies as a stem override; a note's own higher levels sit
+   further toward its notehead but its stem is drawn the full way to the primary line.
 ```
 
-Secondary beams/hooks, per level L=1 (16th), 2 (32nd), 3 (64th):
+Secondary beams/hooks are already resolved by the time drawing runs (`NormalizedBeam.segments`, `mnx.md`) — draw each `BeamSegment` as a level-`n` parallelogram (level offset per step 7 above) across `first`..`last`; a segment with a `hook` draws `min(1.0sp, half the distance to its neighbour)` toward the group instead of the full width.
 
-```
-needsL[i] = beamCount(duration[i]) > L
-runs = maximal consecutive runs of needsL within the group
-  run length >= 2 -> full beam segment across the run
-  run length == 1 -> hook, ~1.0sp, toward the neighbour sharing the L-th subdivision
-                      (ambiguous: point right at group start, left at group end)
-break level-L beams at the L-th subdivision's beat boundary if the group spans one
-```
-
-Out of scope: cross-staff beaming, mixed stem direction within a beam, feathered beams (additive later; the first two need a second staff).
+Out of scope: cross-staff beaming, feathered beams (additive later; needs a second staff).
 
 `MAX_SLOPE=0.25`, rise cap `2.5sp` are engraving heuristics (Gould, *Behind Bars*), not measured — tune against the test gallery (`roadmap.md`).
 
 ## Tuplets
 
-A single nesting level is drawn: MNX `tuplet` containers (`inner`/`outer` note-value quantities) mark a contiguous run of sequence content; `normalize.ts` resolves the ratio (`tupletRatio`, `mnx.md`) and the `grouping` stage (`architecture.md`) resolves the flattened run to a span:
+Bracket/numeral drawing is implemented (`layout/tuplets.ts`, stage 9, after beams — needs beam geometry for the suppressed-bracket case below). A single nesting level is drawn: MNX `tuplet` containers (`inner`/`outer` note-value quantities) mark a contiguous run of sequence content; `normalize.ts` resolves the ratio (`tupletRatio`, `mnx.md`) and the `grouping` stage (`architecture.md`) resolves the flattened run to a span, including the resolved `showBracket` bracket decision below:
 
 ```ts
-interface TupletSpan { startTick: number; endTick: number; actual: number; normal: number; elements: readonly NoteId[]; bracket: boolean }
+interface TupletSpan { startTick: number; endTick: number; actual: number; normal: number; elements: readonly NoteId[]; display: TupletDisplay; showBracket: boolean }
 ```
+
+`display` carries the MNX `bracket`/`showNumber`/`placement` settings through (`mnx.md`); `showBracket` is `grouping.ts`'s resolution of the bracket rule below — `'yes'`/`'no'` override it, `'auto'`/absent applies it. `layout/tuplets.ts` only reads `showBracket`, never `display.bracket` directly.
 
 Duration scaling (`actual`:`normal`, e.g. 3:2) is applied per-element at the `normalize`/`temporal` stages (`mnx.md`), before grouping ever sees the span. `normalize.ts` already only reads events inside the `tuplet` container's own `content`, so a span can never cross a barline by construction — there's no `tuplet-crosses-barline` diagnostic to reject with. A `tuplet` nested inside another `tuplet` is flattened into one combined ratio + `mnx-unsupported` (`mnx.md`), rather than drawn as nested brackets.
 
-Bracket suppression: **omit the bracket** when every element in the span beams together as one run — the beam already marks the group; draw only the numeral, centered above/below the beam. **Draw the bracket** when the span is unbeamed, only partially beamed, or contains a rest.
+Bracket rule: `display.bracket` (`mnx.md`) `'yes'`/`'no'` always wins. `'auto'` (or absent) — **omit the bracket** when every element in the span beams together as one run and no rest is in the span; the beam already marks the group, draw only the numeral, centered above/below the beam. **Draw the bracket** otherwise (unbeamed, only partially beamed, or a rest in the span).
 
 Geometry, when drawn (post-justify, same as beams):
 
@@ -97,10 +107,14 @@ Geometry, when drawn (post-justify, same as beams):
    thickness `tupletBracketThickness` (0.16sp, architecture.md).
 2. hooks: ~0.5sp vertical ticks at each end, same thickness, pointing toward the notes —
    omitted on whichever end abuts a beam (the beam line already reads as that edge).
-3. numeral: `actual` only (e.g. "3", not "3:2") unless `options.tuplets.showRatio` is set,
-   centered at the bracket midpoint, 0.3sp gap, tuplet-digit glyphs (E880–E889) + tupletColon
-   (E88A). Numeral position/glyphs are the same whether or not the bracket itself is drawn
-   (suppression above only affects the bracket line + hooks).
+3. numeral: `display.showNumber` (`mnx.md`) wins when given — `'noNumber'` draws nothing,
+   `'inner'` draws `actual` only, `'both'` draws `actual`:`normal`; absent falls back to
+   `options.tuplets.showRatio` (`interface.md`, default false → `actual` only).
+   Tuplet-digit glyphs (E880–E889) + tupletColon (E88A). When the bracket is drawn: centered
+   at the bracket midpoint, 0.3sp gap beyond the bracket line. When the bracket is suppressed
+   (the beamed-as-one-run case above): centered at the span's middle x, 0.3sp beyond the
+   beam line at that x — following the beam's own slope, not the flat `yBracket` formula in
+   step 1 above, and not sharing the bracket's fixed 1.0sp offset either.
 ```
 
 Nested/compound tuplets: MNX already nests `tuplet` containers natively, so there's no data-model change needed to add this — it's purely an engine limitation (`README.md`).
