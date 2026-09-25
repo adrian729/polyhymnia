@@ -13,3 +13,6 @@ packages/notation-font/.venv/
 packages/notation-font/vendor/
 
 .claude/scheduled_tasks.lock
+
+# tmp
+tmp
