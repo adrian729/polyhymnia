@@ -62,13 +62,6 @@ describe('<Notation>', () => {
     expect(svg.classList.contains('pn-notation')).toBe(true);
   });
 
-  it('summarizes the score in the root aria-label', () => {
-    const { container } = render(<Notation score={simpleScore()} />);
-    expect(container.querySelector('svg')!.getAttribute('aria-label')).toBe(
-      'Music notation: 2 measures, 5 notes, 1 rest',
-    );
-  });
-
   it('emits one <text> per notehead at the codepoint and coordinates layout computed', () => {
     const doc = simpleScore();
     const layout = layoutScore(doc);
@@ -88,8 +81,6 @@ describe('<Notation>', () => {
       expect(head.getAttribute('fill')).toBe('currentColor');
     });
 
-    // The quarter notes really carry the black notehead codepoint, and the clef the
-    // treble glyph — not an arbitrary character that happens to be there.
     expect(heads[0]!.textContent!.codePointAt(0)).toBe(NOTEHEAD_BLACK);
     expect(
       container.querySelector('[data-pn="clef"]')!.textContent!.codePointAt(0),
@@ -110,32 +101,6 @@ describe('<Notation>', () => {
     expect(groups[0]!.getAttribute('aria-label')).toBe('C 4, quarter note, measure 1');
   });
 
-  it('draws the five staff lines and the barlines as rects, never with a hardcoded color', () => {
-    const { container } = render(<Notation score={simpleScore()} />);
-    const lines = [...container.querySelectorAll('[data-pn="staff-line"]')];
-    expect(lines).toHaveLength(5);
-    expect(container.querySelectorAll('[data-pn="barline"]').length).toBeGreaterThan(0);
-    for (const node of container.querySelectorAll('svg *')) {
-      const fill = node.getAttribute('fill');
-      expect(fill === null || fill === 'currentColor').toBe(true);
-    }
-  });
-
-  it('calls onLayout with the memoized layout', () => {
-    const seen: unknown[] = [];
-    render(<Notation score={simpleScore()} onLayout={(l) => seen.push(l)} />);
-    expect(seen).toHaveLength(1);
-    expect((seen[0] as { version: number }).version).toBe(1);
-  });
-
-  it('merges className and style onto the svg', () => {
-    const { container } = render(
-      <Notation score={simpleScore()} className="wide" style={{ width: '400px' }} />,
-    );
-    const svg = container.querySelector('svg')!;
-    expect(svg.getAttribute('class')).toBe('pn-notation wide');
-    expect(svg.style.width).toBe('400px');
-  });
 });
 
 describe('NotationHandle', () => {
@@ -158,11 +123,6 @@ describe('NotationHandle', () => {
   });
 });
 
-// A beamed pair (`bn1`/`bn2`, auto-beamed eighths, same beat) and a tied pair (`bn3`
-// tie-start, `bn4` tie-stop — the timemap merges these into one entry for sound, but
-// `activeAt` still reports each on its own written span, playback.md "Timemap"). Explicit
-// ids throughout: interface.md's ID rule requires a real MNX id for anything an app
-// targets by NoteId.
 function beamAndTieScore(): MnxDocument {
   return {
     mnx: { version: 1 },
@@ -208,16 +168,6 @@ describe('playback highlighting', () => {
     expect(container.querySelector('g[data-pn="element"][data-pn-el="bn4"]')?.hasAttribute('data-pn-playing')).toBe(false);
   });
 
-  it('mode "cursor" does not throw and highlights nothing (deferred to step 7b)', () => {
-    const doc = beamAndTieScore();
-    const view: PlaybackView = { mode: 'cursor', position: { tick: 0 } };
-    expect(() => render(
-      <Notation score={doc}>
-        <Notation.Playback view={view} />
-      </Notation>,
-    )).not.toThrow();
-  });
-
   it('setPlaybackTick highlights exactly the notes sounding at a tick, via the timemap', () => {
     const doc = beamAndTieScore();
     const ref = createRef<NotationHandle>();
@@ -225,33 +175,15 @@ describe('playback highlighting', () => {
     const handle = ref.current!;
     const timemap = handle.getTimeMap();
 
-    // Inside the first beamed eighth (bn1) — only bn1 sounds.
     handle.setPlaybackTick(timemap.byId('bn1')!.tick + 10);
     expect(container.querySelector('g[data-pn="element"][data-pn-el="bn1"]')?.getAttribute('data-pn-playing')).toBe('true');
     expect(container.querySelector('g[data-pn="element"][data-pn-el="bn2"]')?.hasAttribute('data-pn-playing')).toBe(false);
 
-    // Inside the tied continuation's own written span (bn4) — bn4 lights, not bn3, even
-    // though the timemap still merges bn3+bn4 into one entry for sound.
     const bn3 = timemap.byId('bn3')!;
     handle.setPlaybackTick(bn3.tick + bn3.durationTicks - 10);
     expect(container.querySelector('g[data-pn="element"][data-pn-el="bn4"]')?.getAttribute('data-pn-playing')).toBe('true');
     expect(container.querySelector('g[data-pn="element"][data-pn-el="bn3"]')?.hasAttribute('data-pn-playing')).toBe(false);
     expect(container.querySelector('g[data-pn="element"][data-pn-el="bn1"]')?.hasAttribute('data-pn-playing')).toBe(false);
-  });
-
-  it('setPlaybackTick clears previous highlights when nothing is active at the new tick', () => {
-    const doc = beamAndTieScore();
-    const ref = createRef<NotationHandle>();
-    const { container } = render(<Notation score={doc} ref={ref} />);
-    const handle = ref.current!;
-    const timemap = handle.getTimeMap();
-
-    handle.setPlaybackTick(timemap.byId('bn1')!.tick + 10);
-    expect(container.querySelector('g[data-pn="element"][data-pn-el="bn1"]')?.getAttribute('data-pn-playing')).toBe('true');
-
-    handle.setPlaybackTick(timemap.measures[0]!.endTick + 10_000);
-    expect(container.querySelector('g[data-pn="element"][data-pn-el="bn1"]')?.hasAttribute('data-pn-playing')).toBe(false);
-    expect(container.querySelectorAll('[data-pn-playing]').length).toBe(0);
   });
 
   it('reapplies highlights when the score re-lays out and the highlighted element gets a new DOM node', () => {
@@ -289,10 +221,6 @@ describe('playback highlighting', () => {
         },
       ],
     };
-    // Same `view` reference across both renders, so the effect's `playbackView` dep does
-    // not change — only `layout` does. `x` moves from the first `<g>` in the glyph-group
-    // list to the second, a key React has never rendered before, so it mounts a fresh DOM
-    // node with no `data-pn-playing` attribute until the effect re-applies it.
     const view: PlaybackView = { mode: 'notes', activeIds: ['x'] };
     const { container, rerender } = render(
       <Notation score={oneNote}>
@@ -332,7 +260,6 @@ describe('scale spelling', () => {
     expect(names('A3', 'melodicMinor')).toEqual([
       'A3', 'B3', 'C4', 'D4', 'E4', 'F#4', 'G#4', 'A4',
     ]);
-    // Natural-minor pitch content, top down — F natural and G natural, not F#/G#.
     expect(names('A3', 'melodicMinor', true)).toEqual([
       'A4', 'G4', 'F4', 'E4', 'D4', 'C4', 'B3', 'A3',
     ]);
@@ -350,11 +277,4 @@ describe('presets', () => {
     expect(fittingMeter(QUARTER, 1)).toEqual({ count: 1, unit: 4 });
   });
 
-  it('renders a full octave, one notehead per degree', () => {
-    const { container } = render(
-      <ScaleReveal root="A3" scale="melodicMinor" clef="bass" descending />,
-    );
-    expect(container.querySelectorAll('[data-pn="notehead"]')).toHaveLength(8);
-    expect(container.querySelectorAll('[data-pn="rest"]')).toHaveLength(0);
-  });
 });

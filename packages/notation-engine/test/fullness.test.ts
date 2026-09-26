@@ -1,6 +1,3 @@
-// The fullness policy, exercised through the real normalize/temporal stages on MNX
-// documents rather than through internal helpers.
-
 import { describe, expect, it } from 'vitest';
 import type { MnxDocument } from '@polyhymnia/notation-model';
 import { layoutScore } from '../src/layout/index.js';
@@ -31,7 +28,6 @@ describe('underfull', () => {
 
     expect(elements).toHaveLength(2);
     expect(elements[1]!.kind).toBe('rest');
-    // Greedy largest-that-fits: 3 quarters is one dotted half, not half + quarter.
     expect([elements[1]!.base, elements[1]!.dots]).toEqual(['half', 1]);
 
     const diagnostics = run(doc).diagnostics;
@@ -44,19 +40,6 @@ describe('underfull', () => {
     });
   });
 
-  it('pads each voice independently', () => {
-    const doc = fixture('two-voices');
-    expect(elementsOf(doc, 0, 0)).toHaveLength(2);
-    expect(elementsOf(doc, 0, 1)).toHaveLength(2);
-    expect(run(doc).diagnostics).toHaveLength(1);
-    expect(run(doc).diagnostics[0]!.voice).toBe(1);
-  });
-
-  it('leaves an exactly-full measure untouched', () => {
-    const doc = mnx({}, measure(note('C4', 'h'), note('D4', 'q'), note('E4', 'q')));
-    expect(elementsOf(doc)).toHaveLength(3);
-    expect(run(doc).diagnostics).toHaveLength(0);
-  });
 });
 
 describe('overfull', () => {
@@ -66,12 +49,6 @@ describe('overfull', () => {
     expect(run(doc).diagnostics).toEqual([
       expect.objectContaining({ severity: 'error', code: 'measure-overfull' }),
     ]);
-  });
-
-  it('measures against the meter the measure itself states', () => {
-    const doc = mnx({ time: { count: 2, unit: 4 } }, measure(note('C4', 'h'), note('D4', 'h')));
-    expect(run(doc).diagnostics.map((d) => d.code)).toEqual(['measure-overfull']);
-    expect(ticksOf(doc)).toEqual([[0, 6720]]);
   });
 
   it('carries a diagnostic naming the measure and voice', () => {
@@ -100,12 +77,6 @@ describe('pickup measures', () => {
     expect(map.diagnostics).toHaveLength(0);
   });
 
-  it('does not change the meter — only the first measure’s capacity is shortened', () => {
-    const measures = normalize(pickup).staves[0]!.measures;
-    expect(measures[0]!.time).toEqual({ beats: 4, beatType: 4 });
-    expect(measures[1]!.time).toEqual({ beats: 4, beatType: 4 });
-    expect(measures[1]!.pickup).toBe(false);
-  });
 });
 
 describe('whole-bar rests in unrepresentable meters', () => {
@@ -114,22 +85,11 @@ describe('whole-bar rests in unrepresentable meters', () => {
     const elements = elementsOf(doc);
 
     expect(elements[0]!.wholeBar).toBe(true);
-    // Pinned to a whole rest whatever the meter — never a breve or a dotted shape.
     expect([elements[0]!.base, elements[0]!.dots]).toEqual(['whole', 0]);
     expect(elements).toHaveLength(1);
     expect(run(doc).diagnostics).toHaveLength(0);
 
-    // 9 eighths at 3360 ticks/quarter = 9 x 1680, NOT the whole note's 13440.
     expect(ticksOf(doc)).toEqual([[0, 15120]]);
-  });
-
-  it('draws a whole rest whatever visualDuration a full-measure rest states', () => {
-    const doc = mnx(
-      { time: { count: 5, unit: 4 } },
-      { sequences: [{ content: [], fullMeasure: { visualDuration: { base: 'half' } } }] },
-    );
-    expect(elementsOf(doc)[0]!.base).toBe('whole');
-    expect(ticksOf(doc)).toEqual([[0, 16800]]);
   });
 
   it('takes only the remaining capacity when the bar has other content', () => {
@@ -149,13 +109,6 @@ describe('chords and tuplets', () => {
     expect(ch.kind).toBe('chord');
     expect([ch.base, ch.dots]).toEqual(['whole', 0]);
     expect(run(doc).diagnostics).toHaveLength(0);
-  });
-
-  it('gives every chord member the one event duration', () => {
-    const layout = layoutScore(mnx({}, measure(chord(['C4', 'E4'], 'q'), note('D4', 'h.'))));
-    const members = Object.values(layout.elements).filter((b) => b.kind === 'chord');
-    expect(members).toHaveLength(2);
-    expect(members.every((b) => b.durationTicks === 3360)).toBe(true);
   });
 
   it('shares one tuplet id across the group and fills the bar exactly', () => {

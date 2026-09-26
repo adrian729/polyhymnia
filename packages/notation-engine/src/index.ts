@@ -1,10 +1,6 @@
-// `@polyhymnia/notation-engine` — pure TypeScript, no DOM, no React.
-
-// --- options ---
 export type { NotationOptions } from './options.js';
 export { DEFAULT_OPTIONS } from './options.js';
 
-// --- font ---
 export {
   fontMetadata,
   fontName,
@@ -19,7 +15,6 @@ export {
 export type { EngravingDefaults, FontMetadata, GlyphBBox, GlyphAnchors, GlyphName } from './font/metadata.js';
 export { GLYPH_CODEPOINT, glyphCodepoint } from './font/glyphs.js';
 
-// --- engine records ---
 export { DEFAULT_DIVISIONS, describePitch, midiOf, stepIndex } from './layout/records.js';
 export type {
   AccidentalPolicy,
@@ -44,7 +39,6 @@ export type {
   TupletRef,
 } from './layout/records.js';
 
-// --- layout stages ---
 export { normalize } from './layout/normalize.js';
 export type {
   ElementNote,
@@ -91,7 +85,6 @@ export {
   MIDDLE_LINE,
 } from './layout/staff.js';
 
-// --- the pipeline entry point (architecture.md) ---
 export { layoutScore } from './layout/index.js';
 export type {
   Box,
@@ -107,7 +100,6 @@ export type {
   ViewBox,
 } from './layout/types.js';
 
-// --- query (playback.md) ---
 export { buildTimeMap, DEFAULT_TEMPO_BPM } from './query/timemap.js';
 export type { MeasureTime, TempoOverride, TimeMap, TimeMapEntry } from './query/timemap.js';
 

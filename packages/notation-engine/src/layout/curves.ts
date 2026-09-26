@@ -105,10 +105,12 @@ export function curves(
   }
 
   for (const slur of slurs) {
-    const from = noteMap.get(slur.from);
-    const to = noteMap.get(slur.to);
-    if (!from || !to) continue;
-    const dir = slurDirection(slur, from, to, twoVoiceMeasures.has(slur.measureIndex), elementList);
+    const from0 = noteMap.get(slur.from);
+    const to0 = noteMap.get(slur.to);
+    if (!from0 || !to0) continue;
+    const dir = slurDirection(slur, from0, to0, twoVoiceMeasures.has(slur.measureIndex), elementList);
+    const from = (dir === -1 && slur.fromBottom ? noteMap.get(slur.fromBottom) : undefined) ?? from0;
+    const to = (dir === -1 && slur.toBottom ? noteMap.get(slur.toBottom) : undefined) ?? to0;
 
     if (from.systemIndex === to.systemIndex) {
       shapes.push(oneSlur(slur, from, to, dir, beamsResult, elementList));
@@ -118,8 +120,8 @@ export function curves(
     const fromSystem = justified.systems[from.systemIndex];
     const toSystem = justified.systems[to.systemIndex];
     if (!fromSystem || !toSystem) continue;
-    shapes.push(firstHalfSlur(slur.id, from, dir, fromSystem, beamsResult.stemOverrides));
-    shapes.push(secondHalfSlur(slur.id, to, dir, toSystem, beamsResult.stemOverrides));
+    shapes.push(firstHalfSlur(slur.id, from, dir, fromSystem, beamsResult, elementList));
+    shapes.push(secondHalfSlur(slur.id, to, dir, toSystem, beamsResult, elementList));
   }
 
   return { shapes, diagnostics };
@@ -336,7 +338,13 @@ function oneSlur(
   const x3 = Math.max(leftEdge(to) - GAP, x0 + MIN_SPAN);
   const y0 = slurEndpointY(from, dir, beamsResult.stemOverrides);
   const y3 = slurEndpointY(to, dir, beamsResult.stemOverrides);
-  const arch = clearSlur(slurArchFor(x3 - x0), [x0, y0], [x3, y3], dir, from, to, beamsResult, elementList);
+  const arch = clearSlur(
+    slurArchFor(x3 - x0),
+    [x0, y0],
+    [x3, y3],
+    dir,
+    slurObstacles(from.systemIndex, from.x, to.x, beamsResult, elementList),
+  );
   return {
     el: slur.id,
     systemIndex: from.systemIndex,
@@ -350,12 +358,19 @@ function firstHalfSlur(
   from: PlacedNote,
   dir: 1 | -1,
   system: JustifiedSystem,
-  stemOverrides: BeamsResult['stemOverrides'],
+  beamsResult: BeamsResult,
+  elementList: readonly PlacedElement[],
 ): CurveShape {
   const x0 = rightEdge(from) + GAP;
   const x3 = Math.max(x0 + MIN_SPAN, Math.min(system.width, lastColumnX(system) + SYSTEM_END_MARGIN));
-  const y = slurEndpointY(from, dir, stemOverrides);
-  const arch = slurArchFor(x3 - x0);
+  const y = slurEndpointY(from, dir, beamsResult.stemOverrides);
+  const arch = clearSlur(
+    slurArchFor(x3 - x0),
+    [x0, y],
+    [x3, y],
+    dir,
+    slurObstacles(from.systemIndex, from.x, x3, beamsResult, elementList),
+  );
   return {
     el: id,
     systemIndex: from.systemIndex,
@@ -369,12 +384,19 @@ function secondHalfSlur(
   to: PlacedNote,
   dir: 1 | -1,
   system: JustifiedSystem,
-  stemOverrides: BeamsResult['stemOverrides'],
+  beamsResult: BeamsResult,
+  elementList: readonly PlacedElement[],
 ): CurveShape {
   const x3 = leftEdge(to) - GAP;
   const x0 = Math.min(x3 - MIN_SPAN, Math.max(0, firstColumnX(system) - SYSTEM_START_MARGIN));
-  const y = slurEndpointY(to, dir, stemOverrides);
-  const arch = slurArchFor(x3 - x0);
+  const y = slurEndpointY(to, dir, beamsResult.stemOverrides);
+  const arch = clearSlur(
+    slurArchFor(x3 - x0),
+    [x0, y],
+    [x3, y],
+    dir,
+    slurObstacles(to.systemIndex, x0, to.x, beamsResult, elementList),
+  );
   return {
     el: id,
     systemIndex: to.systemIndex,
@@ -388,12 +410,8 @@ function clearSlur(
   p0: readonly [number, number],
   p3: readonly [number, number],
   dir: 1 | -1,
-  from: PlacedNote,
-  to: PlacedNote,
-  beamsResult: BeamsResult,
-  elementList: readonly PlacedElement[],
+  obstacles: readonly Obstacle[],
 ): number {
-  const obstacles = slurObstacles(from, to, beamsResult, elementList);
   let current = arch;
   for (let iter = 0; iter < SLUR_CLEARANCE_ITERS; iter += 1) {
     let raise = 0;
@@ -424,8 +442,8 @@ function bezierPoint(
   const [x0, y0] = p0;
   const [x3, y3] = p3;
   const dx = x3 - x0;
-  const c1y = y0 - dir * arch;
-  const c2y = y0 - dir * arch;
+  const c1y = y0 + (y3 - y0) * 0.25 - dir * arch;
+  const c2y = y0 + (y3 - y0) * 0.75 - dir * arch;
   const mt = 1 - t;
   const x = mt * mt * mt * x0 + 3 * mt * mt * t * (x0 + dx * 0.25) + 3 * mt * t * t * (x0 + dx * 0.75) + t * t * t * x3;
   const y = mt * mt * mt * y0 + 3 * mt * mt * t * c1y + 3 * mt * t * t * c2y + t * t * t * y3;
@@ -433,15 +451,13 @@ function bezierPoint(
 }
 
 function slurObstacles(
-  from: PlacedNote,
-  to: PlacedNote,
+  systemIndex: number,
+  lo: number,
+  hi: number,
   beamsResult: BeamsResult,
   elementList: readonly PlacedElement[],
 ): Obstacle[] {
   const obstacles: Obstacle[] = [];
-  const systemIndex = from.systemIndex;
-  const lo = from.x;
-  const hi = to.x;
   for (const pe of elementList) {
     if (pe.systemIndex !== systemIndex) continue;
     if (pe.x <= lo || pe.x >= hi) continue;

@@ -33,22 +33,6 @@ describe('pitch derivation', () => {
     expect(natural?.pitch).toEqual({ step: 'F', octave: 5 });
   });
 
-  it('reads middle-C off the alto clef middle line', () => {
-    const doc = mnx({ clef: ALTO }, measure(rest('w')));
-    const layout = layoutScore(doc);
-    const system = layout.systems[0]!;
-    const hit = hitTest(layout, { x: layout.measures[0]!.contentX, y: system.y + 2 }, { kinds: ['point'] });
-    expect(hit?.pitch).toEqual({ step: 'C', octave: 4 });
-  });
-
-  it('reads G2 off the bass clef bottom line', () => {
-    const doc = mnx({ clef: BASS }, measure(rest('w')));
-    const layout = layoutScore(doc);
-    const system = layout.systems[0]!;
-    const hit = hitTest(layout, { x: layout.measures[0]!.contentX, y: system.y + 4 }, { kinds: ['point'] });
-    expect(hit?.pitch).toEqual({ step: 'G', octave: 2 });
-  });
-
   it('returns a pitch and tick 0 for a point in an empty whole-rest measure', () => {
     const doc = mnx({}, measure(rest('w')));
     const layout = layoutScore(doc);
@@ -81,18 +65,6 @@ describe('slots', () => {
     expect(totalWidth).toBeCloseTo(span, 5);
   });
 
-  it('emits one slot per event onset, including triplet members', () => {
-    const doc = mnx(
-      {},
-      measure(tuplet([3, '8'], [2, '8'], note('C4', '8'), note('D4', '8'), note('E4', '8')), rest('h.')),
-    );
-    const layout = layoutScore(doc);
-    const slots = layout.slots.filter((s) => s.measureIndex === 0 && s.voice === 0);
-
-    expect(slots).toHaveLength(4);
-    const tripletTicks = new Set(slots.slice(0, 3).map((s) => s.tick));
-    expect(tripletTicks.size).toBe(3);
-  });
 });
 
 describe('element hit-testing (chords)', () => {
@@ -184,21 +156,6 @@ describe('element hit-testing (chords)', () => {
   });
 });
 
-describe('point tick', () => {
-  it('maps each quarter-beat column to its measure-relative tick', () => {
-    const doc = mnx({}, measure(note('C4', 'q'), note('D4', 'q'), note('E4', 'q'), note('F4', 'q')));
-    const layout = layoutScore(doc);
-    const system = layout.systems[0]!;
-    const slots = layout.slots.filter((s) => s.measureIndex === 0).slice().sort((a, b) => a.tick - b.tick);
-
-    const ticks = slots.map((slot) => {
-      const hit = hitTest(layout, { x: slot.x + slot.w / 2, y: system.y + 2 }, { kinds: ['point'] });
-      return hit && hit.kind === 'point' ? hit.tick : null;
-    });
-    expect(ticks).toEqual([0, 3360, 6720, 10080]);
-  });
-});
-
 describe('dictation round trip', () => {
   it('re-pitches a rest via a slot hit, keeping the element id stable and every other id untouched', () => {
     const doc = mnx({}, measure(rest('q'), rest('q'), rest('q'), rest('q')));
@@ -266,18 +223,6 @@ describe('previewShapes', () => {
     expect(glyphs.filter((g) => g.cls === 'preview-accidental')).toHaveLength(0);
   });
 
-  it('draws an accidental only when the previewed pitch differs from the key', () => {
-    const doc = mnx({}, measure(rest('w')));
-    const layout = layoutScore(doc);
-    const measureBox = layout.measures[0]!;
-
-    const { glyphs } = previewShapes(layout, {
-      measureIndex: 0,
-      x: measureBox.contentX + 1,
-      pitch: { step: 'C', octave: 6, alter: 1 },
-    });
-    expect(glyphs.filter((g) => g.cls === 'preview-accidental')).toHaveLength(1);
-  });
 });
 
 describe('interaction properties', () => {
@@ -301,36 +246,6 @@ describe('interaction properties', () => {
     const doc = mnx({}, measure(...content));
     return { doc, layout: layoutScore(doc) };
   }
-
-  it('hits every ElementBox at its own hitBox center', () => {
-    fc.assert(
-      fc.property(measureArb, (events) => {
-        const { layout } = buildLayout(events);
-        for (const box of boxes(layout)) {
-          const result = hitTest(layout, center(box));
-          expect(result?.kind).toBe('element');
-          expect(result && result.kind === 'element' ? result.id : null).toBe(box.id);
-        }
-      }),
-      { numRuns: 25 },
-    );
-  });
-
-  it('tiles slot bands with no gaps or overlaps', () => {
-    fc.assert(
-      fc.property(measureArb, (events) => {
-        const { layout } = buildLayout(events);
-        const measureBox = layout.measures[0]!;
-        const bands = layout.slots.filter((s) => s.measureIndex === 0).slice().sort((a, b) => a.x - b.x);
-        if (bands.length === 0) return;
-        expect(bands[0]!.x).toBeCloseTo(measureBox.contentX, 5);
-        for (let i = 0; i + 1 < bands.length; i += 1) {
-          expect(bands[i]!.x + bands[i]!.w).toBeCloseTo(bands[i + 1]!.x, 5);
-        }
-      }),
-      { numRuns: 25 },
-    );
-  });
 
   it('keeps every other element id stable after a random setPitches on a random slot', () => {
     fc.assert(

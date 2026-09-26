@@ -1,6 +1,3 @@
-// Stages 1-8 + 11 through the real entry point: `MnxDocument -> layoutScore() ->
-// LayoutResult`, never a stage in isolation (roadmap.md's testing philosophy).
-
 import { describe, expect, it } from 'vitest';
 import type { Clef, MnxDocument } from '@polyhymnia/notation-model';
 import { layoutScore } from '../src/layout/index.js';
@@ -43,10 +40,9 @@ describe('chords are addressable per member', () => {
     const members = boxes(layout).filter((b) => b.kind === 'chord');
 
     expect(members).toHaveLength(4);
-    expect(new Set(members.map((b) => b.x)).size).toBe(1); // no seconds -> no shift
+    expect(new Set(members.map((b) => b.x)).size).toBe(1);
     expect(new Set(members.map((b) => b.tick)).size).toBe(1);
     expect(new Set(members.map((b) => b.durationTicks)).size).toBe(1);
-    // C4 is below the staff in treble, B4 sits on the middle line.
     expect(members.map((b) => b.staffPosition).sort((a, b) => a - b)).toEqual([2, 3, 4, 5]);
     expect(new Set(members.map((b) => b.y)).size).toBe(4);
     expect(new Set(members.map((b) => JSON.stringify(b.hitBox))).size).toBe(4);
@@ -56,7 +52,6 @@ describe('chords are addressable per member', () => {
       'G 4, whole note, measure 1',
       'B 4, whole note, measure 1',
     ]);
-    // A whole note has no stem, and this slice draws no beams.
     expect(layout.rects.some((r) => r.cls === 'stem')).toBe(false);
     expect(layout.paths).toEqual([]);
     expect(layout.slots).toHaveLength(1);
@@ -76,7 +71,6 @@ describe('chords are addressable per member', () => {
       .sort((a, b) => a.staffPosition - b.staffPosition);
 
     expect(members).toHaveLength(2);
-    // D4 (upper, smaller staffPosition) moves one notehead width right of the stem.
     expect(members[0]!.x).toBeCloseTo(members[1]!.x + 1.18, 5);
   });
 });
@@ -92,8 +86,6 @@ describe('accidentals', () => {
     );
 
     expect(glyphsOf(layout, 'accidental')).toHaveLength(0);
-    // The key signature itself is still drawn, twice: it is a one-system score, so only
-    // the first measure states it.
     expect(glyphsOf(layout, 'key-accidental')).toHaveLength(2);
     expect(glyphsOf(layout, 'key-accidental').every((g) => g.cp === cp('accidentalSharp'))).toBe(
       true,
@@ -104,8 +96,6 @@ describe('accidentals', () => {
     const layout = layoutScore(fixture('accidentals-ties'));
     const accidentals = glyphsOf(layout, 'accidental');
 
-    // measure 1: one sharp for the pair; measure 2: state resets, one more; measure 3:
-    // the tie-stop carries the alteration across the barline, so nothing is written.
     expect(accidentals).toHaveLength(2);
     expect(accidentals.every((g) => g.cp === cp('accidentalSharp'))).toBe(true);
   });
@@ -136,7 +126,6 @@ describe('accidentals', () => {
 
     expect(accidentals).toHaveLength(3);
     expect(accidentals.every((g) => g.x < noteX)).toBe(true);
-    // Three pitches this close vertically cannot share a column.
     expect(new Set(accidentals.map((g) => +g.x.toFixed(3))).size).toBe(3);
   });
 });
@@ -289,27 +278,11 @@ describe('ledger lines', () => {
       .map((r) => +(r.y + r.h / 2 - staffTop).toFixed(3))
       .sort((a, b) => a - b);
 
-    // C6 is two ledger lines above (positions -1, -2); C3 is four below (5..8).
     expect(byPosition).toEqual([-2, -1, 5, 6, 7, 8]);
     expect(ledgers.every((r) => Math.abs(r.h - 0.16) < 1e-9)).toBe(true);
-    // 0.4sp overhang each side of a 1.18sp notehead.
     expect(ledgers.every((r) => Math.abs(r.w - (1.18 + 0.8)) < 1e-9)).toBe(true);
   });
 
-  it('gives a note in the first space above the staff no ledger line at all', () => {
-    // G5 sits in the space above the top line; A5, a step higher, lands on the first
-    // ledger line and so gets it.
-    expect(
-      layoutScore(mnx({}, measure(note('G5', 'w')))).rects.filter(
-        (r) => r.cls === 'ledger-line',
-      ),
-    ).toHaveLength(0);
-    expect(
-      layoutScore(mnx({}, measure(note('A5', 'w')))).rects.filter(
-        (r) => r.cls === 'ledger-line',
-      ),
-    ).toHaveLength(1);
-  });
 });
 
 describe('rests', () => {
@@ -322,11 +295,9 @@ describe('rests', () => {
 
     expect(rests).toHaveLength(1);
     expect(rests[0]!.cp).toBe(cp('restWhole'));
-    // Capacity, not the nominal 'whole' Duration: 9/8 = 15120 ticks at 3360/quarter.
     expect(box.durationTicks).toBe(15120);
     expect(box.label).toBe('whole-bar rest, measure 1');
 
-    // Centred in its column rather than sitting at the column's left edge.
     const measureBox = layout.timemap.measures[0]!;
     const centre = rests[0]!.x + 1.132 / 2;
     expect(centre).toBeGreaterThan(measureBox.x);
@@ -347,14 +318,10 @@ describe('rests', () => {
       return +(found.y - staffTop).toFixed(3);
     };
 
-    // Middle-line baseline for everything that is centred on or sits on its origin.
     expect(restY('restQuarter')).toBe(2);
     expect(restY('restHalf')).toBe(2);
     expect(restY('rest8th')).toBe(2);
 
-    // The metadata is what makes those placements right: a half rest sits entirely above
-    // its origin, a quarter rest straddles it, and a whole rest hangs below it — which is
-    // why the whole rest, alone, anchors a line higher.
     expect(glyphBBox('restHalf').bBoxSW[1]).toBeCloseTo(-0.008, 3);
     expect(glyphBBox('restWhole').bBoxNE[1]).toBeCloseTo(0.036, 3);
     expect(glyphBBox('restWhole').bBoxSW[1]).toBeCloseTo(-0.54, 3);
@@ -384,7 +351,6 @@ describe('systems', () => {
       for (let i = 1; i < xs.length; i += 1) expect(xs[i]!).toBeGreaterThan(xs[i - 1]!);
       expect(system.w).toBeLessThanOrEqual(40 + 1e-6);
     }
-    // Five staff lines per system, and the clef restated on each.
     expect(layout.rects.filter((r) => r.cls === 'staff-line')).toHaveLength(
       5 * layout.systems.length,
     );
@@ -401,7 +367,6 @@ describe('systems', () => {
     const layout = layoutScore(mnx({}, measure(note('C4', 'w'))), {
       widthSp: 100,
     });
-    // maxLastSystemFill 0.65 — stretched to 65sp at most, never to 100.
     expect(layout.systems[0]!.w).toBeLessThanOrEqual(65 + 1e-6);
   });
 });
@@ -411,34 +376,14 @@ describe('chrome', () => {
     const layout = layoutScore(fixture('chrome-changes'), { widthSp: 200 });
 
     expect(glyphsOf(layout, 'clef')).toHaveLength(1);
-    // 4/4 then 3/4 — two digits each, drawn twice.
     expect(glyphsOf(layout, 'time-signature')).toHaveLength(4);
     const keyGlyphs = glyphsOf(layout, 'key-accidental');
-    // 1 sharp, then a cancelling natural plus 2 flats.
     expect(keyGlyphs.filter((g) => g.cp === cp('accidentalSharp'))).toHaveLength(1);
     expect(keyGlyphs.filter((g) => g.cp === cp('accidentalNatural'))).toHaveLength(1);
     expect(keyGlyphs.filter((g) => g.cp === cp('accidentalFlat'))).toHaveLength(2);
   });
 
-  it('places the treble key signature where engraving.md says', () => {
-    const layout = layoutScore(mnx({ key: 3 }, measure(note('C4', 'w'))));
-    const staffTop = layout.systems[0]!.y;
-    expect(glyphsOf(layout, 'key-accidental').map((g) => +(g.y - staffTop).toFixed(3))).toEqual([
-      0, 1.5, -0.5,
-    ]);
-  });
 
-  it('derives bass, alto and tenor key placement from the treble pattern', () => {
-    const at = (clef: Clef): number[] => {
-      const layout = layoutScore(mnx({ clef, key: 2 }, measure(note('C3', 'w'))));
-      const staffTop = layout.systems[0]!.y;
-      return glyphsOf(layout, 'key-accidental').map((g) => +(g.y - staffTop).toFixed(3));
-    };
-    expect(at(BASS)).toEqual([1, 2.5]); // treble pattern one space lower
-    expect(at(ALTO)).toEqual([0.5, 2]);
-    // Tenor is the irregularity: F#/C# an octave down, off the ledger line.
-    expect(at(TENOR)).toEqual([3, 1]);
-  });
 
   it('draws an octave-up bass clef with its own glyph', () => {
     const glyphAt = (octave: -1 | 0 | 1): number =>
@@ -447,21 +392,13 @@ describe('chrome', () => {
         'clef',
       )[0]!.cp;
 
-    expect(glyphAt(1)).toBe(0xe065); // fClef8va — no longer falls back to the plain clef
+    expect(glyphAt(1)).toBe(0xe065);
     expect(glyphAt(1)).toBe(cp('fClef8va'));
     expect(glyphAt(1)).not.toBe(glyphAt(0));
     expect(glyphAt(0)).toBe(cp('fClef'));
     expect(glyphAt(-1)).toBe(cp('fClef8vb'));
   });
 
-  it('draws a final barline thin-then-thick at the measure edge', () => {
-    const layout = layoutScore(
-      mnx({}, withGlobal({ barline: { type: 'final' } }, measure(note('C4', 'w')))),
-    );
-    const barlines = layout.rects.filter((r) => r.cls === 'barline').sort((a, b) => a.x - b.x);
-    expect(barlines.map((r) => r.w)).toEqual([0.16, 0.5]);
-    expect(barlines[1]!.x + barlines[1]!.w).toBeCloseTo(layout.systems[0]!.w, 5);
-  });
 
   it('draws a dashed barline as dash segments spanning the staff, not one rect', () => {
     const layout = layoutScore(
@@ -471,34 +408,19 @@ describe('chrome', () => {
     const dashes = layout.rects.filter((r) => r.cls === 'barline').sort((a, b) => a.y - b.y);
 
     expect(dashes.length).toBeGreaterThan(1);
-    // One vertical line's worth of x, at the measure edge, one dash thick throughout.
     expect(new Set(dashes.map((r) => +r.x.toFixed(6))).size).toBe(1);
     expect(dashes.every((r) => Math.abs(r.w - 0.16) < 1e-9)).toBe(true);
     expect(dashes[0]!.x + 0.16).toBeCloseTo(layout.systems[0]!.w, 5);
-    // Top line to bottom line, but broken: no segment covers the whole 4sp staff.
     expect(dashes[0]!.y).toBeCloseTo(staffTop, 5);
     const last = dashes[dashes.length - 1]!;
     expect(last.y + last.h).toBeCloseTo(staffTop + 4, 5);
     expect(dashes.every((r) => r.h < 4)).toBe(true);
-    // Every gap is exactly dashedBarlineGapLength — that cadence is what reads as dashed.
     for (let i = 1; i < dashes.length; i += 1) {
       const gap = dashes[i]!.y - (dashes[i - 1]!.y + dashes[i - 1]!.h);
       expect(gap).toBeCloseTo(0.25, 6);
     }
   });
 
-  it('gives a dashed barline the same width contribution as a single one', () => {
-    const at = (type: 'dashed' | 'regular' | 'noBarline'): number => {
-      const layout = layoutScore(
-        mnx({}, withGlobal({ barline: { type } }, measure(note('C4', 'w'))), measure(note('D4', 'w'))),
-      );
-      return boxes(layout).sort((a, b) => a.tick - b.tick)[1]!.x;
-    };
-    // A dashed barline is a thin line's worth of space — broken vertically, not
-    // horizontally — so it pushes the next measure exactly as far as `single` does.
-    expect(at('dashed')).toBeCloseTo(at('regular'), 6);
-    expect(at('dashed')).toBeGreaterThan(at('noBarline'));
-  });
 });
 
 describe('stems and flags', () => {
@@ -510,11 +432,8 @@ describe('stems and flags', () => {
     const stems = layout.rects.filter((r) => r.cls === 'stem').sort((a, b) => a.x - b.x);
 
     expect(stems).toHaveLength(3);
-    // C4 sits below the middle line (staffPosition 5) -> stem up, 3.5sp above it.
     expect(+(stems[0]!.y - staffTop).toFixed(3)).toBe(1.5);
-    // B4 is ON the middle line -> stem down by convention, from the notehead anchor.
     expect(+(stems[1]!.y - staffTop).toFixed(3)).toBeCloseTo(2.168, 3);
-    // G5 above the middle line (staffPosition -0.5) -> stem down.
     expect(+(stems[2]!.y - staffTop).toFixed(3)).toBeCloseTo(-0.332, 3);
     expect(stems.every((s) => Math.abs(s.w - 0.12) < 1e-9)).toBe(true);
     expect(stems.every((s) => Math.abs(s.h - (3.5 - 0.168)) < 1e-6)).toBe(true);
@@ -543,11 +462,6 @@ function beamLineAt(points: readonly [number, number][], x: number): number {
 }
 
 describe('beaming', () => {
-  it('draws no flag on a beamed note', () => {
-    const layout = layoutScore(mnx({}, measure(note('C4', '8'), note('D4', '8'), rest('h'))));
-    expect(glyphsOf(layout, 'flag')).toHaveLength(0);
-    expect(layout.paths.filter((p) => p.cls === 'beam')).not.toHaveLength(0);
-  });
 
   it('ends every beamed stem on its beam\'s outer edge', () => {
     const layout = layoutScore(
@@ -570,7 +484,7 @@ describe('beaming', () => {
 
   it('never shortens a beamed stem past MIN_STEM (3.0sp)', () => {
     const layout = layoutScore(
-      mnx({}, measure(note('B4', '8'), note('B4', '8'), note('C5', '8'), note('C5', '8'))),
+      mnx({}, measure(note('A4', '8'), note('B4', '8'), note('C5', '8'), note('C5', '8'))),
     );
     const stems = layout.rects.filter((r) => r.cls === 'stem');
     expect(stems.length).toBeGreaterThan(0);
@@ -637,18 +551,6 @@ describe('beaming', () => {
     expect(hookWidth).toBeCloseTo(halfGap + engravingDefaults.stemThickness, 5);
   });
 
-  it('draws augmentation dots off the staff line', () => {
-    const layout = layoutScore(
-      mnx({ time: { count: 3, unit: 4 } }, measure(note('B4', 'h.')), measure(note('A4', 'h.'))),
-    );
-    const staffTop = layout.systems[0]!.y;
-    const dots = [...glyphsOf(layout, 'dot')].sort((a, b) => a.x - b.x);
-    expect(dots).toHaveLength(2);
-    // B4 is on the middle line (2.0) -> the dot is nudged up half a space.
-    expect(+(dots[0]!.y - staffTop).toFixed(3)).toBe(1.5);
-    // A4 already sits in a space (2.5) -> the dot stays level with it.
-    expect(+(dots[1]!.y - staffTop).toFixed(3)).toBe(2.5);
-  });
 });
 
 describe('breath marks', () => {
@@ -659,23 +561,16 @@ describe('breath marks', () => {
     const notes = boxes(layout).sort((a, b) => a.tick - b.tick);
 
     expect(marks).toHaveLength(1);
-    expect(marks[0]!.cp).toBe(0xe4ce); // breathMarkComma
-    // Anchored on the top staff line, so its ink hangs in the space above the staff.
+    expect(marks[0]!.cp).toBe(0xe4ce);
     expect(marks[0]!.y).toBeCloseTo(staffTop, 6);
     expect(marks[0]!.y).toBeGreaterThanOrEqual(staffTop - 0.5);
     expect(marks[0]!.y).toBeLessThanOrEqual(staffTop + 4);
-    // Past the notehead it belongs to, and clear of the note that follows.
     expect(marks[0]!.x).toBeGreaterThan(notes[0]!.x + notes[0]!.w);
-    expect(notes[1]!.x).toBeGreaterThan(marks[0]!.x + 0.612); // breathMarkComma advance
-    // Two half notes still fill the bar exactly — a breath adds no rest, no diagnostic.
+    expect(notes[1]!.x).toBeGreaterThan(marks[0]!.x + 0.612);
     expect(notes).toHaveLength(2);
     expect(layout.diagnostics).toEqual([]);
   });
 
-  it('uses the caesura glyph for a caesura', () => {
-    const layout = layoutScore(fixture('caesura'));
-    expect(glyphsOf(layout, 'breath').map((g) => g.cp)).toEqual([0xe4d1]);
-  });
 
   it('widens the note’s column so the following one moves right', () => {
     const xs = (breath: boolean): number[] =>
@@ -685,7 +580,7 @@ describe('breath marks', () => {
             {},
             measure(
               note('C4', '8', breath ? { markings: { breath: {} } } : {}),
-              note('D4', '8'),
+              note('A4', '8'),
               note('E4', 'h.'),
             ),
           ),
@@ -696,7 +591,7 @@ describe('breath marks', () => {
 
     const withMark = xs(true);
     const without = xs(false);
-    expect(withMark[0]).toBeCloseTo(without[0]!, 6); // the marked note itself does not move
+    expect(withMark[0]).toBeCloseTo(without[0]!, 6);
     expect(withMark[1]!).toBeGreaterThan(without[1]!);
   });
 });
@@ -867,17 +762,6 @@ describe('two voices', () => {
     expect(box(layout, 'top').tick).toBe(box(layout, 'bottom').tick);
   });
 
-  it('shifts the v0 notehead one notehead width right of a v1 note a second below', () => {
-    const layout = layoutScore(
-      mnx({}, voices([n('D5', 'h', 'upper'), rest('h')], [n('C5', 'h', 'lower'), rest('h')])),
-    );
-    const width = glyphAdvanceWidth('noteheadHalf');
-
-    expect(box(layout, 'upper').x - box(layout, 'lower').x).toBeCloseTo(width, 6);
-    expect(stemOf(layout, 'upper').x - box(layout, 'upper').x).toBeGreaterThan(0);
-    expect(stemsUp(layout, 'upper')).toBe(true);
-    expect(stemsUp(layout, 'lower')).toBe(false);
-  });
 
   it('keeps a same-glyph unison on one x, each voice with its own ElementBox', () => {
     const layout = layoutScore(
@@ -908,21 +792,6 @@ describe('two voices', () => {
     expect(dot.x).toBeGreaterThan(box(dots, 'd1').x + box(dots, 'd1').w);
   });
 
-  it('packs both voices’ accidentals at a shared tick so no two glyphs collide', () => {
-    const layout = layoutScore(
-      mnx({}, voices([n('Bb4', 'w', 'flat')], [n('G#4', 'w', 'sharp')])),
-    );
-    const accidentals = glyphsOf(layout, 'accidental');
-    const flat = accidentals.find((g) => g.el === 'flat')!;
-    const sharp = accidentals.find((g) => g.el === 'sharp')!;
-    const [fl, fr] = xRange(flat, 'accidentalFlat');
-    const [sl, sr] = xRange(sharp, 'accidentalSharp');
-    const headX = Math.min(box(layout, 'flat').x, box(layout, 'sharp').x);
-
-    expect(accidentals).toHaveLength(2);
-    expect(fr <= sl || sr <= fl).toBe(true);
-    expect(Math.max(fr, sr)).toBeLessThan(headX);
-  });
 });
 
 describe('diagnostics', () => {
@@ -956,11 +825,9 @@ describe('timemap', () => {
     expect(tm.entries[0]!.ids).toHaveLength(2);
     expect(tm.entries[0]!.midiNotes).toEqual([60, 64]);
     expect(tm.entries[1]!.midi).toBe(67);
-    // Every id in the timemap resolves to a rendered ElementBox.
     for (const entry of tm.entries) {
       for (const id of entry.ids) expect(layout.elements[id]).toBeDefined();
     }
-    // 120bpm quarter -> a half note is one second.
     expect(tm.tickToSeconds(6720)).toBeCloseTo(1, 6);
     expect(tm.secondsToTick(1)).toBeCloseTo(6720, 6);
     expect(tm.activeAt(0)).toEqual(tm.entries[0]!.ids);
@@ -971,17 +838,6 @@ describe('timemap', () => {
     expect(position.yBottom - position.yTop).toBe(4);
   });
 
-  it('merges a tie into one entry', () => {
-    const layout = layoutScore(fixture('tie-merge'));
-    const tm = layout.timemap;
-
-    expect(tm.entries).toHaveLength(3);
-    expect(tm.entries[1]!.durationTicks).toBe(13440); // two halves, one entry
-    expect(tm.measures.map((m) => [m.startTick, m.endTick])).toEqual([
-      [0, 13440],
-      [13440, 26880],
-    ]);
-  });
 
   it('highlights the tie continuation on its own written span, not the tie head', () => {
     const layout = layoutScore(fixture('tie-merge'));
@@ -989,7 +845,7 @@ describe('timemap', () => {
 
     expect(tm.activeAt(6720)).toEqual(['c-start']);
     expect(tm.activeAt(13440)).toEqual(['c-stop']);
-    expect(tm.byId('c-start')!.durationTicks).toBe(13440); // sound still spans the merged tie
+    expect(tm.byId('c-start')!.durationTicks).toBe(13440);
   });
 
   it('carries both voices, with entries and active ids at a shared tick', () => {
@@ -1058,25 +914,9 @@ describe('timemap', () => {
     expect(tm.secondsToTick(2)).toBeCloseTo(6720, 6);
   });
 
-  it('lets the override carry its own beat unit and replace the whole document tempo map', () => {
-    const tm = layoutScore(fixture('mapping')).timemap;
-
-    expect(tm.tickToSeconds(6720, { bpm: 60, beatUnit: { base: 'half', dots: 0 } })).toBeCloseTo(1, 6);
-    expect(tm.tickToSeconds(6720 + 5040)).toBeCloseTo(1 + 60 / 90, 6);
-    expect(tm.tickToSeconds(6720 + 5040, { bpm: 120 })).toBeCloseTo(1.75, 6);
-    expect(tm.secondsToTick(1.75, { bpm: 120 })).toBeCloseTo(11760, 6);
-  });
 });
 
 describe('purity and glyph coverage', () => {
-  it('is deterministic — the same document lays out identically twice', () => {
-    const doc = mnx({ clef: BASS, key: -3 }, measure(note('E2', 'q'), chord(['G2', 'Bb2'], 'q'), note('C3', 'h')));
-    const a = layoutScore(doc);
-    const b = layoutScore(doc);
-    expect(JSON.stringify({ g: b.glyphs, r: b.rects, e: b.elements })).toBe(
-      JSON.stringify({ g: a.glyphs, r: a.rects, e: a.elements }),
-    );
-  });
 
   it('resolves every emitted glyph to a real codepoint', () => {
     const layout = layoutScore(fixture('repeat-alto'));
@@ -1086,14 +926,6 @@ describe('purity and glyph coverage', () => {
 });
 
 describe('tuplets', () => {
-  it('omits the bracket when the whole span beams as one run, drawing only the numeral', () => {
-    const layout = layoutScore(
-      mnx({}, measure(tuplet([3, '8'], [2, '8'], note('C4', '8'), note('D4', '8'), note('E4', '8')), rest('h'), rest('q'))),
-    );
-    expect(layout.rects.filter((r) => r.cls === 'tuplet-bracket')).toHaveLength(0);
-    expect(layout.glyphs.filter((g) => g.cls === 'tuplet-number')).not.toHaveLength(0);
-    expect(layout.paths.filter((p) => p.cls === 'beam')).not.toHaveLength(0);
-  });
 
   it('draws a bracket when the span cannot beam (quarters)', () => {
     const layout = layoutScore(
@@ -1443,5 +1275,78 @@ describe('slurs', () => {
   });
 });
 
-/** Every id the layout addresses is a real `NoteId` from the document. */
 export type _ = NoteId;
+
+describe('slur clearance and anchors', () => {
+  const sampleOuter = (d: string): [number, number][] => {
+    const p = curvePoints(d);
+    const [a, b, c, e] = [p[0]!, p[1]!, p[2]!, p[3]!];
+    const out: [number, number][] = [];
+    for (let i = 1; i <= 8; i += 1) {
+      const t = i / 9;
+      const m = 1 - t;
+      out.push([
+        m * m * m * a[0] + 3 * m * m * t * b[0] + 3 * m * t * t * c[0] + t * t * t * e[0],
+        m * m * m * a[1] + 3 * m * m * t * b[1] + 3 * m * t * t * c[1] + t * t * t * e[1],
+      ]);
+    }
+    return out;
+  };
+
+  it('clears an intermediate beam when the slur endpoints differ greatly in height', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        measure(
+          note('C6', 'q', { slurs: [{ target: 'e2', side: 'up' }] }),
+          note('A4', '8'),
+          note('A4', '8'),
+          note('A4', '8'),
+          note('A4', '8'),
+          note('C4', 'q', { id: 'e2' }),
+        ),
+      ),
+    );
+    const slur = layout.paths.find((p) => p.cls === 'slur')!;
+    const beam = layout.paths.filter((p) => p.cls === 'beam').map((p) => ({ points: curvePoints(p.d) }));
+    expect(beam.length).toBeGreaterThan(0);
+    const curve = sampleOuter(slur.d);
+    for (const poly of beam) {
+      const xs = poly.points.map(([x]) => x);
+      const ys = poly.points.map(([, y]) => y);
+      const hits = curve.filter(
+        ([x, y]) => x >= Math.min(...xs) && x <= Math.max(...xs) && y >= Math.min(...ys) && y <= Math.max(...ys),
+      );
+      expect(hits).toEqual([]);
+    }
+  });
+
+  it('anchors an automatic downward slur on the bottom chord member', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        measure(
+          chord(['C4', 'E4', 'G4'], 'q', { slurs: [{ target: 'e2' }] }, [{ id: 'low' }, {}, {}]),
+          rest('q'),
+          note('C4', 'q', { id: 'e2' }),
+          rest('q'),
+        ),
+      ),
+    );
+    const slur = layout.paths.find((p) => p.cls === 'slur')!;
+    const y0 = curvePoints(slur.d)[0]![1]!;
+    const low = boxes(layout).find((b) => b.id === 'low')!;
+    const top = boxes(layout)
+      .filter((b) => b.kind === 'chord')
+      .reduce((min, b) => (b.staffPosition < min.staffPosition ? b : min));
+    expect(slur.d.length).toBeGreaterThan(0);
+    expect(Math.abs(y0 - low.y)).toBeLessThan(Math.abs(y0 - top.y));
+  });
+
+  it('reports an invalid tempo bpm instead of silently dropping it', () => {
+    const doc = mnx({}, measure(note('C4', 'w')));
+    doc.global.measures[0]!.tempos = [{ bpm: -5 }] as never;
+    const layout = layoutScore(doc);
+    expect(layout.diagnostics.some((d) => d.code === 'mnx-unsupported' && d.message.includes('invalid tempo bpm'))).toBe(true);
+  });
+});

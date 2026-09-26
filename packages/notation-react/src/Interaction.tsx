@@ -21,7 +21,7 @@ export function InteractionChild(_props: NotationInteractionProps): null {
 
 export function hitIdentity(hit: HitResult): string {
   if (hit.kind === 'element') return `element:${hit.id}`;
-  if (hit.kind === 'slot') return `slot:${hit.slot.eventId}`;
+  if (hit.kind === 'slot') return `slot:${hit.slot.eventId}:${hit.staffPosition}`;
   return `point:${hit.measureIndex}:${hit.staffPosition}`;
 }
 

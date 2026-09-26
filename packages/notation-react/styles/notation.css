@@ -1,7 +1,3 @@
-/* Default theme (architecture.md "## Theming").
-   No color in the layout engine: every node is `currentColor` plus a stable `data-*`
-   attribute, and this file is the only place that decides how any of it looks. */
-
 @font-face {
   font-family: 'PolyhymniaNotation';
   src: url('./polyhymnia-notation.woff2') format('woff2');
@@ -11,12 +7,8 @@
 }
 
 .pn-notation {
-  /* SMuFL glyphs carry their own metrics; a fallback would render tofu at the wrong
-     size, so the stack ends at the notation font deliberately. */
   font-family: 'PolyhymniaNotation';
   color: var(--pn-ink, currentColor);
-  /* An sp-unit viewBox with no intrinsic pixel size — the host decides the rendered
-     width; height follows the viewBox aspect ratio. */
   display: block;
   max-width: 100%;
   height: auto;

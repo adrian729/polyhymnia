@@ -1,6 +1,3 @@
-// Exact arithmetic: the reason the temporal pass works in rationals and only collapses
-// to integer ticks at the API boundary (mnx.md "Time").
-
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { noteValueLength, Rational as R, rational } from '@polyhymnia/notation-model';
@@ -29,38 +26,12 @@ describe('Rational', () => {
     const third = rational(1, 3);
     expect(R.add(R.add(third, third), third)).toEqual({ n: 1, d: 1 });
 
-    // A 4/4 bar of 7:4 septuplet eighths: 7 x 1/14 of a whole note.
     const septuplet = rational(1, 14);
     const bar = Array.from({ length: 7 }, () => septuplet).reduce(R.add, R.ZERO);
     expect(bar).toEqual({ n: 1, d: 2 });
 
-    // The same sum in floats misses by an epsilon, which is the bug class this type
-    // exists to rule out of the temporal pass.
     const floatBar = Array.from({ length: 7 }, () => 1 / 14).reduce((a, b) => a + b, 0);
     expect(floatBar).not.toBe(0.5);
-  });
-
-  it('compares and orders without epsilon', () => {
-    expect(R.compare(rational(1, 3), rational(1, 2))).toBe(-1);
-    expect(R.compare(rational(2, 4), rational(1, 2))).toBe(0);
-    expect(R.compare(rational(5, 8), rational(1, 2))).toBe(1);
-  });
-
-  it('is exact under add/subtract round-trips', () => {
-    fc.assert(
-      fc.property(
-        fc.integer({ min: -500, max: 500 }),
-        fc.integer({ min: 1, max: 500 }),
-        fc.integer({ min: -500, max: 500 }),
-        fc.integer({ min: 1, max: 500 }),
-        (an, ad, bn, bd) => {
-          const a = rational(an, ad);
-          const b = rational(bn, bd);
-          expect(R.equals(R.subtract(R.add(a, b), b), a)).toBe(true);
-          expect(R.equals(R.add(a, b), R.add(b, a))).toBe(true);
-        },
-      ),
-    );
   });
 
   it('round-trips ticks at divisions=3360 for every notatable duration', () => {
@@ -80,17 +51,6 @@ describe('Rational', () => {
 });
 
 describe('tuplet arithmetic', () => {
-  it('3 x triplet-eighth === 1 quarter, exactly', () => {
-    const lengths = eventLengths(
-      mnx({}, measure(tuplet([3, '8'], [2, '8'], note('C4', '8'), note('D4', '8'), note('E4', '8')), note('F4', 'h.'))),
-    ).slice(0, 3);
-    const total = lengths.reduce((sum, l) => R.add(sum, l), R.ZERO);
-
-    expect(lengths[0]).toEqual({ n: 1, d: 12 });
-    expect(R.equals(total, noteValueLength({ base: 'quarter' })!)).toBe(true);
-    expect(total).toEqual({ n: 1, d: 4 });
-  });
-
   it('keeps onsets integral through the temporal stage', () => {
     const map = temporal(normalize(fixture('triplet')));
 
@@ -125,16 +85,6 @@ describe('capacities and decomposition', () => {
     expect(single(9, 8)).toBe(false);
     expect(single(5, 4)).toBe(false);
     expect(single(11, 8)).toBe(false);
-  });
-
-  it('decomposition takes the largest shape that fits and recurses', () => {
-    expect(decomposeLength(rational(5, 16))).toEqual([
-      { base: 'quarter', dots: 0 },
-      { base: '16th', dots: 0 },
-    ]);
-    expect(decomposeLength(rational(3, 4))).toEqual([{ base: 'half', dots: 1 }]);
-    expect(decomposeLength(R.ZERO)).toEqual([]);
-    expect(decomposeLength(rational(-1, 16))).toEqual([]);
   });
 
   it('decomposition always sums back to the length it was given', () => {

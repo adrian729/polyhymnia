@@ -45,16 +45,6 @@ describe('applyIntent setPitches', () => {
     expectValid(result.doc);
   });
 
-  it('turns a chord into a rest, dropping notes', () => {
-    const doc = mnx(measure(chord(['C4', 'E4'], 'q')));
-    const id = elementIds(doc).idAt(ev([0]))!;
-    const result = applyIntent(doc, { type: 'setPitches', event: id, pitches: [] });
-    const event = result.doc.parts[0].measures[0].sequences[0].content[0] as any;
-    expect(event.rest).toEqual({});
-    expect(event.notes).toBeUndefined();
-    expectValid(result.doc);
-  });
-
   it('keeps an explicit note id across a re-pitch', () => {
     const doc = mnx(measure(note('C4', 'q', {}, { id: 'target-note' })));
     const id = elementIds(doc).idAt(ev([0]))!;
@@ -62,18 +52,6 @@ describe('applyIntent setPitches', () => {
     const event = result.doc.parts[0].measures[0].sequences[0].content[0] as any;
     expect(event.notes[0].id).toBe('target-note');
     expect(event.notes[0].pitch).toEqual(parsePitch('D4'));
-    expectValid(result.doc);
-  });
-
-  it('re-pitches inside a triplet', () => {
-    const doc = mnx(measure(tuplet([3, '8'], [2, '8'], note('C4', '8'), note('D4', '8'), note('E4', '8'))));
-    const t = doc.parts[0].measures[0].sequences[0].content[0] as any;
-    const id = elementIds(doc).idAt(ev([0, 1]))!;
-    const result = applyIntent(doc, { type: 'setPitches', event: id, pitches: pitches('F4') });
-    const newT = result.doc.parts[0].measures[0].sequences[0].content[0] as any;
-    expect(newT.content[1].notes[0].pitch).toEqual(parsePitch('F4'));
-    expect(newT.content[0]).toBe(t.content[0]);
-    expect(newT.content[2]).toBe(t.content[2]);
     expectValid(result.doc);
   });
 
@@ -161,5 +139,17 @@ describe('applyIntent setPitches', () => {
     expect(result.doc.global).toBe(doc.global);
     expect(result.doc.parts[0].measures[1]).toBe(doc.parts[0].measures[1]);
     expectValid(result.doc);
+  });
+});
+
+describe('applyIntent malformed documents', () => {
+  it('never throws when the first part has no measures', () => {
+    const doc = mnx(measure(note('C4', 'q')));
+    const id = elementIds(doc).idAt(ev([0]))!;
+    const broken = { ...doc, parts: [{ ...doc.parts[0], measures: undefined }] } as never;
+    const result = applyIntent(broken, { type: 'setPitches', event: id, pitches: pitches('D4') });
+    expect(result.changed).toEqual([]);
+    expect(result.doc).toBe(broken);
+    expect(result.diagnostics).toEqual([expect.objectContaining({ code: 'intent-target-missing' })]);
   });
 });

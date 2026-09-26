@@ -125,24 +125,46 @@ function setPitches(doc: MnxDocument, eventId: string, pitches: readonly Pitch[]
   if (pitches.length === 0) newEvent.rest = {};
   else newEvent.notes = newNotes;
 
-  const part = asObject(doc.parts[0])!;
-  const newMeasures = part.measures.map((pm: unknown, mi: number) => {
-    if (mi !== found.measureIndex) return cleanupPartMeasure(pm, staleIds);
-    const measure = asObject(pm)!;
-    const sequences = measure.sequences.map((raw: unknown, si: number) => {
-      if (si !== found.sequenceIndex) return raw;
-      const sequence = asObject(raw)!;
-      const content = substituteAtPath(sequence.content, found.path, newEvent);
-      return content ? { ...sequence, content } : raw;
-    });
-    return cleanupPartMeasure({ ...measure, sequences }, staleIds);
-  });
+  const part = asObject(doc.parts[0]);
+  if (!part || !Array.isArray(part.measures)) return { doc, changed: [], diagnostics: missing(eventId) };
+  let substituted = false;
+  const newMeasures: unknown[] = [];
+  for (let mi = 0; mi < part.measures.length; mi += 1) {
+    const pm: unknown = part.measures[mi];
+    if (mi !== found.measureIndex) {
+      newMeasures.push(cleanupPartMeasure(pm, staleIds));
+      continue;
+    }
+    const measure = asObject(pm);
+    if (!measure || !Array.isArray(measure.sequences)) return { doc, changed: [], diagnostics: missing(eventId) };
+    const sequences: unknown[] = [];
+    for (let si = 0; si < measure.sequences.length; si += 1) {
+      const raw: unknown = measure.sequences[si];
+      if (si !== found.sequenceIndex) {
+        sequences.push(raw);
+        continue;
+      }
+      const sequence = asObject(raw);
+      const content = sequence ? substituteAtPath(sequence.content, found.path, newEvent) : undefined;
+      if (!sequence || !content) return { doc, changed: [], diagnostics: missing(eventId) };
+      substituted = true;
+      sequences.push({ ...sequence, content });
+    }
+    newMeasures.push(cleanupPartMeasure({ ...measure, sequences }, staleIds));
+  }
+  if (!substituted) return { doc, changed: [], diagnostics: missing(eventId) };
 
-  const newDoc: MnxDocument = { ...doc, parts: doc.parts.map((p, i) => (i === 0 ? { ...part, measures: newMeasures } : p)) };
+  const newDoc: MnxDocument = { ...doc, parts: doc.parts.map((p, i) => (i === 0 ? { ...part, measures: newMeasures } : p)) } as MnxDocument;
   return { doc: newDoc, changed, diagnostics: [] };
 }
 
 export function applyIntent(doc: MnxDocument, intent: EditIntent): ApplyResult {
-  if (intent.type === 'setPitches') return setPitches(doc, intent.event, intent.pitches);
+  if (intent.type === 'setPitches') {
+    try {
+      return setPitches(doc, intent.event, intent.pitches);
+    } catch {
+      return { doc, changed: [], diagnostics: missing(intent.event) };
+    }
+  }
   return { doc, changed: [], diagnostics: [] };
 }

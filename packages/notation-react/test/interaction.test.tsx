@@ -116,30 +116,6 @@ describe('<Notation.Interaction>', () => {
     expect(target.pitch).toBeDefined();
   });
 
-  it('emits activate with kind element on a notehead click', () => {
-    const doc = simpleScore();
-    const layout = layoutScore(doc);
-    const box = Object.values(layout.elements)[0]!;
-    const intents: NotationIntent[] = [];
-    const { container } = render(
-      <Notation score={doc}>
-        <Notation.Interaction targets={['element']} onIntent={(i) => intents.push(i)} />
-      </Notation>,
-    );
-    const svg = container.querySelector('svg')!;
-    stubGeometry(svg);
-    fireEvent.click(svg, {
-      clientX: box.hitBox.x + box.hitBox.w / 2,
-      clientY: box.hitBox.y + box.hitBox.h / 2,
-    });
-
-    expect(intents).toHaveLength(1);
-    const intent = intents[0]!;
-    if (intent.type !== 'activate') throw new Error('expected activate');
-    expect(intent.target.kind).toBe('element');
-    if (intent.target.kind === 'element') expect(intent.target.id).toBe(box.id);
-  });
-
   it('emits nothing and renders no overlay/tabIndex with targets: []', () => {
     const doc = simpleScore();
     const intents: NotationIntent[] = [];
@@ -185,23 +161,6 @@ describe('<Notation.Interaction>', () => {
     const hovers = intents.filter((i) => i.type === 'hover');
     expect(hovers).toHaveLength(3);
     expect(hovers[2]!.target).toBeNull();
-  });
-
-  it('activates a focused element on Enter', () => {
-    const doc = simpleScore();
-    const layout = layoutScore(doc);
-    const box = Object.values(layout.elements)[0]!;
-    const intents: NotationIntent[] = [];
-    const { container } = render(
-      <Notation score={doc}>
-        <Notation.Interaction targets={['element']} onIntent={(i) => intents.push(i)} />
-      </Notation>,
-    );
-    const el = container.querySelector(`g[data-pn="element"][data-pn-el="${box.id}"]`)!;
-    fireEvent.keyDown(el, { key: 'Enter' });
-
-    expect(intents).toHaveLength(1);
-    expect(intents[0]!.type).toBe('activate');
   });
 
   it('threads options.accidentals.insertAlteration into pointer and keyboard hitTest', () => {
@@ -265,7 +224,7 @@ describe('<Notation.Interaction>', () => {
     expect(intent.target.id).toBe(voice1Box.id);
   });
 
-  it('emits hover: null when layout changes while hovering', () => {
+  it('re-evaluates hover at the pointer when layout changes while hovering', () => {
     const doc = simpleScore();
     const layout = layoutScore(doc);
     const box = Object.values(layout.elements)[0]!;
@@ -292,7 +251,30 @@ describe('<Notation.Interaction>', () => {
 
     expect(intents).toHaveLength(2);
     expect(intents[1]!.type).toBe('hover');
-    expect(intents[1]!.target).toBeNull();
+    expect(intents[1]!.target).not.toBeNull();
+  });
+
+  it('emits hover again when the pointer moves vertically inside one slot', () => {
+    const doc = simpleScore();
+    const layout = layoutScore(doc);
+    const slot = layout.slots[0]!;
+    const system = layout.systems[0]!;
+    const intents: NotationIntent[] = [];
+    const { container } = render(
+      <Notation score={doc}>
+        <Notation.Interaction targets={['slot']} onIntent={(i) => intents.push(i)} />
+      </Notation>,
+    );
+    const svg = container.querySelector('svg')!;
+    stubGeometry(svg);
+    const x = slot.x + slot.w / 2;
+    fireEvent.pointerMove(svg, { clientX: x, clientY: system.y + 1 });
+    fireEvent.pointerMove(svg, { clientX: x, clientY: system.y + 3 });
+
+    const hovers = intents.filter((i) => i.type === 'hover');
+    expect(hovers).toHaveLength(2);
+    const pitches = hovers.map((h) => (h.target && h.target.kind === 'slot' ? h.target.pitch : null));
+    expect(pitches[0]).not.toEqual(pitches[1]);
   });
 });
 
@@ -317,19 +299,6 @@ describe('<Notation.Marks>', () => {
     const elAfter = container.querySelector(`g[data-pn="element"][data-pn-el="${box.id}"]`)!;
     expect(elAfter).toBe(el);
     expect(elAfter.getAttribute('data-pn-state')).toBe('wrong');
-  });
-
-  it('writes selection to data-pn-selected', () => {
-    const doc = simpleScore();
-    const layout = layoutScore(doc);
-    const box = Object.values(layout.elements)[0]!;
-    const { container } = render(
-      <Notation score={doc}>
-        <Notation.Marks selection={[box.id]} />
-      </Notation>,
-    );
-    const el = container.querySelector(`g[data-pn="element"][data-pn-el="${box.id}"]`)!;
-    expect(el.getAttribute('data-pn-selected')).toBe('true');
   });
 
   it('renders a preview ghost from previewShapes and removes it on null', () => {

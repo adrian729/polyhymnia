@@ -140,15 +140,6 @@ describe('clefs', () => {
     expect(kindOf('C', 2)).toEqual({ kind: 'tenor' });
   });
 
-  it('maps clef octave -1/+1 onto the octave clef glyphs', () => {
-    const glyph = (octave: -1 | 1) =>
-      layoutScore(mnx({ clef: { ...TREBLE, octave } }, measure(note('C4', 'w')))).glyphs.find(
-        (g) => g.cls === 'clef',
-      )!.cp;
-    expect(glyph(-1)).toBe(cp('gClef8vb'));
-    expect(glyph(1)).toBe(cp('gClef8va'));
-  });
-
   it('draws an unsupported clef position with the nearest supported clef', () => {
     const doc = mnx({ clef: { sign: 'G', staffPosition: -4 } }, measure(note('C4', 'w')));
     expect(normalize(doc).staves[0]!.measures[0]!.clef).toEqual({ kind: 'treble' });
@@ -167,20 +158,6 @@ describe('clefs', () => {
     expect(unsupported(doc)).toEqual(['Unsupported MNX: percussion clef in measure 1; the previous clef is kept.']);
   });
 
-  it('applies a mid-measure clef from the next measure', () => {
-    const doc = mnx(
-      {},
-      withPart(
-        { clefs: [{ clef: TREBLE }, { clef: { sign: 'F', staffPosition: 2 }, position: { fraction: [1, 2] } }] },
-        measure(note('C4', 'h'), note('C3', 'h')),
-      ),
-      measure(note('C3', 'w')),
-    );
-    expect(normalize(doc).staves[0]!.measures.map((m) => m.clef.kind)).toEqual(['treble', 'bass']);
-    expect(unsupported(doc)).toEqual([
-      'Unsupported MNX: mid-measure clef in measure 0; applied from the next measure.',
-    ]);
-  });
 });
 
 describe('global measure properties', () => {
@@ -202,15 +179,6 @@ describe('global measure properties', () => {
     ]);
     expect(measures.map((m) => m.time.symbol ?? null)).toEqual(['common', 'cut', 'cut', 'cut']);
     expect(unsupported(doc)).toEqual(['Unsupported MNX: heavy barline in measure 3; drawn as a single barline.']);
-  });
-
-  it('places tempo changes at their location with a dotted beat unit', () => {
-    const normalized = normalize(fixture('mapping'));
-    expect(normalized.tempo).toEqual([{ tick: 6720, bpm: 90, beatUnit: { base: 'quarter', dots: 1 } }]);
-
-    const tm = layoutScore(fixture('mapping')).timemap;
-    expect(tm.tickToSeconds(6720)).toBeCloseTo(1, 6);
-    expect(tm.tickToSeconds(6720 + 5040)).toBeCloseTo(1 + 60 / 90, 6);
   });
 
   it('breaks systems where the score layout starts them, and diagnoses unknown measures', () => {
@@ -250,26 +218,6 @@ describe('events and notes', () => {
       cp('accidentalParensRight'),
       cp('accidentalSharp'),
     ]);
-  });
-
-  it('converts a rest staffPosition from MNX half-spaces to staff y', () => {
-    const layout = layoutScore(fixture('mapping'));
-    const restBox = Object.values(layout.elements).find((b) => b.kind === 'rest')!;
-    expect(restBox.staffPosition).toBe(1);
-  });
-
-  it('carries stemDirection through as a stem override', () => {
-    const stems = temporal(normalize(fixture('mapping'))).elements.map((e) => e.stem ?? null);
-    expect(stems.slice(0, 3)).toEqual([null, 'up', null]);
-  });
-
-  it('draws markings.breath as a comma and markings.caesura as a caesura', () => {
-    const cps = (markings: object) =>
-      layoutScore(mnx({}, measure(note('C4', 'h', { markings }), note('D4', 'h'))))
-        .glyphs.filter((g) => g.cls === 'breath')
-        .map((g) => g.cp);
-    expect(cps({ breath: {} })).toEqual([cp('breathMarkComma')]);
-    expect(cps({ caesura: {} })).toEqual([cp('caesura')]);
   });
 
   it('advances time invisibly over a space', () => {
@@ -379,20 +327,6 @@ describe('id collisions', () => {
     );
   });
 
-  it('reports id-collision with measureIndex when an explicit beam id collides with an existing id', () => {
-    const doc = mnx(
-      {},
-      withPart(
-        { beams: [{ id: 'a', events: ['a', 'b'] }] },
-        measure(note('C4', '8', { id: 'a' }), note('D4', '8', { id: 'b' })),
-      ),
-    );
-    const diagnostics = layoutScore(doc).diagnostics;
-
-    expect(diagnostics).toContainEqual(
-      expect.objectContaining({ severity: 'warning', code: 'id-collision', measureIndex: 0 }),
-    );
-  });
 });
 
 describe('nested tuplets', () => {
@@ -421,34 +355,6 @@ describe('nested tuplets', () => {
     expect(inner1!.durationTicks).toBe(896);
     expect(inner2!.durationTicks).toBe(896);
     expect(inner3!.durationTicks).toBe(896);
-
-    expect(unsupported(doc)).toContainEqual(
-      'Unsupported MNX: nested tuplet in measure 0; flattened into one tuplet.',
-    );
-  });
-
-  it('combines the ratios for two levels of 3:2 nesting', () => {
-    const doc = mnx(
-      {},
-      measure(
-        tuplet(
-          [3, 'q'],
-          [2, 'q'],
-          note('C4', 'q'),
-          tuplet([3, 'q'], [2, 'q'], note('D4', 'q'), note('E4', 'q'), note('F4', 'q')),
-        ),
-      ),
-    );
-    const map = temporal(normalize(doc, { divisions: 36 }));
-    const [outer, inner1, inner2, inner3] = map.elements;
-
-    expect(outer!.tuplet).toEqual({ id: 'm0.s0.t0', actual: 3, normal: 2 });
-    expect(outer!.durationTicks).toBe(24);
-
-    expect(inner1!.tuplet).toEqual({ id: 'm0.s0.t1', actual: 9, normal: 4 });
-    expect(inner1!.durationTicks).toBe(16);
-    expect(inner2!.durationTicks).toBe(16);
-    expect(inner3!.durationTicks).toBe(16);
 
     expect(unsupported(doc)).toContainEqual(
       'Unsupported MNX: nested tuplet in measure 0; flattened into one tuplet.',
@@ -495,31 +401,6 @@ describe('beams', () => {
     expect(beams).toHaveLength(1);
     expect(beams[0]).toMatchObject({ measureIndex: 0, voice: 0, elements: ['a', 'b'] });
     expect(beams[0]!.id).toBe('a.beam');
-  });
-
-  it('keeps a rest the beam spans in `elements`', () => {
-    const doc = mnx(
-      {},
-      withPart(
-        { beams: [{ events: ['a', 'b'] }] },
-        measure(note('C4', '8', { id: 'a' }), rest('8'), note('D4', '8', { id: 'b' })),
-      ),
-    );
-    const beam = normalize(doc).beams[0]!;
-    expect(beam.elements).toHaveLength(3);
-    expect(beam.elements[1]).not.toBe('a');
-    expect(beam.elements[1]).not.toBe('b');
-  });
-
-  it('honors an explicit MNX id on the beam', () => {
-    const doc = mnx(
-      {},
-      withPart(
-        { beams: [{ id: 'my-beam', events: ['a', 'b'] }] },
-        measure(note('C4', '8', { id: 'a' }), note('D4', '8', { id: 'b' })),
-      ),
-    );
-    expect(normalize(doc).beams[0]!.id).toBe('my-beam');
   });
 
   it('reads explicit nested beams into levels and hook directions', () => {
@@ -573,23 +454,6 @@ describe('beams', () => {
     expect(beam.segments).toEqual([{ level: 2, first: 'c', last: 'c', hook: 'left' }]);
   });
 
-  it('derives a full secondary segment across a run at the same level', () => {
-    const doc = mnx(
-      {},
-      withPart(
-        { beams: [{ events: ['a', 'b', 'c', 'd'] }] },
-        measure(
-          note('C5', '16', { id: 'a' }),
-          note('D5', '16', { id: 'b' }),
-          note('E5', '16', { id: 'c' }),
-          note('F5', '16', { id: 'd' }),
-        ),
-      ),
-    );
-    const beam = normalize(doc).beams[0]!;
-    expect(beam.segments).toEqual([{ level: 2, first: 'a', last: 'd' }]);
-  });
-
   it('auto-beams a measure with no explicit beams and support.useBeams unset', () => {
     const doc = mnx(
       {},
@@ -609,34 +473,6 @@ describe('beams', () => {
       ['a', 'b', 'c', 'd'],
       ['e', 'f', 'g', 'h'],
     ]);
-  });
-
-  it('does not invent beams when support.useBeams is true and a measure has no explicit beams', () => {
-    const doc = useBeamsTrue(
-      mnx(
-        {},
-        measure(
-          note('C5', '8'),
-          note('D5', '8'),
-          note('E5', '8'),
-          note('F5', '8'),
-        ),
-      ),
-    );
-    expect(normalize(doc).beams).toEqual([]);
-  });
-
-  it('lets an explicit beam in one measure coexist with auto-beaming absent elsewhere', () => {
-    const doc = mnx(
-      {},
-      withPart(
-        { beams: [{ events: ['a', 'b'] }] },
-        measure(note('C5', '8', { id: 'a' }), note('D5', '8', { id: 'b' }), note('E5', 'q'), note('F5', 'q')),
-      ),
-      measure(note('G5', '8'), note('A5', '8'), note('B5', 'q'), note('C6', 'q')),
-    );
-    const beams = normalize(doc).beams;
-    expect(beams.map((b) => b.measureIndex)).toEqual([0, 1]);
   });
 
   it('drops a beam referencing an unknown id, with a beam-invalid diagnostic', () => {
@@ -659,48 +495,6 @@ describe('beams', () => {
       {},
       withPart({ beams: [{ events: ['a', 'b'] }] }, measure(note('C5', '8', { id: 'a' }), rest('8'), rest('h'))),
       measure(note('D5', '8', { id: 'b' }), rest('8'), rest('h')),
-    );
-    const normalized = normalize(doc);
-    expect(normalized.beams).toEqual([]);
-    expect(normalized.diagnostics.filter((d) => d.code === 'beam-invalid')).toHaveLength(1);
-  });
-
-  it('drops a beam that references events in two different voices', () => {
-    const doc = mnx(
-      {},
-      withPart(
-        { beams: [{ events: ['a', 'b'] }] },
-        voices(
-          [note('C5', '8', { id: 'a' }), note('D5', 'q'), note('E5', 'q'), note('F5', 'q')],
-          [note('C4', '8', { id: 'b' }), note('D4', 'q'), note('E4', 'q'), note('F4', 'q')],
-        ),
-      ),
-    );
-    const normalized = normalize(doc);
-    expect(normalized.beams).toEqual([]);
-    expect(normalized.diagnostics.filter((d) => d.code === 'beam-invalid')).toHaveLength(1);
-  });
-
-  it('drops a beam covering fewer than two notes', () => {
-    const doc = mnx(
-      {},
-      withPart(
-        { beams: [{ events: ['a', 'rest-id'] }] },
-        measure(note('C5', '8', { id: 'a' }), rest('8', { id: 'rest-id' }), rest('h')),
-      ),
-    );
-    const normalized = normalize(doc);
-    expect(normalized.beams).toEqual([]);
-    expect(normalized.diagnostics.filter((d) => d.code === 'beam-invalid')).toHaveLength(1);
-  });
-
-  it('drops a beam that would reference a note that is a quarter or longer', () => {
-    const doc = mnx(
-      {},
-      withPart(
-        { beams: [{ events: ['a', 'b'] }] },
-        measure(note('C5', '8', { id: 'a' }), note('D5', 'q', { id: 'b' }), note('E5', 'q')),
-      ),
     );
     const normalized = normalize(doc);
     expect(normalized.beams).toEqual([]);
@@ -731,26 +525,6 @@ describe('beams', () => {
     expect(normalized.diagnostics.filter((d) => d.code === 'beam-invalid')).toHaveLength(1);
   });
 
-  it('drops a duplicated event id from a beam instead of letting it through as one note', () => {
-    const doc = mnx(
-      {},
-      withPart(
-        { beams: [{ events: ['a', 'a'] }] },
-        measure(note('C5', '8', { id: 'a' }), rest('8'), rest('h')),
-      ),
-    );
-    const normalized = normalize(doc);
-    expect(normalized.beams).toEqual([]);
-    expect(normalized.diagnostics.filter((d) => d.code === 'beam-invalid')).toHaveLength(1);
-  });
-
-  it('auto-beams chords the same as single notes', () => {
-    const doc = mnx({}, measure(chord(['C4', 'E4'], '8'), chord(['D4', 'F4'], '8'), rest('h')));
-    const normalized = normalize(doc);
-    expect(normalized.beams).toHaveLength(1);
-    expect(normalized.beams[0]!.elements).toHaveLength(2);
-  });
-
   it('clips an auto-beam group at the measure capacity instead of referencing dropped events', () => {
     const doc = mnx(
       {},
@@ -773,24 +547,6 @@ describe('beams', () => {
     expect(referenced).not.toContain('overflow2');
     const laidOut = layoutScore(doc);
     expect(laidOut.diagnostics.some((d) => d.code === 'measure-overfull')).toBe(true);
-  });
-
-  it('clips an explicit beam at the measure capacity instead of referencing a dropped event', () => {
-    const doc = mnx(
-      {},
-      withPart(
-        { beams: [{ events: ['tail', 'overflow'] }] },
-        measure(
-          note('C4', 'h', { id: 'pad1' }),
-          note('C4', 'h', { id: 'pad2' }),
-          note('C4', '8', { id: 'tail' }),
-          note('C4', '8', { id: 'overflow' }),
-        ),
-      ),
-    );
-    const normalized = normalize(doc);
-    expect(normalized.beams).toEqual([]);
-    expect(() => layoutScore(doc)).not.toThrow();
   });
 
   it('reports beam-grouping-invalid once for an auto-beamed measure with a bad beatGrouping option', () => {

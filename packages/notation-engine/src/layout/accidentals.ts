@@ -1,10 +1,3 @@
-// Pipeline stage 3 — accidentals (architecture.md, engraving.md "## Accidentals").
-//
-// Which notes get a written accidental. State is `Map<"step:octave", alter>`, reset at
-// every barline and seeded from the key signature (key accidentals are octave-agnostic,
-// so they are a separate lookup consulted on a miss). Ties carry across the barline: a
-// tie-stop never repeats its start's accidental.
-
 import type { NotationOptions } from '../options.js';
 import { DEFAULT_OPTIONS } from '../options.js';
 import type { Diagnostic } from '@polyhymnia/notation-model';
@@ -14,15 +7,12 @@ import type { NormalizedScore } from './normalize.js';
 import type { TemporalElement, TemporalScore } from './temporal.js';
 
 export interface ResolvedAccidental {
-  /** The note's own alteration, whether or not a glyph is drawn. */
   alter: -2 | -1 | 0 | 1 | 2;
-  /** `null` when no accidental is written for this note. */
   glyph: string | null;
   parenthesized: boolean;
 }
 
 export interface AccidentalScore {
-  /** One entry per `NoteEl`, chord members included — `glyph: null` means "no glyph". */
   byNote: ReadonlyMap<NoteId, ResolvedAccidental>;
   diagnostics: readonly Diagnostic[];
 }
@@ -44,9 +34,7 @@ export function accidentals(
   const diagnostics: Diagnostic[] = [];
 
   for (const staff of normalized.staves) {
-    // Ties are the one piece of state that survives a barline (engraving.md).
     const openTies = new Map<string, boolean>();
-    // Alterations written in an earlier measure, for the courtesy rule.
     let carriedAlterations = new Map<string, number>();
 
     for (const measure of staff.measures) {
@@ -77,8 +65,6 @@ export function accidentals(
             parenthesized = parenthesize;
           } else {
             written = pitch.alter !== effective;
-            // Courtesy: this pitch was altered earlier and now reads as the key's own
-            // spelling — restate it so the reader isn't left guessing.
             if (!written && courtesyPolicy !== 'none' && carriedAlterations.has(slot)) {
               const carried = carriedAlterations.get(slot)!;
               if (carried !== pitch.alter) {
@@ -88,8 +74,6 @@ export function accidentals(
             }
           }
 
-          // A tied-into note never restates its accidental, whatever the measure state
-          // would otherwise require — the pitch never stopped sounding.
           if (tiedIn && policy !== 'always' && policy !== 'cautionary') written = false;
 
           byNote.set(note.id, {
@@ -108,8 +92,6 @@ export function accidentals(
         }
       }
 
-      // 'next-measure' remembers only the bar just ended; 'always' keeps the memory
-      // until the courtesy actually fires.
       if (courtesyPolicy === 'next-measure') {
         carriedAlterations = new Map(writtenHere);
       } else if (courtesyPolicy === 'always') {
@@ -121,7 +103,6 @@ export function accidentals(
   return { byNote, diagnostics };
 }
 
-/** Resolution for a note the stage never saw (defensive — emit must not crash). */
 export function accidentalOf(
   resolved: AccidentalScore,
   id: NoteId,

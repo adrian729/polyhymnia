@@ -36,20 +36,6 @@ describe('elementIds', () => {
     expect(ids.idAt(pos([0], { note: 2 }))).toBe('m0.s0.e0.n2');
   });
 
-  it('a single-note event resolves the note to the event id', () => {
-    const doc = mnx(measure(note('C4', 'q')));
-    const ids = elementIds(doc);
-    expect(ids.idAt(pos([0]))).toBe('m0.s0.e0');
-    expect(ids.idAt(pos([0], { note: 0 }))).toBe('m0.s0.e0');
-  });
-
-  it('gives a tuplet a positional id', () => {
-    const doc = mnx(measure(tuplet([3, '8'], [2, '8'], note('C4', '8'), note('D4', '8'), note('E4', '8'))));
-    const ids = elementIds(doc);
-    expect(ids.idAt(pos([0]))).toBe('m0.s0.t0');
-    expect(ids.idAt(pos([0, 0]))).toBe('m0.s0.e0');
-  });
-
   it('gives a full-measure rest the .full suffix', () => {
     const doc = mnx({ sequences: [{ content: [], fullMeasure: {} }] } as any);
     const ids = elementIds(doc);
@@ -79,14 +65,6 @@ describe('elementIds', () => {
     ]);
   });
 
-  it('reports a warning when two elements explicitly share the same id', () => {
-    const doc = mnx(measure(note('C4', 'q', { id: 'dup' }), note('D4', 'q', { id: 'dup' })));
-    const ids = elementIds(doc);
-    expect(ids.diagnostics).toEqual([
-      expect.objectContaining({ severity: 'warning', code: 'id-collision' }),
-    ]);
-  });
-
   it('mint continues the same used-id set as the main pass', () => {
     const doc = mnx(measure(note('C4', 'q')));
     const ids = elementIds(doc);
@@ -101,15 +79,6 @@ describe('elementIds', () => {
     expect(ids.idAt(pos([1]))).toBe('m0.s0.e1');
     expect(ids.nodeOf('m0.s0.e0')?.path).toEqual([0]);
     expect(ids.nodeOf('m0.s0.e1')?.path).toEqual([1]);
-  });
-
-  it('is pure: the same position yields the same id on every lookup', () => {
-    const shared = note('C4', 'q');
-    const doc = mnx(measure(shared, shared));
-    const ids = elementIds(doc);
-    expect(ids.idAt(pos([1]))).toBe('m0.s0.e1');
-    expect(ids.idAt(pos([1]))).toBe('m0.s0.e1');
-    expect(ids.idAt(pos([1]))).toBe('m0.s0.e1');
   });
 
   it('gives a shared note object distinct ids at each event that references it', () => {

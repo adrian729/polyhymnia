@@ -1,13 +1,4 @@
-// SMuFL glyph name -> codepoint for the 61-glyph subset (font.md). Mirrors
-// notation-font's build manifest; the metadata JSON carries metrics but no codepoints,
-// and notation-font is build-time-only so it can't be imported as a runtime dependency.
-//
-// Staff lines, ledger lines, barlines, stems and beams are deliberately absent: they
-// are <rect>s with thicknesses from `engravingDefaults`, not glyphs, because all of
-// them need exact-length stretching or rotation.
-
 export const GLYPH_CODEPOINT: Record<string, number> = {
-  // Clefs
   gClef: 0xe050,
   gClef8vb: 0xe052,
   gClef8va: 0xe053,
@@ -16,7 +7,6 @@ export const GLYPH_CODEPOINT: Record<string, number> = {
   fClef8vb: 0xe064,
   fClef8va: 0xe065,
 
-  // Time signature digits + common/cut
   timeSig0: 0xe080,
   timeSig1: 0xe081,
   timeSig2: 0xe082,
@@ -30,16 +20,13 @@ export const GLYPH_CODEPOINT: Record<string, number> = {
   timeSigCommon: 0xe08a,
   timeSigCutCommon: 0xe08b,
 
-  // Noteheads
   noteheadDoubleWhole: 0xe0a0,
   noteheadWhole: 0xe0a2,
   noteheadHalf: 0xe0a3,
   noteheadBlack: 0xe0a4,
 
-  // Augmentation dot — U+E1E7, NOT U+E4E5 (that is restQuarter)
   augmentationDot: 0xe1e7,
 
-  // Flags
   flag8thUp: 0xe240,
   flag8thDown: 0xe241,
   flag16thUp: 0xe242,
@@ -49,7 +36,6 @@ export const GLYPH_CODEPOINT: Record<string, number> = {
   flag64thUp: 0xe246,
   flag64thDown: 0xe247,
 
-  // Accidentals
   accidentalFlat: 0xe260,
   accidentalNatural: 0xe261,
   accidentalSharp: 0xe262,
@@ -58,7 +44,6 @@ export const GLYPH_CODEPOINT: Record<string, number> = {
   accidentalParensLeft: 0xe26a,
   accidentalParensRight: 0xe26b,
 
-  // Rests
   restDoubleWhole: 0xe4e2,
   restWhole: 0xe4e3,
   restHalf: 0xe4e4,
@@ -68,7 +53,6 @@ export const GLYPH_CODEPOINT: Record<string, number> = {
   rest32nd: 0xe4e8,
   rest64th: 0xe4e9,
 
-  // Tuplet digits + colon
   tuplet0: 0xe880,
   tuplet1: 0xe881,
   tuplet2: 0xe882,
@@ -81,10 +65,8 @@ export const GLYPH_CODEPOINT: Record<string, number> = {
   tuplet9: 0xe889,
   tupletColon: 0xe88a,
 
-  // Repeat barline dot
   repeatDot: 0xe044,
 
-  // Breath marks
   breathMarkComma: 0xe4ce,
   caesura: 0xe4d1,
 };

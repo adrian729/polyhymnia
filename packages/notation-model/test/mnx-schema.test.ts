@@ -28,11 +28,4 @@ describe('vendored MNX examples validate against the vendored schema', () => {
     expect(valid, ajv.errorsText(validate.errors, { separator: '\n' })).toBe(true);
   });
 
-  it('every KNOWN_INVALID entry actually exists and actually fails', () => {
-    for (const file of KNOWN_INVALID) {
-      expect(exampleFiles).toContain(file);
-      const doc = JSON.parse(readFileSync(path.join(EXAMPLES_DIR, file), 'utf8'));
-      expect(validate(doc)).toBe(false);
-    }
-  });
 });

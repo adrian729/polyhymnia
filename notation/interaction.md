@@ -139,7 +139,7 @@ Every note `<g>`: `aria-label={box.label}` ("E flat 4, quarter note, measure 2")
 
 Recorded here so they don't leak into I2/I3 or later exercise work:
 
-- Rhythm-changing edits: `insertNote` with rest splicing, `deleteElements` with rest replacement, `modifyDuration`, `moveElements`, grid slots (`options.insertGrid`), measure growth.
+- Rhythm-changing edits: `insertNote` with rest splicing, `deleteElements` with rest replacement, `modifyDuration`, `moveElements`, grid slots, measure growth.
 - Editor gestures: drag to change pitch, on-canvas duration palette, caret entry, `navigate`, `contextMenu`, keyboard note entry.
 - Free multi-voice entry (creating a voice-1 sequence), measure/meter/key/clef edits, copy/paste.
 - Undo/redo history ("Undo design (deferred)" below) and semantic inverse intents (only needed for collaboration).

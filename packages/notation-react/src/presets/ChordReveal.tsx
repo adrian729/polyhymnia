@@ -1,6 +1,3 @@
-// interface.md "## Presets" — sugar over a directly-built MNX document, not a feature
-// of its own.
-
 import { useMemo } from 'react';
 import type { CSSProperties, JSX } from 'react';
 import type { NoteValue } from '@polyhymnia/notation-model';
@@ -18,8 +15,6 @@ export interface ChordRevealProps {
   duration?: NoteValue;
   className?: string;
   style?: CSSProperties;
-  /** Additive over interface.md's listed props — the same `<Notation>` escape hatch,
-   *  so a preset is still inspectable (diagnostics, timemap) without unwrapping it. */
   onLayout?: (layout: LayoutResult) => void;
 }
 

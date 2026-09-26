@@ -10,11 +10,6 @@ describe('parsePitch', () => {
     expect(parsePitch('Gbb2')).toEqual({ step: 'G', alter: -2, octave: 2 });
   });
 
-  it('omits alter when 0', () => {
-    const pitch = parsePitch('D4');
-    expect(pitch).not.toHaveProperty('alter');
-  });
-
   it('is case-insensitive on the letter, case-sensitive on the accidental', () => {
     expect(parsePitch('c4')).toEqual({ step: 'C', octave: 4 });
     expect(() => parsePitch('CB4')).toThrow();

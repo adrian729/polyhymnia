@@ -1,17 +1,9 @@
-// playback.md's `TimeMap` — notation time <-> audio time, and tick -> screen position.
-//
-// The temporal stage already computed exact onsets; this module adds what playback needs
-// on top of them: tie merging (a tied pair is ONE entry, so the sampler starts one
-// sound), MIDI numbers, and the sp coordinates only the emit stage knows.
-
 import { Rational as R } from '@polyhymnia/notation-model';
 import { midiOf, noteValueSpecLength, type NoteId, type NoteValueSpec, type TempoEvent, type TempoMap } from '../layout/records.js';
 import type { TemporalElement } from '../layout/temporal.js';
 import type { SystemBox } from '../layout/types.js';
 
 export interface TimeMapEntry {
-  /** Every member NoteId — length 1 for a note or rest, N for a chord. Mirrors
-   *  `ElementBox`'s per-member addressing (architecture.md). */
   ids: readonly NoteId[];
   tick: number;
   durationTicks: number;
@@ -59,16 +51,12 @@ export interface Placement {
 export interface TimeMapInput {
   divisions: number;
   tempo: TempoMap;
-  /** The elements actually laid out, in tick order. */
   elements: readonly TemporalElement[];
-  /** Keyed by `TemporalElement.id` — the chord's own id for a chord. */
   placement: ReadonlyMap<NoteId, Placement>;
   measures: readonly MeasureTime[];
   systems: readonly SystemBox[];
 }
 
-/** playback.md leaves an empty `TempoMap` to the implementation; 120 bpm on the quarter
- *  is the conventional default and the one an exercise plays at. */
 export const DEFAULT_TEMPO_BPM = 120;
 const DEFAULT_BEAT_UNIT: NoteValueSpec = { base: 'quarter', dots: 0 };
 
@@ -107,11 +95,6 @@ export function buildTimeMap(input: TimeMapInput): TimeMap {
   const systemOf = (index: number): SystemBox | undefined =>
     input.systems.find((s) => s.index === index);
 
-  /**
-   * Piecewise-linear between column x positions, timed so the cursor reaches a column
-   * exactly when it sounds — not time-proportional, because spacing follows the power
-   * law in engraving.md and proportional motion drifts off the noteheads (playback.md).
-   */
   const positionAtTick: TimeMap['positionAtTick'] = (tick) => {
     if (byTick.length === 0) return null;
     const first = byTick[0]!;
@@ -125,8 +108,6 @@ export function buildTimeMap(input: TimeMapInput): TimeMap {
       const span = Math.max(1, (next ? next.tick : end) - entry.tick);
       const ratio = Math.min(1, Math.max(0, (tick - entry.tick) / span));
       const system = systemOf(entry.systemIndex);
-      // A next column on another system runs out to this system's right edge instead of
-      // interpolating backwards across the line break.
       const targetX =
         next && next.systemIndex === entry.systemIndex
           ? next.x
@@ -167,8 +148,6 @@ export function buildTimeMap(input: TimeMapInput): TimeMap {
     },
   };
 }
-
-// --- entries ----------------------------------------------------------------
 
 function orderElements(input: TimeMapInput): TemporalElement[] {
   return [...input.elements].sort((a, b) => a.tick - b.tick || a.voice - b.voice);
@@ -228,7 +207,6 @@ function mergeTies(ordered: readonly TemporalElement[], input: TimeMapInput): Ti
   while (i < ordered.length) {
     const head = ordered[i]!;
     let last = i;
-    // Tie merging: a tied pair is one entry (playback.md), so a sampler starts one sound.
     while (
       last + 1 < ordered.length &&
       tiesInto(ordered[last]!, ordered[last + 1]!)
@@ -267,8 +245,6 @@ function samePitch(a: TemporalElement['notes'][number], b: TemporalElement['note
     a.pitch.octave === b.pitch.octave
   );
 }
-
-// --- tempo ------------------------------------------------------------------
 
 interface TempoSegment {
   tick: number;

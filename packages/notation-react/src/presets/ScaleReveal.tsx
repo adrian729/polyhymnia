@@ -1,5 +1,3 @@
-// interface.md "## Presets".
-
 import { useMemo } from 'react';
 import type { CSSProperties, JSX } from 'react';
 import { parsePitch } from '@polyhymnia/notation-model';
@@ -23,8 +21,6 @@ export interface ScaleRevealProps {
   duration?: NoteValue;
   className?: string;
   style?: CSSProperties;
-  /** Additive over interface.md's listed props — the same `<Notation>` escape hatch,
-   *  so a preset is still inspectable (diagnostics, timemap) without unwrapping it. */
   onLayout?: (layout: LayoutResult) => void;
 }
 
@@ -43,9 +39,6 @@ export function ScaleReveal({
     const pitches = scalePitches(rootPitch, scale, descending);
     return buildMeasureScore(
       clef,
-      // The scale's own key signature: diatonic degrees then draw no accidental at all
-      // (spacing stays even), and only genuinely non-diatonic degrees — the raised 6th/7th
-      // in harmonic/melodic minor — still get one, exactly as real notation shows them.
       fittingMeter(duration, pitches.length),
       pitches.map((p) => noteEventFromPitch(p, duration)),
       scaleKey(rootPitch, scale).fifths,

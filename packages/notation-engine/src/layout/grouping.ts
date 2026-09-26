@@ -1,20 +1,9 @@
-// Pipeline stage 4 — grouping (architecture.md), tuplet spans only.
-//
-// Deliberately minimal: beat grouping and beam groups belong to normalize.ts (stage 1)
-// and `layout/beams.ts` (stage 9). What this stage produces is the tuplet span shape
-// engraving.md specifies, including the resolved bracket-suppression rule `layout/
-// tuplets.ts` (stage 9) reads.
-
 import type { NotationOptions } from '../options.js';
 import type { Diagnostic } from '@polyhymnia/notation-model';
 import type { NormalizedScore } from './normalize.js';
 import type { NoteId, TupletDisplay } from './records.js';
 import type { TemporalScore } from './temporal.js';
 
-/** engraving.md "## Tuplets". `display` carries the MNX `bracket`/`showNumber`/
- *  `placement` settings through; `showBracket` resolves `display.bracket` (`'yes'`/`'no'`
- *  always win, `'auto'`/absent omits the bracket iff every span element beams together as
- *  one run and no rest is in the span — the beam already marks the group). */
 export interface TupletSpan {
   id: string;
   startTick: number;
@@ -66,8 +55,6 @@ export function grouping(
   for (const el of ordered) {
     const ref = el.tuplet;
     if (!ref) continue;
-    // A span is per voice and per measure — `temporal` already rejects one that crosses
-    // a barline, so the key only has to keep two voices' identically-named runs apart.
     const key = `${el.staffIndex}:${el.measureIndex}:${el.voice}:${ref.id}`;
     const existing = spans.get(key);
     if (!existing) {

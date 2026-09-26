@@ -37,3 +37,13 @@
 - Simple work → write it ourselves even if a library exists. Complex work → dependency, pinned, wrapped for replacement, maintained and tracking the MNX schema.
 - Ajv and `json-schema-to-typescript` are devDependencies only; never in `notation-*` runtime bundles. Sole exception: `tools/musicxml-to-mnx` lists Ajv under `dependencies` because its offline CLI validates at run time.
 - Rejected, don't reintroduce without re-evaluation: Python `w3c-cg/mnxconverter` (stale), `@mnxjs/*` (source gone), `@quonset/minim`, `musicxml-interfaces` (AGPL), `@stringsync/musicxml` (stale).
+
+# Tests
+- Add a test only to prevent a real regression: silent-drift engraving output, a contract (diagnostic, id stability, applyIntent result, hit-test behavior), or a bug that was actually fixed. Otherwise don't.
+- New behavior → at most a few tests for its distinct branches. Never one test per constant, option, or trivial mapping; never restate the implementation.
+- Fixed bug → one regression test that fails without the fix. Don't add neighboring "for completeness" cases.
+- Table-driven over copy-paste. Extra rows only when each guards a different branch; no cross-products (e.g. every key × every clef).
+- Golden/snapshot only for a distinct engraving feature not already covered by another golden. Never add or regenerate goldens/snapshots to make a change pass without reviewing the diff.
+- Test only through public entry points; never export internals for tests. Never weaken an assertion to go green.
+- Before adding, check an existing test doesn't already cover it. Prefer deleting or merging a redundant test over adding one.
+- Agents: run tests with `--reporter=dot`; never print golden diffs.

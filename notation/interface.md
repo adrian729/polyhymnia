@@ -70,9 +70,7 @@ interface NotationOptions {
     parenthesizeCautionary?: boolean;
     insertAlteration?: 'key' | 'natural';                                            // interaction.md, default 'key'
   };
-  insertGrid?: NoteValue;                    // MNX note-value, default: beat subdivision implied by the meter
   tuplets?: { showRatio?: boolean };         // engraving.md, default false — numeral shows actual only
-  font?: { family?: string; url?: string };
   widthSp?: number;                          // system width, engraving.md
   maxLastSystemFill?: number;                // default 0.65, engraving.md
 }

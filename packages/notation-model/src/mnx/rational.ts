@@ -1,10 +1,3 @@
-// Exact rational arithmetic for the temporal pass (mnx.md "Time").
-//
-// A Rational here measures musical time in WHOLE NOTES: a quarter is {n:1,d:4}, a
-// triplet eighth is {n:1,d:12}. Integer ticks are the API-boundary representation;
-// rationals are the internal one, so `3 x triplet-eighth === 1 quarter` is exact
-// rather than 1119.9999999999998 x 3.
-
 export interface Rational {
   readonly n: number;
   readonly d: number;
@@ -21,7 +14,6 @@ function gcd(a: number, b: number): number {
   return x;
 }
 
-/** Construct a gcd-normalized rational. Sign is carried by the numerator, `d` > 0. */
 export function rational(n: number, d = 1): Rational {
   if (!Number.isFinite(n) || !Number.isFinite(d)) {
     throw new RangeError(`Rational requires finite values, got ${n}/${d}`);
@@ -62,11 +54,9 @@ export function divide(a: Rational, b: Rational): Rational {
 }
 
 export function equals(a: Rational, b: Rational): boolean {
-  // Both operands are normalized, so structural equality is value equality.
   return a.n * b.d === b.n * a.d;
 }
 
-/** -1 if a < b, 0 if equal, 1 if a > b. */
 export function compare(a: Rational, b: Rational): -1 | 0 | 1 {
   const l = a.n * b.d;
   const r = b.n * a.d;
@@ -85,14 +75,10 @@ export function max(a: Rational, b: Rational): Rational {
   return compare(a, b) >= 0 ? a : b;
 }
 
-/** Exact tick value, which may be fractional when the rational is finer than
- *  `divisions` can express (e.g. a double-dotted 64th at divisions=3360). */
 function toExactTicks(a: Rational, divisions: number): number {
   return (a.n * 4 * divisions) / a.d;
 }
 
-/** Integer ticks — the API-boundary representation. Rounds only when the value is not
- *  exactly representable at this `divisions` (mnx.md's reason for 3360). */
 export function toTicks(a: Rational, divisions: number): number {
   return Math.round(toExactTicks(a, divisions));
 }
@@ -101,12 +87,10 @@ export function fromTicks(ticks: number, divisions: number): Rational {
   return rational(Math.round(ticks), 4 * divisions);
 }
 
-/** Lossy; for comparisons against float inputs only, never for time arithmetic. */
 export function toNumber(a: Rational): number {
   return a.n / a.d;
 }
 
-/** Namespace-style access (`Rational.add(...)`) alongside the named exports. */
 export const Rational = {
   of: rational,
   ZERO,

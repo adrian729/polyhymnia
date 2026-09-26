@@ -1,10 +1,3 @@
-// The root React component (interface.md "## Root component", architecture.md
-// "## React layer").
-//
-// Nothing here creates, removes or reparents a DOM node outside React's reconciler:
-// `layoutScore` is pure, so StrictMode's double invocation produces identical output and
-// the component is SSR-safe.
-
 import { Children, isValidElement, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import type {
   CSSProperties,
@@ -54,7 +47,6 @@ function PlaybackChild(_props: NotationPlaybackProps): null {
 export interface NotationHandle {
   getLayout(): LayoutResult;
   getTimeMap(): TimeMap;
-  /** Serializes the mounted `<svg>`, standalone (xmlns added), for export or snapshots. */
   exportSVG(): string;
   hitTest(point: { x: number; y: number }, opts?: Parameters<typeof hitTest>[2]): HitResult | null;
   setPlaybackTick(tick: number): void;
@@ -68,13 +60,10 @@ export interface NotationProps {
   children?: ReactNode;
   className?: string;
   style?: CSSProperties;
-  /** Declarative alternative to `handle.getLayout()`; fires whenever layout changes. */
   onLayout?: (layout: LayoutResult) => void;
   ref?: Ref<NotationHandle>;
 }
 
-// SMuFL: 1 em = 4 sp, so this is the one font-size that makes glyphs correct in an
-// sp-unit viewBox (architecture.md "## Coordinate system"). Not a magic constant.
 const GLYPH_FONT_SIZE = 4;
 
 export function Notation({
@@ -90,6 +79,7 @@ export function Notation({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const elementRefs = useRef(new Map<string, SVGGElement>());
   const lastHoverRef = useRef<string | null>(null);
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const playbackView = extractPlaybackView(children);
   const interaction = extractInteraction(children);
   const marks = extractMarks(children);
@@ -110,9 +100,12 @@ export function Notation({
   }, [marks?.states, marks?.selection, layout]);
 
   useEffect(() => {
-    if (lastHoverRef.current === null) return;
-    lastHoverRef.current = null;
-    interaction?.onIntent?.({ type: 'hover', target: null }, { layout, nativeEvent: new MouseEvent('pointerleave') });
+    if (!interaction?.onIntent || lastHoverRef.current === null) return;
+    const pointer = lastPointerRef.current;
+    const point = pointer && svgRef.current ? clientToLayoutPoint(svgRef.current, pointer.x, pointer.y) : null;
+    const hit = point ? hitTest(layout, point, resolveHitOptions(interaction, options)) : null;
+    lastHoverRef.current = hit ? hitIdentity(hit) : null;
+    interaction.onIntent({ type: 'hover', target: hit }, { layout, nativeEvent: new MouseEvent('pointermove') });
   }, [layout]);
 
   useImperativeHandle(
@@ -141,6 +134,7 @@ export function Notation({
 
   const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>): void => {
     if (!interaction?.onIntent || targets.length === 0 || !svgRef.current) return;
+    lastPointerRef.current = { x: event.clientX, y: event.clientY };
     const point = clientToLayoutPoint(svgRef.current, event.clientX, event.clientY);
     const hit = point ? hitTest(layout, point, resolveHitOptions(interaction, options)) : null;
     const identity = hit ? hitIdentity(hit) : null;
@@ -150,6 +144,7 @@ export function Notation({
   };
 
   const handlePointerLeave = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    lastPointerRef.current = null;
     if (!interaction?.onIntent || lastHoverRef.current === null) return;
     lastHoverRef.current = null;
     interaction.onIntent({ type: 'hover', target: null }, { layout, nativeEvent: event.nativeEvent });
@@ -203,9 +198,6 @@ export function Notation({
           ))}
         </g>
       )}
-      {/* Beams (stage 9) render here now; ties and slurs are stage 10 and still empty.
-          One layer for every `PathShape`, so their arrival is a map over data, not a
-          change of DOM shape. */}
       <g data-pn="curves">
         {layout.paths.map((p, i) => (
           <path
@@ -299,15 +291,11 @@ function Glyph({ glyph }: { glyph: GlyphRun }): JSX.Element {
   );
 }
 
-// --- helpers ----------------------------------------------------------------
-
 interface GlyphGroup {
   el: string | undefined;
   glyphs: GlyphRun[];
 }
 
-/** Runs of consecutive glyphs belonging to one element — emit pushes a notehead with its
- *  accidental, dots and flag together, so a run is the whole element. */
 function groupGlyphs(glyphs: readonly GlyphRun[]): GlyphGroup[] {
   const groups: GlyphGroup[] = [];
   for (const g of glyphs) {
@@ -322,8 +310,6 @@ export function viewBoxAttr(vb: ViewBox): string {
   return `${vb.x} ${vb.y} ${vb.w} ${vb.h}`;
 }
 
-/** The `<svg>` root's summary label (interaction.md "## Accessibility"). Per-element
- *  detail lives on the element `<g>`s, so this stays a one-line overview. */
 export function describeScore(layout: LayoutResult): string {
   const boxes: ElementBox[] = Object.values(layout.elements);
   const notes = boxes.filter((b) => b.kind !== 'rest').length;

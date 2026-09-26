@@ -1,8 +1,3 @@
-// `layoutScore()` — the public entry point (architecture.md's React layer,
-// interface.md's options surface). Every stage is a pure function, so the whole
-// composition is pure: StrictMode double-invocation produces identical output, and the
-// result is testable in Node with no DOM and no font loaded.
-
 import type { NotationOptions } from '../options.js';
 import type { Diagnostic, MnxDocument } from '@polyhymnia/notation-model';
 import { accidentals } from './accidentals.js';

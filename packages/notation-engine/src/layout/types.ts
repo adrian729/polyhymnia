@@ -1,10 +1,3 @@
-// The render-ready output shape (architecture.md "## LayoutResult").
-//
-// Flat and JSON-serializable by design — it enables golden-file testing and would let
-// layout move to a worker with no API change. The one exception is `timemap`, which
-// playback.md specifies with methods; its data (`entries`/`measures`/`tempo`) still
-// serializes, the lookup helpers do not.
-
 import type { Diagnostic } from '@polyhymnia/notation-model';
 import type { ClefSpec, KeySpec, NoteId, Pitch } from './records.js';
 import type { TimeMap } from '../query/timemap.js';
@@ -16,7 +9,6 @@ export interface ViewBox {
   h: number;
 }
 
-/** One row of the score, in sp. */
 export interface SystemBox {
   index: number;
   x: number;
@@ -56,7 +48,6 @@ export interface Box {
   h: number;
 }
 
-/** One per member `NoteEl.id` for a chord, not one per `ChordEl` (architecture.md). */
 export interface ElementBox {
   id: NoteId;
   kind: 'note' | 'chord' | 'rest';
@@ -71,13 +62,11 @@ export interface ElementBox {
   staffPosition: number;
   tick: number;
   durationTicks: number;
-  /** "E flat 4, quarter note, measure 2" — a11y + text-alternative source. */
   label: string;
   eventId: NoteId;
   pitch?: Pitch;
 }
 
-// interaction.md's slot model. The type lives here so `LayoutResult` can name it; slots are generated in `query/slots.ts`.
 export interface SlotRef {
   measureIndex: number;
   voice: 0 | 1;

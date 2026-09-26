@@ -51,8 +51,6 @@ function defaultGrouping(meter: Meter, mergeBeats: boolean): readonly number[] {
   return Array<number>(beats).fill(unit);
 }
 
-/** The unmerged, per-beat grouping — used to decide whether content that isn't plain
- *  unbroken eighth notes should still break at the finer boundary. */
 export function microGrouping(meter: Meter): readonly number[] {
   return defaultGrouping(meter, false);
 }

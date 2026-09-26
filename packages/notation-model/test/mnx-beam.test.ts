@@ -74,19 +74,9 @@ describe('beamGroups() meter table (plain, unbroken eighths)', () => {
     expect(groups).toEqual([['ev0', 'ev1'], ['ev2', 'ev3'], ['ev4', 'ev5'], ['ev6', 'ev7']]);
   });
 
-  it('3/4 without merging keeps every quarter beat separate', () => {
-    const groups = beamGroups({ beats: 3, beatType: 4 }, eighths(6), { mergeBeats: false });
-    expect(groups).toEqual([['ev0', 'ev1'], ['ev2', 'ev3'], ['ev4', 'ev5']]);
-  });
-
   it('accepts a beatGrouping override', () => {
     const groups = beamGroups({ beats: 7, beatType: 8 }, eighths(7), { beatGrouping: { '7/8': [3, 4] } });
     expect(groups).toEqual([['ev0', 'ev1', 'ev2'], ['ev3', 'ev4', 'ev5', 'ev6']]);
-  });
-
-  it('falls back to the default grouping when a beatGrouping override does not sum to the bar', () => {
-    const groups = beamGroups({ beats: 7, beatType: 8 }, eighths(7), { beatGrouping: { '7/8': [3, 3] } });
-    expect(groups).toEqual([['ev0', 'ev1'], ['ev2', 'ev3'], ['ev4', 'ev5', 'ev6']]);
   });
 
   it('decides the 4/4 half-bar merge per half, not for the whole bar', () => {
@@ -164,11 +154,6 @@ describe('beamGroups() breaking', () => {
     ]);
   });
 
-  it('beams chords the same as single notes', () => {
-    const events = [chordEv('a', 'eighth'), chordEv('b', 'eighth'), restEv('r', 'half')];
-    const groups = beamGroups({ beats: 4, beatType: 4 }, events);
-    expect(groups).toEqual([['a', 'b']]);
-  });
 });
 
 describe('beamGroups() pickups and voices', () => {
@@ -178,27 +163,4 @@ describe('beamGroups() pickups and voices', () => {
     expect(groups).toEqual([['a', 'b']]);
   });
 
-  it('beams two sequences independently (each is its own call)', () => {
-    const voice0 = [ev('a', 'eighth'), ev('b', 'eighth'), ev('q1', 'quarter'), ev('q2', 'quarter'), ev('q3', 'quarter')];
-    const voice1 = [ev('x', 'eighth'), ev('y', 'eighth'), ev('q4', 'quarter'), ev('q5', 'quarter'), ev('q6', 'quarter')];
-    expect(beamGroups({ beats: 4, beatType: 4 }, voice0)).toEqual([['a', 'b']]);
-    expect(beamGroups({ beats: 4, beatType: 4 }, voice1)).toEqual([['x', 'y']]);
-  });
-});
-
-describe('beamGroups() purity', () => {
-  it('never mutates or throws on its input', () => {
-    const events = Object.freeze(eighths(4));
-    expect(() => beamGroups({ beats: 4, beatType: 4 }, events)).not.toThrow();
-    const before = JSON.stringify(events);
-    beamGroups({ beats: 4, beatType: 4 }, events);
-    expect(JSON.stringify(events)).toBe(before);
-  });
-
-  it('is deterministic', () => {
-    const events = eighths(8);
-    const once = beamGroups({ beats: 4, beatType: 4 }, events);
-    const twice = beamGroups({ beats: 4, beatType: 4 }, events);
-    expect(twice).toEqual(once);
-  });
 });

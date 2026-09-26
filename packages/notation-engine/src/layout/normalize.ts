@@ -1,10 +1,3 @@
-// Pipeline stage 1 — normalize (architecture.md).
-//
-// Reads the MNX document: resolves clef/key/time per measure by inheriting forward,
-// flattens part 0's sequences into per-voice event records, and sanitizes whatever the
-// caller handed us. Produces diagnostics, NEVER throws: a hand-written or deserialized
-// document must degrade visibly in a live quiz rather than crash it.
-
 import { elementIds, noteValueLength, readMnx, tupletRatio, Rational as R } from '@polyhymnia/notation-model';
 import type {
   Diagnostic,
@@ -55,7 +48,6 @@ import {
 } from './normalize-measure.js';
 import { resolveBeams } from './normalize-beams.js';
 
-/** One member of an element's `notes` — a single note, or one member of a chord. */
 export interface ElementNote {
   id: NoteId;
   pitch: Pitch;
@@ -91,14 +83,11 @@ export interface NormalizedVoice {
 
 export interface NormalizedMeasure {
   index: number;
-  /** Resolved — never undefined, whatever the source measure omitted. */
   clef: ClefSpec;
   key: KeySpec;
   time: TimeSpec;
   voices: readonly NormalizedVoice[];
   pickup: boolean;
-  /** Capacity in whole notes. For a pickup measure this is whatever its content sums
-   *  to, not the meter's. */
   capacity: Rational;
   capacityTicks: number;
   barlineStart?: 'none' | 'repeat-start';
@@ -123,8 +112,6 @@ export interface NormalizedScore {
   ties: readonly NormalizedTie[];
   slurs: readonly NormalizedSlur[];
   diagnostics: readonly Diagnostic[];
-  /** Every id already in use — explicit or synthesized — so later stages can keep
-   *  disambiguating their own positional ids against it. */
   usedIds: ReadonlySet<string>;
 }
 
@@ -868,6 +855,8 @@ function resolveSlurs(reader: Reader): void {
       to: endNote ?? pickAnchor(toNotes, side),
       ...(startNote ? { startNote } : {}),
       ...(endNote ? { endNote } : {}),
+      ...(!side && startNote === undefined ? bottomOf('fromBottom', fromNotes) : {}),
+      ...(!side && endNote === undefined ? bottomOf('toBottom', toNotes) : {}),
       ...(side ? { side } : {}),
       measureIndex,
     });
@@ -900,6 +889,12 @@ function slurUnresolved(
     message: `Measure ${measureIndex}: slur from event ${fromEventId} has an unresolved ${kind} ${JSON.stringify(value)}; not drawn.`,
     measureIndex,
   });
+}
+
+function bottomOf<K extends 'fromBottom' | 'toBottom'>(key: K, notes: readonly MutableNote[]): { [P in K]?: NoteId } {
+  if (notes.length <= 1) return {};
+  const lowest = notes.reduce((a, b) => (pitchIndex(b.pitch) < pitchIndex(a.pitch) ? b : a));
+  return { [key]: lowest.id } as { [P in K]?: NoteId };
 }
 
 function pickAnchor(notes: readonly MutableNote[], side: 'up' | 'down' | undefined): NoteId {
@@ -961,7 +956,11 @@ function resolveTempo(
   globals.forEach((raw, index) => {
     for (const entry of asArray(asObject(raw)?.tempos)) {
       const t = asObject(entry);
-      if (!t || typeof t.bpm !== 'number' || !(t.bpm > 0)) continue;
+      if (!t) continue;
+      if (typeof t.bpm !== 'number' || !(t.bpm > 0)) {
+        reader.unsupported('invalid tempo bpm', index, 'entry ignored');
+        continue;
+      }
       if (asObject(t.location)?.graceIndex !== undefined) {
         reader.unsupported('graceIndex in a tempo position', index, 'grace positioning ignored');
       }

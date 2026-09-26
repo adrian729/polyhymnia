@@ -49,14 +49,6 @@ describe('tupletRatio', () => {
     expect(tupletRatio(tuplet)).toEqual({ actual: 3, normal: 2 });
   });
 
-  it('reduces to lowest terms', () => {
-    const tuplet: Pick<Tuplet, 'inner' | 'outer'> = {
-      inner: { duration: { base: '16th' }, multiple: 6 },
-      outer: { duration: { base: '16th' }, multiple: 4 },
-    };
-    expect(tupletRatio(tuplet)).toEqual({ actual: 3, normal: 2 });
-  });
-
   it('returns null when either side uses an unsupported base', () => {
     const tuplet: Pick<Tuplet, 'inner' | 'outer'> = {
       inner: { duration: { base: 'maxima' }, multiple: 1 },

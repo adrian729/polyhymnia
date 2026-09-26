@@ -1,16 +1,3 @@
-// Pipeline stage 2 — temporal (architecture.md).
-//
-// Onset and duration ticks for every element, computed with exact rational arithmetic
-// and collapsed to integer ticks only at the boundary. This is where the timemap is
-// born: `query/timemap.ts` derives playback.md's `TimeMap` (tie merging, MIDI numbers,
-// sp coordinates from the emit stage) from the `TemporalElement` rows below — that
-// module is deliberately not this stage's job, because those extras need layout
-// geometry this stage has not computed yet.
-//
-// Never throws. The fullness policy here is the degrade path for documents that do not
-// fill their measures: underfull pads with a warning, overfull truncates at the barline
-// with an error.
-
 import { Rational as R } from '@polyhymnia/notation-model';
 import type { Diagnostic, Rational } from '@polyhymnia/notation-model';
 import type { NotationOptions } from '../options.js';
@@ -31,22 +18,17 @@ export interface TemporalElement {
   base: DurationBase;
   dots: 0 | 1 | 2;
   tuplet?: TupletRef;
-  /** One entry for a note, N for a chord's members, none for a rest. */
   notes: readonly ElementNote[];
   stem?: 'auto' | 'up' | 'down' | 'none';
   breath?: 'comma' | 'caesura';
-  /** Draws one whole-rest glyph and takes the measure's full capacity in ticks. */
   wholeBar?: boolean;
   staffPosition?: number;
   staffIndex: number;
   measureIndex: number;
   voice: 0 | 1;
-  /** Absolute onset from the start of the score. */
   tick: number;
-  /** Onset relative to the start of its own measure. */
   measureTick: number;
   durationTicks: number;
-  /** True for a rest this stage inserted to cover an underfull bar. */
   synthetic?: boolean;
 }
 

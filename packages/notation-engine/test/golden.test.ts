@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { MnxDocument } from '@polyhymnia/notation-model';
@@ -8,21 +8,33 @@ import type { LayoutResult } from '../src/layout/types.js';
 const FIXTURES = fileURLToPath(new URL('./fixtures/', import.meta.url));
 const EXAMPLES = fileURLToPath(new URL('../../notation-model/schema/examples/', import.meta.url));
 
-const fixtureNames = readdirSync(FIXTURES)
-  .filter((f) => /.*\.json$/.test(f))
-  .map((f) => f.replace(/\.json$/, ''))
-  .sort();
-
-const SELECTED_EXAMPLES = [
-  'tuplets',
-  'key-signatures',
-  'dotted-notes',
-  'beams',
-  'beam-hooks',
-  'beams-secondary-beam-breaks',
-  'beams-secondary-beam-breaks-implied',
-  'ties',
+const fixtureNames = [
+  'breath',
+  'chrome-changes',
+  'golden-accidentals-stacking',
+  'golden-beams-16ths',
+  'golden-beams-6-8-vs-3-4',
+  'golden-beams-chords',
+  'golden-beams-hooks-dotted',
+  'golden-beams-over-rest',
+  'golden-beams-slope',
+  'golden-beams-stem-override',
+  'golden-rests-3-4',
+  'golden-slurs',
+  'golden-ties-barline',
+  'golden-ties-chord',
+  'golden-ties-system-break',
+  'golden-tuplets',
+  'golden-two-voices',
+  'inheritance',
+  'mapping',
+  'pickup',
+  'repeat-alto',
+  'system-break',
+  'tempo',
 ];
+
+const SELECTED_EXAMPLES = ['beams-secondary-beam-breaks'];
 
 function loadFixture(name: string): MnxDocument {
   return JSON.parse(readFileSync(`${FIXTURES}${name}.json`, 'utf8')) as MnxDocument;

@@ -1,10 +1,3 @@
-// Pipeline stage 11 — emit (architecture.md "## LayoutResult").
-//
-// Flattens the placed score into render-ready primitives: glyph runs, rects, one
-// `ElementBox` per addressable note, and the timemap. Nothing here computes geometry
-// that an earlier stage owns — it only adds the staff origin of each system and turns
-// the results into flat records.
-
 import { engravingDefaults, glyphAdvanceWidth, glyphBBox } from '../font/metadata.js';
 import { glyphCodepoint } from '../font/glyphs.js';
 import type { Diagnostic } from '@polyhymnia/notation-model';
@@ -186,8 +179,6 @@ export function emit(input: EmitInput, _options?: NotationOptions): LayoutResult
   };
 }
 
-// --- chrome -----------------------------------------------------------------
-
 function emitChrome(
   measure: HorizontalMeasure,
   staffTop: number,
@@ -220,10 +211,6 @@ function emitChrome(
   if (measure.chrome.showTime) emitTimeSignature(measure.time, x, staffTop, glyphs);
 }
 
-/** engraving.md "## Time signatures": both digit groups centred on the same x, the wider
- *  one setting the column. The baselines are 1.0 and 3.0 rather than the spec's 1.5/2.5 —
- *  Bravura's digits are 2sp tall (bBox y ±1.0), not the one stave-space the spec assumes,
- *  so 1.5/2.5 would straddle the middle line instead of filling the halves. */
 function emitTimeSignature(
   time: TimeSpec,
   x: number,
@@ -253,8 +240,6 @@ function emitDigits(digits: string, centre: number, y: number, glyphs: GlyphRun[
     x += glyphAdvanceWidth(name);
   }
 }
-
-// --- barlines ---------------------------------------------------------------
 
 function emitBarlines(
   measure: HorizontalMeasure,
@@ -322,16 +307,6 @@ function emitBarlines(
   }
 }
 
-/**
- * A dashed barline as discrete dash segments spanning the same top-line-to-bottom-line
- * height as any other barline (engraving.md "## Barlines").
- *
- * Dash and gap keep their `engravingDefaults` lengths exactly — stretching either to fit
- * the staff would make the cadence font-dependent in a way the metadata does not
- * sanction. Instead the whole run is centred on the staff and clipped to it, so the
- * pattern is symmetric and the outermost dashes still touch the top and bottom lines
- * (with Bravura's 0.5/0.25 those clip to roughly half a dash each).
- */
 function dashes(x: number, staffTop: number, bottom: number): RectShape[] {
   const { dashedBarlineThickness, dashedBarlineDashLength, dashedBarlineGapLength } =
     engravingDefaults;
@@ -350,8 +325,6 @@ function dashes(x: number, staffTop: number, bottom: number): RectShape[] {
   }
   return out;
 }
-
-// --- elements ---------------------------------------------------------------
 
 interface ElementContext {
   x: number;
@@ -456,8 +429,6 @@ function emitElement(element: VerticalElement, ctx: ElementContext): void {
 
 function emitRest(element: VerticalElement, ctx: ElementContext): void {
   const rest = element.rest!;
-  // engraving.md: only a whole-bar rest's x is overridden — it centres in its column
-  // rather than deriving from its (always-zero) tick offset.
   const x = rest.wholeBar
     ? (ctx.columnLeft + ctx.columnRight) / 2 - rest.width / 2
     : ctx.x;
@@ -520,12 +491,9 @@ function noteBox(
   };
 }
 
-/** A hit target is a little larger than the ink — interaction.md's default tolerance. */
 function pad(box: Box): Box {
   return { x: box.x - 0.15, y: box.y - 0.15, w: box.w + 0.3, h: box.h + 0.3 };
 }
-
-// --- labels -----------------------------------------------------------------
 
 const BASE_NAME: Record<DurationBase, string> = {
   breve: 'breve',
@@ -635,14 +603,10 @@ function pathFrom(points: readonly (readonly [number, number])[], staffTop: numb
     .join(' ') + ' Z';
 }
 
-// --- primitives -------------------------------------------------------------
-
 function glyph(name: string, x: number, y: number, cls: string, el?: NoteId): GlyphRun {
   return { x, y, cp: glyphCodepoint(name) ?? 0, cls, ...(el ? { el } : {}) };
 }
 
-/** A rule centred on `y` — staff and ledger lines are specified by their centre line,
- *  not their top edge. */
 function centeredRect(
   x: number,
   y: number,

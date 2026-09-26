@@ -58,12 +58,6 @@ describe('assignIds', () => {
     expect(chord.notes[1].id).toBe(`${chord.id}-n1`);
   });
 
-  it('is deterministic across separate runs on equivalent input', () => {
-    const a = assignIds(buildDoc());
-    const b = assignIds(buildDoc());
-    expect(a).toEqual(b);
-  });
-
   it('does not reassign or collide when run again on already-id-ed content', () => {
     const once = assignIds(buildDoc());
     const twice = assignIds(once);

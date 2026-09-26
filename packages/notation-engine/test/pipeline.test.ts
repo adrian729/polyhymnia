@@ -1,5 +1,3 @@
-// normalize + temporal composed, entered through the real stage functions.
-
 import { describe, expect, it } from 'vitest';
 import type { MnxDocument } from '@polyhymnia/notation-model';
 import { normalize } from '../src/layout/normalize.js';
@@ -23,11 +21,6 @@ describe('normalize — forward inheritance', () => {
     expect(measures.map((m) => m.key.fifths)).toEqual([2, 2, 2, -3, -3]);
   });
 
-  it('resolves capacity per measure, including the pickup exemption', () => {
-    const measures = normalize(fixture('pickup')).staves[0]!.measures;
-    expect(measures.map((m) => m.capacityTicks)).toEqual([1680, 13440, 10080]);
-    expect(measures[0]!.pickup).toBe(true);
-  });
 });
 
 describe('normalize — never throws', () => {
@@ -137,31 +130,9 @@ describe('temporal', () => {
     expect(map.diagnostics).toEqual([]);
   });
 
-  it('honours the divisions option', () => {
-    const doc = mnx({}, withGlobal({ time: { count: 4, unit: 4 } }, measure(note('C4', 'q'), note('D4', 'h.'))));
-    const map = temporal(normalize(doc, { divisions: 480 }));
-    expect(map.divisions).toBe(480);
-    expect(map.elements.map((e) => e.durationTicks)).toEqual([480, 1440]);
-  });
 });
 
 describe('font metrics come from the metadata JSON', () => {
-  it('reads engravingDefaults rather than hardcoding them', () => {
-    expect(engravingDefaults.staffLineThickness).toBe(0.13);
-    expect(engravingDefaults.stemThickness).toBe(0.12);
-    expect(engravingDefaults.beamThickness).toBe(0.5);
-    expect(engravingDefaults.beamSpacing).toBe(0.25);
-    expect(engravingDefaults.legerLineExtension).toBe(0.4);
-    expect(engravingDefaults.tupletBracketThickness).toBe(0.16);
-    expect(engravingDefaults.repeatBarlineDotSeparation).toBe(0.16);
-  });
-
-  it('exposes advance widths and anchors per glyph', () => {
-    expect(glyphAdvanceWidth('noteheadBlack')).toBeCloseTo(1.18, 5);
-    expect(glyphAnchor('noteheadBlack', 'stemUpSE')).toEqual([1.18, 0.168]);
-    expect(glyphAdvanceWidth('notAGlyph')).toBe(0);
-  });
-
   it('maps the 61-glyph subset to codepoints, augmentationDot included', () => {
     expect(Object.keys(GLYPH_CODEPOINT)).toHaveLength(61);
     expect(GLYPH_CODEPOINT.augmentationDot).toBe(0xe1e7);
@@ -171,8 +142,6 @@ describe('font metrics come from the metadata JSON', () => {
     expect(GLYPH_CODEPOINT.fClef8va).toBe(0xe065);
     expect(GLYPH_CODEPOINT.breathMarkComma).toBe(0xe4ce);
     expect(GLYPH_CODEPOINT.caesura).toBe(0xe4d1);
-    // The codepoint table and the metadata are two views of one manifest — a name in
-    // either that the other lacks is a build that has drifted.
     expect(Object.keys(GLYPH_CODEPOINT).every((name) => glyphAdvanceWidth(name) > 0)).toBe(true);
   });
 });

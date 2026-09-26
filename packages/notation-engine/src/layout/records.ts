@@ -74,6 +74,8 @@ export interface NormalizedSlur {
   to: NoteId;
   startNote?: NoteId;
   endNote?: NoteId;
+  fromBottom?: NoteId;
+  toBottom?: NoteId;
   side?: 'up' | 'down';
   measureIndex: number;
 }

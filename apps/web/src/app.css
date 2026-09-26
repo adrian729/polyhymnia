@@ -58,7 +58,6 @@ p.note {
   margin: 0 0 0.5rem;
 }
 
-/* The renderer's own sizing hook: an sp-unit viewBox scaled by one width. */
 .example .pn-notation {
   width: 100%;
 }

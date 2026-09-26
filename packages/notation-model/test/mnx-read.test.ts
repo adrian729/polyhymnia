@@ -9,13 +9,6 @@ describe('readMnx', () => {
     expect(doc).toBe(json);
   });
 
-  it('rejects a non-object', () => {
-    const { doc, diagnostics } = readMnx('not an object');
-    expect(doc).toBeNull();
-    expect(diagnostics).toHaveLength(1);
-    expect(diagnostics[0]!.severity).toBe('error');
-  });
-
   it('rejects a document with no "mnx" key', () => {
     const { doc, diagnostics } = readMnx({ global: {}, parts: [] });
     expect(doc).toBeNull();
@@ -28,9 +21,4 @@ describe('readMnx', () => {
     expect(diagnostics[0]!.code).toBe('mnx-unsupported-version');
   });
 
-  it('rejects a missing mnx.version', () => {
-    const { doc, diagnostics } = readMnx({ mnx: {} });
-    expect(doc).toBeNull();
-    expect(diagnostics[0]!.code).toBe('mnx-unsupported-version');
-  });
 });

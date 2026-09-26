@@ -1,11 +1,3 @@
-// Pipeline stage 6 — horizontal (architecture.md, engraving.md "## Horizontal spacing
-// and justification").
-//
-// One column per onset, each with a rod (minimum width, from the glyphs actually in it)
-// and a spring (ideal width, a power law of the duration until the next column).
-// Positions are not assigned here: `break` decides which system a measure lands on and
-// `justify` turns these widths into x.
-
 import { engravingDefaults, glyphAdvanceWidth } from '../font/metadata.js';
 import { DEFAULT_OPTIONS, type NotationOptions } from '../options.js';
 import type { Diagnostic } from '@polyhymnia/notation-model';
@@ -15,20 +7,12 @@ import { clefEquals, clefGlyph, keySignature } from './staff.js';
 import type { TemporalScore } from './temporal.js';
 import type { VerticalElement, VerticalScore } from './vertical.js';
 
-/** Rod padding: engraving.md's 0.3sp minimum inter-column gap plus the slack that makes
- *  its own rod table come out (a black notehead's ~1.6sp, a whole note's ~2.1sp). */
 const ROD_PADDING = 0.4;
-/** A small constant on every spring, so a system of entirely rod-dominated columns does
- *  not dump all its slack on one column (engraving.md). */
 export const EPS_STRETCH = 0.05;
-/** Gap after a clef, key or time block. */
 export const CHROME_GAP = 0.6;
 export const KEY_GAP = 0.1;
 export const BARLINE_PAD = 0.4;
-/** Breathing room between a barline and the first note of the measure after it, when
- *  that measure draws no clef/key/time chrome of its own to provide it. */
 const MEASURE_LEAD = 0.4;
-/** An empty measure still has to be wide enough to read as a measure. */
 const MIN_MEASURE_CONTENT = 4;
 
 export interface LayoutColumn {
@@ -36,7 +20,6 @@ export interface LayoutColumn {
   measureIndex: number;
   tick: number;
   measureTick: number;
-  /** Ticks until the next column (the measure's end for the last one) — the spring. */
   spanTicks: number;
   elements: readonly VerticalElement[];
   leftWidth: number;
@@ -45,9 +28,7 @@ export interface LayoutColumn {
   idealWidth: number;
   width: number;
   stretch: number;
-  /** Absolute sp, assigned by `justify`. */
   xStart: number;
-  /** Notehead x — `xStart` plus the accidental block. Assigned by `justify`. */
   x: number;
 }
 
@@ -60,9 +41,7 @@ export interface MeasureChrome {
   timeWidth: number;
   startBarlineWidth: number;
   endBarlineWidth: number;
-  /** Lead-in before the first column when nothing else separates it from the barline. */
   leadWidth: number;
-  /** Naturals cancelling the outgoing key, drawn before the incoming one. */
   cancelKey: KeySpec | null;
 }
 
@@ -79,15 +58,11 @@ export interface HorizontalMeasure {
   capacityTicks: number;
   columns: readonly LayoutColumn[];
   contentWidth: number;
-  /** Chrome when this measure starts a system (clef and key always restated). */
   startChrome: MeasureChrome;
-  /** Chrome mid-system — only actual changes are drawn. */
   midChrome: MeasureChrome;
   systemBreak: boolean;
-  /** Absolute sp, assigned by `justify`. */
   x: number;
   width: number;
-  /** Which chrome ended up applying, assigned by `justify`. */
   chrome: MeasureChrome;
   systemIndex: number;
 }
@@ -190,13 +165,6 @@ function buildColumns(
     const rightWidth = members.reduce((max, e) => Math.max(max, e.rightWidth), 0);
     const rodWidth = leftWidth + rightWidth + ROD_PADDING;
     const idealWidth = ctx.base * (spanTicks / ctx.divisions) ** ctx.k;
-    // `justify` places this column's notehead at `xStart + leftWidth` (the accidental
-    // block sits before it) but the *next* column's `xStart` only advances by `width`.
-    // If `width` were just `idealWidth`, this column's own `leftWidth` would widen the
-    // gap before its notehead but silently steal the same amount from the gap after it —
-    // backwards, since an accidental needs room before its note, never after. Looking
-    // ahead to the next column's `leftWidth` here keeps the notehead-to-notehead spring
-    // at its full `idealWidth` regardless of which side's accidental caused the stretch.
     const nextLeftWidth = byTick
       .get(ticks[i + 1] ?? -1)
       ?.reduce((max, e) => Math.max(max, e.leftWidth), 0) ?? 0;
@@ -213,11 +181,6 @@ function buildColumns(
       rodWidth,
       idealWidth,
       width: Math.max(rodWidth, springWidth),
-      // Stretch capacity during `justify` is duration-proportional only, never reduced
-      // by this column's own rod requirement — a rod is a floor on natural width, not a
-      // penalty on how much slack a column earns when the system is stretched wider.
-      // (Using `springWidth - rodWidth` here previously starved an accidental-bearing
-      // column of its fair share of slack, unevenly compressing the gap right after it.)
       stretch: idealWidth + EPS_STRETCH,
       xStart: 0,
       x: 0,
@@ -225,15 +188,11 @@ function buildColumns(
   });
 }
 
-// --- chrome -----------------------------------------------------------------
-
 function chromeOf(
   measure: NormalizedMeasure,
   previous: NormalizedMeasure | undefined,
   atSystemStart: boolean,
 ): MeasureChrome {
-  // Clef and key are restated at every system start; mid-system only an actual change
-  // draws anything (engraving.md).
   const clefChanged = !previous || !clefEquals(measure.clef, previous.clef);
   const keyChanged = !previous || measure.key.fifths !== previous.key.fifths;
   const timeChanged = !previous || !timeEquals(measure.time, previous.time);
@@ -270,8 +229,6 @@ function timeEquals(a: TimeSpec, b: TimeSpec): boolean {
   return a.beats === b.beats && a.beatType === b.beatType && (a.symbol ?? 'normal') === (b.symbol ?? 'normal');
 }
 
-/** Naturals for accidentals in the outgoing key that the incoming key drops
- *  (engraving.md "Key change"). Null when nothing is cancelled. */
 function cancellation(from: KeySpec, to: KeySpec): KeySpec | null {
   const sameSide = Math.sign(from.fifths) === Math.sign(to.fifths);
   const count = sameSide ? Math.abs(from.fifths) - Math.abs(to.fifths) : Math.abs(from.fifths);
@@ -297,10 +254,6 @@ function keyWidth(
   return width > 0 ? width + CHROME_GAP : 0;
 }
 
-/**
- * The outgoing key's accidentals the incoming key drops, as naturals at the positions
- * they occupied (engraving.md "Key change"). They are drawn before the new signature.
- */
 export function cancelledAccidentals(
   from: KeySpec,
   to: KeySpec,
@@ -333,8 +286,6 @@ export function endBarlineWidth(kind: NormalizedMeasure['barlineEnd']): number {
       return 0;
     case 'double':
       return BARLINE_PAD + e.thinBarlineThickness * 2 + e.barlineSeparation;
-    // A dashed barline is one line's worth of horizontal space like `single` — it is
-    // broken vertically, not horizontally.
     case 'dashed':
       return BARLINE_PAD + e.dashedBarlineThickness;
     case 'final':
@@ -365,7 +316,6 @@ export function repeatStartWidth(): number {
   );
 }
 
-/** Total width of a measure's fixed chrome. */
 export function chromeWidth(chrome: MeasureChrome): number {
   return (
     chrome.startBarlineWidth +
@@ -376,7 +326,6 @@ export function chromeWidth(chrome: MeasureChrome): number {
   );
 }
 
-/** Natural (unjustified) width of a measure, chrome and end barline included. */
 export function measureWidth(measure: HorizontalMeasure, atSystemStart: boolean): number {
   const chrome = atSystemStart ? measure.startChrome : measure.midChrome;
   return chromeWidth(chrome) + measure.contentWidth + chrome.endBarlineWidth;

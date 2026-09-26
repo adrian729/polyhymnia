@@ -1,8 +1,3 @@
-// The gallery. Every score is a hand-written `.mnx.json` file under `src/scores/`
-// (interface.md, AGENTS.md "Score format" — MNX is the only score format, so these
-// double as reference content for hand-authored MNX): `<Notation>` memoizes layout on
-// the `score` identity, so a stable JSON import means layout runs once per example.
-
 import { Notation } from '@polyhymnia/notation-react';
 import type { MnxDocument } from '@polyhymnia/notation-react';
 import { ChordReveal, IntervalReveal, ScaleReveal } from '@polyhymnia/notation-react/presets';
@@ -56,8 +51,6 @@ const CLEF_EXAMPLES: readonly { label: string; doc: MnxDocument }[] = [
   { label: 'Alto — middle line C4', doc: clefAlto as MnxDocument },
   { label: 'Tenor — C4 on the fourth line', doc: clefTenor as MnxDocument },
 ];
-
-// --- page -------------------------------------------------------------------
 
 export function App() {
   return (
