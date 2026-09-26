@@ -1,0 +1,28 @@
+{
+  "mnx": { "version": 1 },
+  "global": {
+    "measures": [
+      { "time": { "count": 5, "unit": 4 } }
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "clefs": [{ "clef": { "sign": "G", "staffPosition": -2 } }],
+          "sequences": [
+            {
+              "content": [
+                { "duration": { "base": "quarter" }, "id": "n1", "notes": [{ "pitch": { "step": "C", "octave": 4 } }] },
+                { "duration": { "base": "quarter" }, "id": "n2", "notes": [{ "pitch": { "step": "D", "octave": 4 } }] },
+                { "duration": { "base": "quarter" }, "id": "n3", "notes": [{ "pitch": { "step": "E", "octave": 4 } }] },
+                { "duration": { "base": "quarter" }, "id": "n4", "notes": [{ "pitch": { "step": "F", "octave": 4 } }] },
+                { "duration": { "base": "quarter" }, "id": "n5", "notes": [{ "pitch": { "step": "G", "octave": 4 } }] }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

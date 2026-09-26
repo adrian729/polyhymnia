@@ -29,6 +29,7 @@ Reading `parts[0]` only, `staff 1` only, up to 2 sequences (voices) per measure:
 | `parts[0].measures[i].beams[]` | See "Beams" below |
 | `note.accidentalDisplay` | absent → `'auto'`; `show: false` → `'never'`; `show: true` → `'always'`; `show: true` + `enclosure.symbol: 'parentheses'` → `'cautionary'` |
 | `note.ties[].target`/`targetType` | resolved to a start/stop pair by MNX note id — the earlier note gets `tie: 'start'`/`'continue'`, the resolved target gets `'stop'`/`'continue'`. Only `targetType: 'nextNote'` or an absent `targetType` is drawn this way; `crossVoice`/`arpeggio`/`crossJump` are not drawn, + `mnx-unsupported`. An unresolved target → diagnostic `tie-target-unresolved`, no tie drawn. `tie.lv` (laissez-vibrer) is not drawn, `mnx-unsupported` |
+| `event.slurs[]` | `NormalizedSlur { id, from, to, startNote?, endNote?, side?, measureIndex }`, `id` = `slur.id` ?? `${fromEventId}.slur${k}`. `target` resolves to the tied-to event's laid-out ids; an unresolved `target`/`startNote`/`endNote` → diagnostic `slur-target-unresolved`, the slur is not drawn. `lineType` other than `'solid'` → drawn solid, `mnx-unsupported`; `sideEnd` differing from `side` → the start `side` is used for the whole curve, `mnx-unsupported`. See "Slurs" in `engraving.md` for direction/clearance |
 | `event.stemDirection` | `'up'`/`'down'` override; anything else is the engine's own resolution (`engraving.md`) |
 | `event.markings.breath` | drawn as `'comma'` unless `symbol` is something other than `'comma'`/`'auto'`, then still drawn as a comma + `mnx-unsupported` |
 | `event.markings.caesura` | drawn as `'caesura'`; a caesura + a breath on the same event draws only the caesura + `mnx-unsupported`; a non-default `shape`/`marks` still draws a plain caesura + `mnx-unsupported` |
@@ -47,7 +48,8 @@ Note values: `breve`, `whole`, `half`, `quarter`, `eighth`, `16th`, `32nd`, `64t
 - Multiple parts (only `parts[0]` is laid out), a part with `staves > 1` (only staff 1), a part's `transposition`/`kit` (percussion kits aren't laid out)
 - A 3rd+ sequence in a measure (`too-many-voices`, listed separately below since it isn't gated through `unsupported()`); a sequence on `staff !== 1`
 - Percussion clefs and other unrecognized clef sign/position pairs (fall back to the nearest of treble/bass/alto); a clef octave outside `-1..1`
-- Grace notes, multi-note tremolo (its time is left blank via a `space`), lyrics, slurs (not drawn yet), dynamics, ottavas, arpeggios/non-arpeggios, staff configs, measure repeats
+- Grace notes, multi-note tremolo (its time is left blank via a `space`), lyrics, dynamics, ottavas, arpeggios/non-arpeggios, staff configs, measure repeats
+- `slur.lineType` other than `'solid'` (drawn solid); `slur.sideEnd` differing from `slur.side` (the start side is used for the whole curve)
 - `tuplet.showValue` (only the actual count is drawn, per `showNumber`/`options.tuplets.showRatio`)
 - `ending`, `jump`, `segno`, `fine`, `fermata` (global or per-event), multimeasure rests
 - A measure's `number` override (ignored — measures are numbered positionally)
@@ -96,7 +98,7 @@ Beam id = the MNX `beams[].id` when given, otherwise `{firstElementId}.beam` via
 
 Every element the engine lays out gets an id: the MNX `id` when the document supplies one, otherwise a deterministic positional id. Content an app references — playback highlight, quiz lookups, click targets — **must** carry a real MNX `id`; a positional id is stable only until the document is edited.
 
-Id synthesis is a single shared implementation, `elementIds(doc)` in `notation-model` (`@polyhymnia/notation-model`'s `elementIds`/`ElementIds`/`NoteId`). It walks `parts[0]`'s staff-1 sequences once, in the same order and with the same rules the engine used to apply inline, and hands back an identity-keyed lookup (`idOf(node)`/`nodeOf(id)`) plus `mint(candidate)`/`resolve(explicit, candidate)` for ids assigned outside that walk (beams). `notation-engine`'s `normalize.ts` no longer synthesizes ids itself; it only looks up what `elementIds` already computed.
+Id synthesis is a single shared implementation, `elementIds(doc)` in `notation-model` (`@polyhymnia/notation-model`'s `elementIds`/`ElementIds`/`NoteId`). It walks `parts[0]`'s staff-1 sequences once, in the same order and with the same rules the engine used to apply inline, and hands back a position-keyed lookup (`idAt(pos)`/`nodeOf(id)`, where a position is `{ measureIndex, sequenceIndex, path }` plus a `note` index for chord members or a `full` marker for a full-measure rest) plus `mint(candidate)`/`resolve(explicit, candidate)` for ids assigned outside that walk (beams). `notation-engine`'s `normalize.ts` no longer synthesizes ids itself; it only looks up what `elementIds` already computed.
 
 Positional id shapes (measure `m`, sequence `s`, event index `k` within its voice):
 
@@ -165,6 +167,7 @@ Codes actually produced today (verify against `normalize.ts`/`temporal.ts`/`vert
 | `invalid-pitch` | warning | `normalize` | A note's `pitch` is missing `step`/`octave`; drawn as C4 |
 | `tie-target-unresolved` | warning | `normalize` | `tie.target` doesn't resolve to a laid-out note id; the tie is ignored |
 | `tie-target-not-adjacent` | warning | `normalize` | `tie.target` doesn't resolve to the next event of the same voice; drawn anyway |
+| `slur-target-unresolved` | warning | `normalize` | `slur.target`/`startNote`/`endNote` doesn't resolve to a laid-out note/event id; the slur is not drawn |
 | `system-measure-unresolved` | warning | `normalize` | A `systems[].measure` id doesn't resolve to a global measure; ignored |
 | `id-collision` | warning | `normalize`, `temporal` | A synthesized positional id collided with an id already in use (disambiguated with a `~n` suffix), or the same explicit id was assigned to more than one laid-out element (first occurrence wins) |
 | `zero-length-element` | warning | `temporal` | An event's resolved duration is zero (or negative); skipped |

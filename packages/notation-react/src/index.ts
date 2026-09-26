@@ -32,6 +32,7 @@ export type {
   Slot,
   SlotRef,
   SystemBox,
+  TempoOverride,
   TimeMap,
   TimeMapEntry,
   TimeSpec,

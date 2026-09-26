@@ -19,11 +19,11 @@ Integration only — no isolated-function unit tests. Every test enters through 
 | Phase | Scope | Done when | Est. |
 | --- | --- | --- | --- |
 | 0 — Skeleton | Workspace split, DOM-excluded model/engine tsconfigs, font build script (subset → rename → metadata filter). `<Staff>` renders 5 lines + clef at fixed position. | Compiles; fails on any `document` reference in `notation-model` or `notation-engine`. | 1 day |
-| 1 — Pitch + click-to-insert | Data model, `Rational`, single measure/voice, noteheads/accidentals/ledger/stems/flags/rests/dots. Fixed-width spacing (no justify yet). `hitTest` + slots + `insertNote`. Golden-file tests. | Reveal any 1–4 note chord/interval; click an empty staff to add a note. | 3–4 days |
+| 1 — Answer-entry primitives — **done** | Data model, `Rational`, single measure/voice, noteheads/accidentals/ledger/stems/flags/rests/dots. Fixed-width spacing (no justify yet). Rescoped from click-to-insert to exercise primitives (`AGENTS.md`, `interaction.md`): `hitTest` + slots + `applyIntent({type:'setPitches'})`, targeting ear-training answer entry, not a sheet editor. Golden-file tests. | Reveal any 1–4 note chord/interval; resolve a slot/element hit and answer a dictation exercise. | 3–4 days |
 | 2 — Real scores | Key/time signatures, barlines, multi-measure, spring/rod spacing + justify, greedy breaking. Timemap export, `mode:'notes'`. | 8-measure melody in any key lays out and highlights note-by-note against the audio engine. | 4–5 days |
-| 3 — Rhythm | Beat grouping, beam geometry + secondaries + hooks, single-level tuplets, `mode:'cursor'` (WAAPI + rAF, deferred). | Rhythmic dictation displays. | 4–5 days |
-| 4 — Polish | Ties (barline + system-break), slurs, cautionary accidentals, 2 voices, mid-score clef/key/meter changes, accidental stacking. | Full test corpus renders correctly, both themes, 3 sizes. | 4–5 days |
-| 5 — Extraction-ready | Public surfaces + README, `sideEffects:false`, exported CSS theme, `applyIntent` + inverse, `npm pack` smoke test into a throwaway app, Playwright visual baseline. | `npm pack` → install into an empty app → renders. | 2 days |
+| 3 — Rhythm | Beat grouping, beam geometry + secondaries + hooks, single-level tuplets, `mode:'cursor'` (WAAPI + rAF, deferred — see "Deferred / TODO"). | Rhythmic dictation displays. | 4–5 days |
+| 4 — Polish — **mostly done** | Ties (barline + system-break) — done, slurs — done, cautionary accidentals — done, 2 voices — done, accidental stacking — done. Mid-score clef changes (E4: font glyphs done, layout pending) and end-of-system courtesy clef/key/time (E5) not done yet — see "Deferred / TODO". | Full test corpus renders correctly, both themes, 3 sizes. | 4–5 days |
+| 5 — Extraction-ready | Public surfaces + README, `sideEffects:false`, exported CSS theme. `applyIntent` done (`setPitches`); undo deferred — a generic history of doc states + group fences + selection restore, not per-intent inverses (see "Deferred / TODO"). `npm pack` smoke test into a throwaway app, Playwright visual baseline. | `npm pack` → install into an empty app → renders. | 2 days |
 
 ~4 weeks total, useful at end of week 1. Phases 2/3 are independent, parallelizable.
 
@@ -52,16 +52,32 @@ Integration only — no isolated-function unit tests. Every test enters through 
 | React layer | 250 | low |
 | **Total** | **≈2,310** | 3–4 focused weeks |
 
+## Resolved decisions
+
+- **Grand staff**: deferred. No current exercise needs it; needed for cadence/SATB/bass-line dictation and wide piano voicings. MNX already represents it — a part's `staves` count > 1 (`mnx.md`'s "Unsupported MNX" already reads and rejects this field) — so no schema change is needed, engine-only cost (a vertical-system concept and a brace glyph it doesn't have).
+- **`divisions = 3360`**: kept. MNX expresses any tuplet exactly; the value is an internal-only unit, not serialized, so it stays cheap to revisit.
+- **Tempo**: MNX tempos are the default source of truth; `tickToSeconds(tick, tempo?)`/`secondsToTick(seconds, tempo?)` take an optional override argument instead of a separate clock — notation packages never run clocks/timers/rAF, the app owns time and passes position (`AGENTS.md`).
+- **`options.accidentals.insertAlteration` default = key-aware**: kept. F line in D major → F♯.
+- **`options.beaming.halfBarBeaming` default = on**: kept, per-exercise option.
+
 ## Open questions
 
-- **Grand staff** (deferred, `README.md`): most likely deferral to bite. MNX already represents it — a part's `staves` count > 1 (`mnx.md`'s "Unsupported MNX" already reads and rejects this field) — so no schema change is needed, but the layout pass needs a vertical-system concept and a brace glyph it doesn't have. **Check the exercise catalogue against this before Phase 2.**
 - **OFL rename obligation** (`font.md`): our reading of OFL-FAQ 2.6, not legal advice. Google Fonts serves subsets under original names — live interpretive gap in the ecosystem. Get qualified review if it matters commercially.
-- **`divisions = 3360`** (`mnx.md`): chosen for exact 5-/7-tuplet-of-64th representation. 960 is more MIDI/MusicXML-conventional if 5-/7-tuplets never happen. Cheap to change now, expensive once real data is serialized.
-- **Tempo in the MNX document** (`playback.md`) assumes notation owns timing. If a user-adjustable practice-tempo slider shouldn't re-render the score, move `TempoMap` to a separate argument on `tickToSeconds` instead.
-- **WAAPI transform on SVG `<g>` in Safari** (`playback.md`): should work, needs a five-minute smoke test if the cursor is revived.
-- **Is `mode:'cursor'` needed for MVP?** Deferred — `mode:'notes'` highlighting covers the current exercises; revisit later.
-- **`options.accidentals.insertAlteration` default = key-aware** (`interaction.md`): F line in D major → F♯. Alternative: always-natural + a separate chromatic-alter action (more predictable, more clicks). UX call, not architecture.
-- **Rest-glyph vertical anchor** (`engraving.md`): assumed self-anchored to one y per duration; confirm against Bravura's actual glyph metadata in Phase 0/1 — if false, needs a per-duration offset table.
-- **4/4 half-bar beam default (`options.beaming.halfBarBeaming`) = on** (`engraving.md`): standard engraving, arguably worse for beat-recognition pedagogy (strict per-beat beaming reads the meter more clearly). The option exists either way — revisit against the actual rhythm exercises.
-- **Spacing/beam constants** (K=0.55, BASE=3.2sp, MAX_SLOPE=0.25, rise-cap=2.5sp) are engraving-practice defaults, not measured against this app's output. Tune against the gallery in Phase 2.
-- **No comparison to abcjs/VexFlow output quality exists yet.** The Phase-3 side-by-side harness (Testing, above) is specifically to find out early, while there's still time to reconsider.
+- **WAAPI transform on SVG `<g>` in Safari** (`playback.md`): should work, needs a five-minute smoke test if the cursor mode is revived (see "Deferred / TODO").
+- **Rest-glyph vertical anchor** (`engraving.md`): assumed self-anchored to one y per duration; confirm against Bravura's actual glyph metadata — if false, needs a per-duration offset table.
+- **Spacing/beam constants** (K=0.55, BASE=3.2sp, MAX_SLOPE=0.25, rise-cap=2.5sp) are engraving-practice defaults, not measured against this app's output. Tune against the gallery.
+- **No comparison to abcjs/VexFlow output quality exists yet.** The side-by-side harness (Testing, above) is specifically to find out early, while there's still time to reconsider.
+- **Tie/slur arch heuristic constants** (`layout/curves.ts`): invented, not measured — confirm against engraving references.
+- **Middle note of a 3-note chord ties upward** (`layout/curves.ts`): convention would curve by position relative to the middle line instead; minor, unconfirmed.
+
+## Deferred / TODO
+
+- **Cursor playback mode** (`mode:'cursor'`, `playback.md`): code stays in place; if revived, it must stay position-driven (no clock of its own) and needs a Safari WAAPI smoke test before shipping.
+- **Undo history**: deferred. Needs a generic history of doc states + group fences + selection restore, not per-intent inverses.
+- **`setRhythm` intent**: not planned. Rhythm-dictation apps rebuild MNX themselves using `point.tick` (`interaction.md`) rather than editing rhythm in place.
+- **Editor features**: drag-to-change-pitch, an on-canvas duration palette, free multi-voice entry, measure/meter/key/clef edits, copy/paste — out of scope, interaction targets ear-training exercises, not a sheet editor (`interaction.md` "Deferred editor features").
+- **Runtime MusicXML import/export**: import stays offline/build-time only (`tools/musicxml-to-mnx` → committed `.mnx.json`); no runtime import or export until a product flow needs it (`AGENTS.md`).
+- **Grand staff + cross-staff beaming**: deferred, depends on grand staff landing first (see "Resolved decisions").
+- **One-line percussion staff**: deferred, no current exercise needs it.
+- **E4 (mid-score clef changes) + E5 (end-of-system courtesy clef/key/time)**: pending. Font glyphs for E4 (`gClefChange`/`cClefChange`/`fClefChange`, `font.md`) exist; layout doesn't use them yet.
+- **Golden fixture for accidental stacking**: tests exist, fixture missing.

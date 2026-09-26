@@ -209,7 +209,7 @@ for each note in time order:
 
 `options.accidentals.courtesyPolicy: 'none' | 'next-measure' | 'always'`, default `'next-measure'` — an unexpected accidental is the thing being tested, ambiguity is a bug not a style choice.
 
-**Chord stacking:** sort accidentals top-down by staff position, greedy-pack into the leftmost column that doesn't vertically overlap (bbox test, ~0.2sp pad) anything already there. Feeds the rod width above.
+**Chord stacking:** sort accidentals top-down by staff position, greedy-pack into columns running leftward from the notehead: the column nearest the notehead is filled first, and each accidental goes into the nearest column where it doesn't vertically overlap (bbox test, ~0.2sp pad) anything already placed — a new column opens further left only when every existing one collides. Feeds the rod width above.
 
 ## Ties
 
@@ -220,12 +220,13 @@ for each note in time order:
 
 ## Slurs
 
-Scope: note-to-note, single system, one nesting level.
+Scope: note-to-note, one nesting level.
 
 ```
-p0/p3 = notehead-edge anchors, offset per direction
-dir   = +1 (arch up — y decreases, architecture.md) if any stem in the span is down, else -1
-        (arch down); voice forces it in 2-voice (v0 -> +1, v1 -> -1)
+p0/p3 = notehead-edge anchors, offset per direction (stem tip instead of notehead
+  when the endpoint's own stem is drawn on that side, so the slur clears the beam)
+dir   = MNX slur.side if given; else by voice in 2-voice (v0 -> +1, v1 -> -1);
+        else +1 (arch up) if any stem in the span is down, else -1 (arch down)
 arch  = clamp(BASE_ARCH + span*ARCH_PER_SP, MIN_ARCH, MAX_ARCH)   ~0.9..3.0 sp
 p1 = p0 + (0.25dx, -dir*arch);  p2 = p0 + (0.75dx, -dir*arch)
 clearance: sample the curve at ~8 points; if any point is inside an intervening
@@ -233,7 +234,8 @@ clearance: sample the curve at ~8 points; if any point is inside an intervening
 thicken as ties (slurEndpointThickness 0.10 -> slurMidpointThickness 0.22).
 ```
 
-Out of scope: cross-system slurs (system breaks avoid splitting a slur in the common case).
+Across a system break: two half-slurs, same endpoint/direction rules as each half; no
+clearance sampling across the break (nothing to sample against) and no diagnostic.
 
 ## Rests
 

@@ -7,7 +7,9 @@
 - `apps/*` consume packages only through their public exports; no app code inside packages.
 
 # Interaction (answer entry)
-- Planned right after beaming: hit-testing, insertion slots, `applyIntent` (`notation/interaction.md`). Design every feature so this stays cheap to add; never take a shortcut interaction would have to undo.
+- Built: hit-testing, insertion slots, `applyIntent` (`notation/interaction.md`). Design every new feature so interaction keeps working on it; never take a shortcut interaction would have to undo.
+- Targets ear-training exercises (dictation, click-what-you-heard, error detection), not a sheet editor; editor features (drag pitch, palette, free multi-voice entry, measure/meter edits, copy/paste) are deferred, different scope.
+- Notation packages never produce sound and never run clocks/timers/rAF/animations-as-time; the app owns time and passes position, notation only shows.
 - Every drawn element keeps its MNX/positional id and a hitbox in `LayoutResult`; ids stay stable when an edited document is re-laid out.
 - Derived notation (beams, tuplet brackets, accidentals, padding rests) is recomputed from MNX on each layout or produced by a pure MNX → MNX function; no state that exists only after rendering.
 

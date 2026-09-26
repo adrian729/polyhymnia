@@ -5,7 +5,7 @@
 // sound), MIDI numbers, and the sp coordinates only the emit stage knows.
 
 import { Rational as R } from '@polyhymnia/notation-model';
-import { midiOf, noteValueSpecLength, type NoteId, type NoteValueSpec, type TempoMap } from '../layout/records.js';
+import { midiOf, noteValueSpecLength, type NoteId, type NoteValueSpec, type TempoEvent, type TempoMap } from '../layout/records.js';
 import type { TemporalElement } from '../layout/temporal.js';
 import type { SystemBox } from '../layout/types.js';
 
@@ -34,13 +34,15 @@ export interface MeasureTime {
   w: number;
 }
 
+export type TempoOverride = Omit<TempoEvent, 'tick'>;
+
 export interface TimeMap {
   divisions: number;
   entries: readonly TimeMapEntry[];
   measures: readonly MeasureTime[];
   tempo: TempoMap;
-  tickToSeconds(tick: number): number;
-  secondsToTick(seconds: number): number;
+  tickToSeconds(tick: number, tempo?: TempoOverride): number;
+  secondsToTick(seconds: number, tempo?: TempoOverride): number;
   positionAtTick(
     tick: number,
   ): { systemIndex: number; x: number; yTop: number; yBottom: number } | null;
@@ -77,20 +79,25 @@ export function buildTimeMap(input: TimeMapInput): TimeMap {
   const measures = [...input.measures].sort((a, b) => a.startTick - b.startTick);
   const byTick = onsets(entries);
 
-  const tickToSeconds = (tick: number): number => {
+  const segmentsFor = (tempo?: TempoOverride): readonly TempoSegment[] =>
+    tempo === undefined ? segments : buildTempoSegments([{ tick: 0, ...tempo }], input.divisions);
+
+  const tickToSeconds = (tick: number, tempo?: TempoOverride): number => {
+    const segs = segmentsFor(tempo);
     const t = Math.max(0, tick);
-    let segment = segments[0]!;
-    for (const candidate of segments) {
+    let segment = segs[0]!;
+    for (const candidate of segs) {
       if (candidate.tick <= t) segment = candidate;
       else break;
     }
     return segment.seconds + (t - segment.tick) * segment.secondsPerTick;
   };
 
-  const secondsToTick = (seconds: number): number => {
+  const secondsToTick = (seconds: number, tempo?: TempoOverride): number => {
+    const segs = segmentsFor(tempo);
     const s = Math.max(0, seconds);
-    let segment = segments[0]!;
-    for (const candidate of segments) {
+    let segment = segs[0]!;
+    for (const candidate of segs) {
       if (candidate.seconds <= s) segment = candidate;
       else break;
     }

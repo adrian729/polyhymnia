@@ -341,7 +341,6 @@ describe('unsupported constructs render what they can and say so', () => {
     expect(() => layoutScore(doc)).not.toThrow();
     expect(unsupported(doc)).toEqual([
       'Unsupported MNX: dynamics in measure 0; not drawn.',
-      'Unsupported MNX: slurs in measure 0; not drawn.',
       'Unsupported MNX: staccato marking in measure 0; not drawn.',
       'Unsupported MNX: lyrics in measure 0; not drawn.',
     ]);

@@ -109,7 +109,7 @@ export type {
 
 // --- query (playback.md) ---
 export { buildTimeMap, DEFAULT_TEMPO_BPM } from './query/timemap.js';
-export type { MeasureTime, TimeMap, TimeMapEntry } from './query/timemap.js';
+export type { MeasureTime, TempoOverride, TimeMap, TimeMapEntry } from './query/timemap.js';
 
 export { hitTest, HIT_STAFF_MARGIN } from './query/hitTest.js';
 export type { HitKind, HitOptions, HitResult } from './query/hitTest.js';

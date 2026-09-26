@@ -68,6 +68,16 @@ export interface NormalizedTie {
   measureIndex: number;
 }
 
+export interface NormalizedSlur {
+  id: string;
+  from: NoteId;
+  to: NoteId;
+  startNote?: NoteId;
+  endNote?: NoteId;
+  side?: 'up' | 'down';
+  measureIndex: number;
+}
+
 export interface Duration extends NoteValueSpec {
   tuplet?: TupletRef;
 }

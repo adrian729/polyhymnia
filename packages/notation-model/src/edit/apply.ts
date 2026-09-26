@@ -43,16 +43,8 @@ function unsupported(event: string): ApplyResult['diagnostics'] {
   ];
 }
 
-function isFullMeasureRest(doc: MnxDocument, ids: ReturnType<typeof elementIds>, eventId: string): boolean {
-  for (const pm of asArray(doc.parts[0]?.measures)) {
-    const measure = asObject(pm);
-    for (const raw of asArray(measure?.sequences)) {
-      const sequence = asObject(raw);
-      const full = asObject(sequence?.fullMeasure);
-      if (full && ids.idOf(full) === eventId) return true;
-    }
-  }
-  return false;
+function isFullMeasureRest(found: { full?: boolean } | undefined): boolean {
+  return found?.full === true;
 }
 
 function substituteAtPath(
@@ -80,7 +72,7 @@ function setPitches(doc: MnxDocument, eventId: string, pitches: readonly Pitch[]
   const ids = elementIds(doc);
   const found = ids.nodeOf(eventId);
   if (!found || !isEventNode(found.node)) {
-    if (isFullMeasureRest(doc, ids, eventId)) return { doc, changed: [], diagnostics: unsupported(eventId) };
+    if (isFullMeasureRest(found)) return { doc, changed: [], diagnostics: unsupported(eventId) };
     return { doc, changed: [], diagnostics: missing(eventId) };
   }
 
@@ -101,7 +93,15 @@ function setPitches(doc: MnxDocument, eventId: string, pitches: readonly Pitch[]
   oldNotes.forEach((note, k) => {
     const kept = k < pitches.length && pitchKey(note.pitch) === pitchKey(pitches[k]);
     if (kept) return;
-    const oldId = typeof note.id === 'string' ? note.id : ids.noteIdsOf(eventId)?.get(note);
+    const oldId =
+      typeof note.id === 'string'
+        ? note.id
+        : ids.idAt({
+            measureIndex: found.measureIndex,
+            sequenceIndex: found.sequenceIndex,
+            path: found.path,
+            note: k,
+          });
     if (oldId) staleIds.add(oldId);
   });
 

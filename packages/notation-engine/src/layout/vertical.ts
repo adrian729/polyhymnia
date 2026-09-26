@@ -739,8 +739,10 @@ function dotsWidth(dots: 0 | 1 | 2): number {
 
 /**
  * engraving.md "## Accidentals" chord stacking: top-down by staff position, greedy-pack
- * into the leftmost column that does not vertically overlap (bbox test, ~0.2sp pad)
- * anything already there. Returns the block width, which feeds the column rod.
+ * into columns from the notehead leftward — the column nearest the notehead is filled
+ * first, and an accidental only opens the next column when it vertically overlaps
+ * (bbox test, ~0.2sp pad) everything already there. A parenthesized accidental occupies
+ * its glyph plus both parentheses. Returns the block width, which feeds the column rod.
  */
 function packAccidentals(noteheads: readonly NoteheadLayout[]): number {
   const withAccidental = noteheads
@@ -748,16 +750,26 @@ function packAccidentals(noteheads: readonly NoteheadLayout[]): number {
     .sort((a, b) => a.staffPosition - b.staffPosition);
   if (withAccidental.length === 0) return 0;
 
+  const parensRight = (acc: AccidentalLayout): number =>
+    acc.parenthesized ? glyphAdvanceWidth('accidentalParensRight') : 0;
+  const unitWidth = (acc: AccidentalLayout): number =>
+    acc.width +
+    (acc.parenthesized ? glyphAdvanceWidth('accidentalParensLeft') + parensRight(acc) : 0);
+
   const columns: { top: number; bottom: number }[][] = [];
   const assigned: { head: NoteheadLayout; column: number }[] = [];
 
   for (const head of withAccidental) {
     const acc = head.accidental!;
     const bbox = glyphBBox(acc.glyph);
-    const span = {
-      top: acc.y - bbox.bBoxNE[1] - ACCIDENTAL_PAD,
-      bottom: acc.y - bbox.bBoxSW[1] + ACCIDENTAL_PAD,
-    };
+    let top = acc.y - bbox.bBoxNE[1];
+    let bottom = acc.y - bbox.bBoxSW[1];
+    if (acc.parenthesized) {
+      const parens = glyphBBox('accidentalParensLeft');
+      top = Math.min(top, acc.y - parens.bBoxNE[1]);
+      bottom = Math.max(bottom, acc.y - parens.bBoxSW[1]);
+    }
+    const span = { top: top - ACCIDENTAL_PAD, bottom: bottom + ACCIDENTAL_PAD };
     let column = 0;
     while (
       columns[column]?.some((placed) => span.top < placed.bottom && placed.top < span.bottom)
@@ -771,13 +783,13 @@ function packAccidentals(noteheads: readonly NoteheadLayout[]): number {
   const widths = columns.map((_, i) =>
     assigned
       .filter((a) => a.column === i)
-      .reduce((max, a) => Math.max(max, a.head.accidental!.width), 0),
+      .reduce((max, a) => Math.max(max, unitWidth(a.head.accidental!)), 0),
   );
 
   for (const { head, column } of assigned) {
     let right = -ACCIDENTAL_GAP;
     for (let i = 0; i < column; i += 1) right -= widths[i]! + ACCIDENTAL_COLUMN_GAP;
-    head.accidental!.dx = right - head.accidental!.width;
+    head.accidental!.dx = right - parensRight(head.accidental!) - head.accidental!.width;
   }
 
   return (

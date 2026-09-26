@@ -18,35 +18,35 @@ Files:
 
 In scope — full engraving, not a reduced subset:
 
-| Feature | Detail |
-| --- | --- |
-| Clefs | Treble, bass, alto, tenor; octave variants; mid-score changes |
-| Key signatures | All 15, correct ordering/octave placement per clef, naturals on change |
-| Time signatures | Any n/d, common/cut, mid-score changes |
-| Durations | Breve–64th, 0–2 augmentation dots |
-| Rests | Same range, whole-bar centring, correct hang/sit position |
-| Accidentals | ♭♮♯𝄫𝄪, measure-scoped state, cautionary/courtesy, chord stacking |
-| Ledger lines | Above/below both staves |
-| Stems & flags | Direction/length rules, 8th–64th flags |
-| Beaming | Automatic: beat grouping, slope, secondary beams, hooks, breaking |
-| Tuplets | Single-level, bracket + numeral |
-| Barlines | Single/double/dashed/final/repeat |
-| Breath marks | Comma and caesura, attached to a note |
-| Ties | Within/across barline, chord-wise |
-| Slurs | Single-system, note-to-note |
-| Spacing/justification | Duration-proportional, system-width justified |
-| Multi-measure | Any count, greedy system breaking |
-| Multi-voice | 2 voices per staff |
-| Interaction | Click-to-insert, extensible to full editing |
-| Playback position | Discrete highlight + continuous cursor, exported timemap |
-| Accessibility | aria-label per note, text alternative |
-| Theming | CSS custom properties |
+| Feature | Detail | Status |
+| --- | --- | --- |
+| Clefs | Treble, bass, alto, tenor; octave variants; mid-score changes | Mid-score change: font glyphs done, layout pending (E4, `roadmap.md`); rest done |
+| Key signatures | All 15, correct ordering/octave placement per clef, naturals on change | Done |
+| Time signatures | Any n/d, common/cut, mid-score changes | Done |
+| Durations | Breve–64th, 0–2 augmentation dots | Done |
+| Rests | Same range, whole-bar centring, correct hang/sit position | Done |
+| Accidentals | ♭♮♯𝄫𝄪, measure-scoped state, cautionary/courtesy, chord stacking | Done |
+| Ledger lines | Above/below both staves | Done |
+| Stems & flags | Direction/length rules, 8th–64th flags | Done |
+| Beaming | Automatic: beat grouping, slope, secondary beams, hooks, breaking | Done |
+| Tuplets | Single-level, bracket + numeral | Done |
+| Barlines | Single/double/dashed/final/repeat | Done |
+| Breath marks | Comma and caesura, attached to a note | Done |
+| Ties | Within/across barline, chord-wise | Done |
+| Slurs | Single-system, note-to-note | Done |
+| Spacing/justification | Duration-proportional, system-width justified | Done |
+| Multi-measure | Any count, greedy system breaking | Done |
+| Multi-voice | 2 voices per staff | Done |
+| Interaction | Hit-testing, slots, `applyIntent({type:'setPitches'})` — ear-training answer entry, not a sheet editor (editor features deferred, `interaction.md`) | Done for exercise use |
+| Playback position | Discrete highlight (`mode:'notes'`) + exported timemap; continuous cursor (`mode:'cursor'`) deferred | Discrete done; cursor deferred |
+| Accessibility | aria-label per note, text alternative | Done |
+| Theming | CSS custom properties | Done |
 
 Deferred — explicit, not accidental. Most are additive later, not a redesign, given the package split already in place and MNX already representing most of them in the schema — except where a row's cost says otherwise:
 
 | Deferred | Cost to add later |
 | --- | --- |
-| Grand staff / piano brace | Medium-high — **most likely to come back, check exercise catalogue before Phase 2**. MNX already represents it (a part's `staves` count), so this is an engine-only cost: a vertical-system concept and a brace glyph, no schema change |
+| Grand staff / piano brace | **Deferred** — no current exercise needs it; needed for cadence/SATB/bass-line dictation and wide piano voicings if those exercises land. MNX already represents it (a part's `staves` count), so this is an engine-only cost: a vertical-system concept and a brace glyph, no schema change |
 | Cross-staff beaming | High — needs grand staff first |
 | Nested/compound tuplets | Medium — no longer a schema/data-model change: MNX `tuplet` containers already nest natively (`engraving.md`), the engine just flattens them today (`mnx.md`). Purely an engine change: draw the nested brackets instead of combining the ratio |
 | Grace notes, ornaments, glissandi | Medium — needs a new "non-metrical attachment" concept |

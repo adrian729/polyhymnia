@@ -1,0 +1,74 @@
+{
+  "mnx": {
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "time": { "count": 4, "unit": 4 }
+      },
+      {
+        "barline": { "type": "final" }
+      }
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "clefs": [{ "clef": { "sign": "G", "staffPosition": -2 } }],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "id": "run0",
+                  "duration": { "base": "quarter" },
+                  "notes": [{ "pitch": { "step": "C", "octave": 4 } }],
+                  "slurs": [{ "target": "run3" }]
+                },
+                {
+                  "duration": { "base": "quarter" },
+                  "notes": [{ "pitch": { "step": "D", "octave": 4 } }]
+                },
+                {
+                  "duration": { "base": "quarter" },
+                  "notes": [{ "pitch": { "step": "E", "octave": 4 } }]
+                },
+                {
+                  "id": "run3",
+                  "duration": { "base": "quarter" },
+                  "notes": [{ "pitch": { "step": "F", "octave": 4 } }]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "id": "chord0",
+                  "duration": { "base": "quarter" },
+                  "notes": [
+                    { "pitch": { "step": "C", "octave": 4 } },
+                    { "pitch": { "step": "E", "octave": 4 } },
+                    { "pitch": { "step": "G", "octave": 4 }, "id": "chord0-top" }
+                  ],
+                  "slurs": [{ "target": "chord0-target", "startNote": "chord0-top", "side": "up" }]
+                },
+                { "duration": { "base": "quarter" }, "rest": {} },
+                {
+                  "id": "chord0-target",
+                  "duration": { "base": "quarter" },
+                  "notes": [{ "pitch": { "step": "A", "octave": 4 } }]
+                },
+                { "duration": { "base": "quarter" }, "rest": {} }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

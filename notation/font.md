@@ -16,7 +16,7 @@ Font choice is a build-time swap, not lock-in: Leland/Petaluma are SMuFL-complia
 
 ## License obligation
 
-OFL-FAQ 2.6: subsetting a web font is modification; a modified font "would not normally allow the use of RFNs." Our 61-glyph subset does not preserve Functional Equivalence (the full character inventory), so:
+OFL-FAQ 2.6: subsetting a web font is modification; a modified font "would not normally allow the use of RFNs." Our 64-glyph subset does not preserve Functional Equivalence (the full character inventory), so:
 
 - The subsetted font ships under a **renamed family** — CFF `FontName`/`FullName`/`FamilyName` + name IDs 1/4/6/16 rewritten to `PolyhymniaNotation` at build time. `pyftsubset --name-IDs=''` empties the `name` table but leaves the CFF top-dict names (`Bravura`) unchanged — the rename needs an explicit build step or this is a silent compliance bug.
 - Ship `OFL.txt` + copyright/authorship notice + upstream pointer alongside.
@@ -24,13 +24,14 @@ OFL-FAQ 2.6: subsetting a web font is modification; a modified font "would not n
 
 Our reading of the FAQ, not legal advice — flagged in `roadmap.md` open questions.
 
-## Glyph set — 61 glyphs, full scope
+## Glyph set — 64 glyphs, full scope
 
 Staff lines, ledger lines, barlines (the lines themselves) and stems are **not glyphs** — drawn as `<rect>`, thickness from `engravingDefaults` (`architecture.md`); they need exact-length stretching (justification), which a glyph can't do. Beams are likewise not a glyph, but a `<path>` parallelogram (`architecture.md`'s `PathShape`) rather than a rect, since they slope. Repeat-barline dots ARE a glyph (below) — a fixed shape, no stretching needed.
 
 | Category | Codepoints | Count |
 | --- | --- | --- |
 | Clefs | E050 gClef, E052 gClef8vb, E053 gClef8va, E05C cClef, E062 fClef, E064 fClef8vb, E065 fClef8va | 7 |
+| Clef changes (mid-score, smaller glyphs) | E07A gClefChange, E07B cClefChange, E07C fClefChange | 3 |
 | Time signature | E080–E08B (digits 0–9 + common + cut) | 12 |
 | Noteheads | E0A0 breve, E0A2 whole, E0A3 half, E0A4 black | 4 |
 | Augmentation dot | E1E7 | 1 |
@@ -41,9 +42,11 @@ Staff lines, ledger lines, barlines (the lines themselves) and stems are **not g
 | Tuplet digits + colon | E880–E88A | 11 |
 | Repeat barline | E044 repeatDot | 1 |
 | Breath marks | E4CE breathMarkComma, E4D1 caesura | 2 |
-| **Total** | | **61** |
+| **Total** | | **64** |
 
 `augmentationDot` is `U+E1E7` — not `U+E4E5` (that's `restQuarter`, part of the rest block).
+
+The three clef-change glyphs are in the subset but not yet drawn: mid-score clef changes are layout-pending (`roadmap.md` E4).
 
 ## Sizes — measured, fontTools/pyftsubset, Bravura 1.482
 
@@ -51,24 +54,27 @@ Staff lines, ledger lines, barlines (the lines themselves) and stems are **not g
 | --- | --- | --- |
 | 9 | 3,128 B | Phase-1 minimum: clefs, 3 noteheads, 3 accidentals, dot |
 | 57 | 9,156 B | Full scope minus `repeatDot` (measured before that glyph was added to the subset) |
-| 61 | **9,448 B** | Full scope (table above) — measured at the Phase 0 build |
+| 61 | 9,448 B | Full scope minus the 3 clef-change glyphs — measured at the Phase 0 build, before they were added |
+| 64 | 10,136 B | Full scope incl. the 3 clef-change glyphs — current build |
 | 88 | 10,984 B | + articulations, fermatas, dynamics, keyboard pedal marks (E650 block), brace, X-notehead — headroom for deferred features |
 
-Metadata (advance widths, bboxes, anchors) filtered to the 61-glyph set: 7,210 B raw / **1,886 B gzipped**. Full `Bravura.json` is 1,256,995 B — unfiltered metadata costs >100× more than the font.
+Metadata (advance widths, bboxes, anchors) filtered to the 64-glyph set: 7,452 B raw / **1,945 B gzipped**. Full `Bravura.json` is 1,256,995 B — unfiltered metadata costs >100× more than the font.
 
-**Total wire cost, full scope: ~11 KB** (9,448 B font + 1,886 B gz metadata). `vexflow-core` alone is 328.7 KB before fonts, for comparison.
+**Total wire cost, full scope (64 glyphs): ~12 KB** (10,136 B font + 1,945 B gz metadata). `vexflow-core` alone is 328.7 KB before fonts, for comparison.
 
 ## Build
 
 ```sh
 pyftsubset Bravura.otf \
-  --unicodes="U+E044,U+E050,U+E052,U+E053,U+E05C,U+E062,U+E064,U+E065,U+E080-E08B,U+E0A0,U+E0A2-E0A4,\
+  --unicodes="U+E044,U+E050,U+E052,U+E053,U+E05C,U+E062,U+E064,U+E065,U+E07A-E07C,U+E080-E08B,U+E0A0,U+E0A2-E0A4,\
 U+E1E7,U+E240-E247,U+E260-E264,U+E26A,U+E26B,U+E4CE,U+E4D1,U+E4E2-E4E9,U+E880-E88A" \
   --output-file=polyhymnia-notation.woff2 --flavor=woff2 \
   --no-hinting --desubroutinize \
   --drop-tables+=GSUB,GPOS,BASE,JSTF,DSIG --name-IDs='' --notdef-outline
 # then: rename CFF FontName/FullName/FamilyName + name IDs 1/4/6/16 -> "PolyhymniaNotation"
 ```
+
+Shown above: the 64-glyph unicode list the manifest (`notation-font/manifest.ts`) produces.
 
 Same manifest drives both the WOFF2 and the filtered metadata JSON — they can't drift apart.
 

@@ -9,6 +9,7 @@ import { elementIds, noteValueLength, readMnx, tupletRatio, Rational as R } from
 import type {
   Diagnostic,
   ElementIds,
+  ElementPosition,
   Event as MnxEvent,
   MeasureGlobal,
   MnxDocument,
@@ -17,6 +18,7 @@ import type {
   PartMeasure,
   Rational,
   Sequence,
+  Slur,
   Tie,
 } from '@polyhymnia/notation-model';
 import type { NotationOptions } from '../options.js';
@@ -31,6 +33,7 @@ import {
   type NormalizedBeam,
   type NoteId,
   type NoteValueSpec,
+  type NormalizedSlur,
   type NormalizedTie,
   type Pitch,
   type StepNumber,
@@ -118,6 +121,7 @@ export interface NormalizedScore {
   staves: readonly NormalizedStaff[];
   beams: readonly NormalizedBeam[];
   ties: readonly NormalizedTie[];
+  slurs: readonly NormalizedSlur[];
   diagnostics: readonly Diagnostic[];
   /** Every id already in use — explicit or synthesized — so later stages can keep
    *  disambiguating their own positional ids against it. */
@@ -138,20 +142,31 @@ interface PendingTie {
   measureIndex: number;
 }
 
+interface PendingSlur {
+  fromEventId: NoteId;
+  fromNotes: readonly MutableNote[];
+  slur: Slur;
+  k: number;
+  measureIndex: number;
+}
+
 export interface Reader {
   diagnostics: Diagnostic[];
   unsupported(construct: string, measureIndex: number | undefined, consequence: string): void;
   notesById: Map<string, MutableNote>;
   ties: PendingTie[];
   resolvedTies: NormalizedTie[];
+  slurs: PendingSlur[];
+  resolvedSlurs: NormalizedSlur[];
+  eventsById: Map<string, readonly MutableNote[]>;
   noteOrder: Map<MutableNote, { voice: 0 | 1; order: number }>;
   eventOrder: [number, number];
   ids: ElementIds;
   usedIds: Set<string>;
 }
 
-function idFor(reader: Reader, node: object, explicit: unknown, candidate: string): NoteId {
-  const id = reader.ids.idOf(node) ?? reader.ids.mint(candidate);
+function idFor(reader: Reader, pos: ElementPosition, candidate: string): NoteId {
+  const id = reader.ids.idAt(pos) ?? reader.ids.mint(candidate);
   reader.usedIds.add(id);
   return id;
 }
@@ -174,6 +189,7 @@ export function normalize(doc: MnxDocument, options?: NotationOptions): Normaliz
     staves: [],
     beams: [],
     ties: [],
+    slurs: [],
     diagnostics,
     usedIds: new Set(),
   });
@@ -192,6 +208,9 @@ export function normalize(doc: MnxDocument, options?: NotationOptions): Normaliz
     notesById: new Map(),
     ties: [],
     resolvedTies: [],
+    slurs: [],
+    resolvedSlurs: [],
+    eventsById: new Map(),
     noteOrder: new Map(),
     eventOrder: [0, 0],
     ids,
@@ -327,6 +346,7 @@ export function normalize(doc: MnxDocument, options?: NotationOptions): Normaliz
   });
 
   resolveTies(reader);
+  resolveSlurs(reader);
   applySystemBreaks(source, globals, measures, reader);
   const tempo = resolveTempo(globals, measures, divisions, reader);
   diagnostics.push(...ids.diagnostics);
@@ -347,6 +367,7 @@ export function normalize(doc: MnxDocument, options?: NotationOptions): Normaliz
     ],
     beams,
     ties: reader.resolvedTies,
+    slurs: reader.resolvedSlurs,
     diagnostics,
     usedIds: reader.usedIds,
   };
@@ -420,12 +441,12 @@ function readSequences(sequences: readonly unknown[], measureIndex: number, read
     const voice = (i === 1 ? 1 : 0) as 0 | 1;
     const scope: SequenceScope = { measureIndex, sequenceIndex: index, voice, eventCount: 0, tupletCount: 0 };
     const events: NormalizedEvent[] = [];
-    readContent(asArray(sequence.content), scope, undefined, events, reader);
+    readContent(asArray(sequence.content), scope, undefined, events, reader, []);
     const full = asObject(sequence.fullMeasure);
     if (full) {
       if (full.fermata) reader.unsupported('fermata', measureIndex, 'not drawn');
       events.push({
-        id: idFor(reader, full, full.id, `m${measureIndex}.s${index}.full`),
+        id: idFor(reader, { measureIndex, sequenceIndex: index, path: [], full: true }, `m${measureIndex}.s${index}.full`),
         kind: 'rest',
         base: 'whole',
         dots: 0,
@@ -447,15 +468,17 @@ function readContent(
   tuplet: TupletRef | undefined,
   out: NormalizedEvent[],
   reader: Reader,
+  path: readonly number[],
 ): void {
   const { measureIndex } = scope;
-  for (const raw of content) {
+  content.forEach((raw, localIndex) => {
     const item = asObject(raw);
-    if (!item) continue;
+    if (!item) return;
+    const itemPath = [...path, localIndex];
     switch (item.type) {
       case 'tuplet': {
-        const ref = readTuplet(item, scope, tuplet, reader);
-        readContent(asArray(item.content), scope, ref, out, reader);
+        const ref = readTuplet(item, scope, tuplet, reader, itemPath);
+        readContent(asArray(item.content), scope, ref, out, reader, itemPath);
         break;
       }
       case 'grace':
@@ -476,14 +499,14 @@ function readContent(
       }
       case undefined:
       case 'event': {
-        const event = readEvent(item as MnxEvent, scope, tuplet, reader);
+        const event = readEvent(item as MnxEvent, scope, tuplet, reader, itemPath);
         if (event) out.push(event);
         break;
       }
       default:
         reader.unsupported(`sequence content of type ${String(item.type)}`, measureIndex, 'skipped');
     }
-  }
+  });
 }
 
 function readTuplet(
@@ -491,10 +514,15 @@ function readTuplet(
   scope: SequenceScope,
   outer: TupletRef | undefined,
   reader: Reader,
+  path: readonly number[],
 ): TupletRef | undefined {
   const index = scope.tupletCount;
   scope.tupletCount += 1;
-  const id = idFor(reader, item, item.id, `m${scope.measureIndex}.s${scope.sequenceIndex}.t${index}`);
+  const id = idFor(
+    reader,
+    { measureIndex: scope.measureIndex, sequenceIndex: scope.sequenceIndex, path },
+    `m${scope.measureIndex}.s${scope.sequenceIndex}.t${index}`,
+  );
   if (typeof item.staff === 'number' && item.staff !== 1) {
     reader.unsupported('cross-staff tuplet', scope.measureIndex, 'laid out on staff 1');
   }
@@ -526,11 +554,12 @@ function readEvent(
   scope: SequenceScope,
   tuplet: TupletRef | undefined,
   reader: Reader,
+  path: readonly number[],
 ): NormalizedEvent | undefined {
   const { measureIndex, sequenceIndex } = scope;
   const index = scope.eventCount;
   scope.eventCount += 1;
-  const id: NoteId = idFor(reader, event, event.id, `m${measureIndex}.s${sequenceIndex}.e${index}`);
+  const id: NoteId = idFor(reader, { measureIndex, sequenceIndex, path }, `m${measureIndex}.s${sequenceIndex}.e${index}`);
 
   const value = readNoteValue(event.duration, measureIndex, reader);
   if (!value) return undefined;
@@ -572,9 +601,20 @@ function readEvent(
   }
 
   const elementNotes = notes.map((note, k) =>
-    readNote(note, notes.length === 1 ? id : `${id}.n${k}`, measureIndex, reader),
+    readNote(
+      note,
+      { measureIndex, sequenceIndex, path, note: k },
+      notes.length === 1 ? id : `${id}.n${k}`,
+      measureIndex,
+      reader,
+    ),
   );
   for (const en of elementNotes) reader.noteOrder.set(en, { voice: scope.voice, order });
+  reader.eventsById.set(id, elementNotes);
+  asArray(event.slurs).forEach((raw, k) => {
+    const slur = asObject(raw) as Slur | undefined;
+    if (slur) reader.slurs.push({ fromEventId: id, fromNotes: elementNotes, slur, k, measureIndex });
+  });
   const stem = event.stemDirection === 'up' || event.stemDirection === 'down' ? event.stemDirection : undefined;
   const breath = breathOf(event, measureIndex, reader);
   return {
@@ -614,7 +654,6 @@ function readNoteValue(
 function reportEventConstructs(event: MnxEvent, measureIndex: number, reader: Reader): void {
   if (event.fermata) reader.unsupported('fermata', measureIndex, 'not drawn');
   if (event.lyrics) reader.unsupported('lyrics', measureIndex, 'not drawn');
-  if (asArray(event.slurs).length > 0) reader.unsupported('slurs', measureIndex, 'not drawn');
   if (typeof event.staff === 'number' && event.staff !== 1) {
     reader.unsupported('cross-staff event', measureIndex, 'laid out on staff 1');
   }
@@ -646,11 +685,12 @@ function breathOf(event: MnxEvent, measureIndex: number, reader: Reader): 'comma
 
 function readNote(
   note: MnxNote,
+  pos: ElementPosition,
   candidate: NoteId,
   measureIndex: number,
   reader: Reader,
 ): ElementNote {
-  const noteId = idFor(reader, note, note.id, candidate);
+  const noteId = idFor(reader, pos, candidate);
   const element: MutableNote = {
     id: noteId,
     pitch: readPitch(note.pitch, measureIndex, reader),
@@ -748,6 +788,76 @@ function resolveTies(reader: Reader): void {
       });
     }
   }
+}
+
+function resolveSlurs(reader: Reader): void {
+  for (const { fromEventId, fromNotes, slur, k, measureIndex } of reader.slurs) {
+    if (slur.lineType !== undefined && slur.lineType !== 'solid') {
+      reader.unsupported(`${slur.lineType} slur line`, measureIndex, 'drawn solid');
+    }
+    const side = slur.side === 'up' || slur.side === 'down' ? slur.side : undefined;
+    if (slur.sideEnd !== undefined && slur.sideEnd !== 'auto' && slur.sideEnd !== slur.side) {
+      reader.unsupported('slur sideEnd differing from side', measureIndex, 'the start side is used');
+    }
+
+    const toNotes = typeof slur.target === 'string' ? reader.eventsById.get(slur.target) : undefined;
+    if (!toNotes || toNotes.length === 0) {
+      slurUnresolved(reader, measureIndex, fromEventId, 'target', slur.target);
+      continue;
+    }
+
+    const startNote = resolveSlurNote(reader, slur.startNote, measureIndex, fromEventId, 'startNote');
+    const endNote = resolveSlurNote(reader, slur.endNote, measureIndex, fromEventId, 'endNote');
+    if (startNote === null || endNote === null) continue;
+
+    reader.resolvedSlurs.push({
+      id: typeof slur.id === 'string' ? slur.id : `${fromEventId}.slur${k}`,
+      from: startNote ?? pickAnchor(fromNotes, side),
+      to: endNote ?? pickAnchor(toNotes, side),
+      ...(startNote ? { startNote } : {}),
+      ...(endNote ? { endNote } : {}),
+      ...(side ? { side } : {}),
+      measureIndex,
+    });
+  }
+}
+
+function resolveSlurNote(
+  reader: Reader,
+  raw: unknown,
+  measureIndex: number,
+  fromEventId: NoteId,
+  kind: string,
+): NoteId | null | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw === 'string' && reader.notesById.has(raw)) return raw;
+  slurUnresolved(reader, measureIndex, fromEventId, kind, raw);
+  return null;
+}
+
+function slurUnresolved(
+  reader: Reader,
+  measureIndex: number,
+  fromEventId: NoteId,
+  kind: string,
+  value: unknown,
+): void {
+  reader.diagnostics.push({
+    severity: 'warning',
+    code: 'slur-target-unresolved',
+    message: `Measure ${measureIndex}: slur from event ${fromEventId} has an unresolved ${kind} ${JSON.stringify(value)}; not drawn.`,
+    measureIndex,
+  });
+}
+
+function pickAnchor(notes: readonly MutableNote[], side: 'up' | 'down' | undefined): NoteId {
+  if (notes.length === 1) return notes[0]!.id;
+  const sorted = [...notes].sort((a, b) => pitchIndex(b.pitch) - pitchIndex(a.pitch));
+  return (side === 'down' ? sorted[sorted.length - 1]! : sorted[0]!).id;
+}
+
+function pitchIndex(p: Pitch): number {
+  return p.step + 7 * p.octave;
 }
 
 function applySystemBreaks(

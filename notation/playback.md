@@ -2,6 +2,8 @@
 
 The component never touches `AudioContext`, never schedules, never owns a clock. It accepts a position and paints.
 
+**No clocks, as a rule:** the notation packages never run clocks, timers, `requestAnimationFrame`, Web Audio, or time events. The app owns time and tells the notation where playback is; the notation only computes what to show. Everything below — timemap conversions, `Playback` views, cursor motion — is driven by app-supplied position, never by internal timing.
+
 ## Timemap: the shared source of truth
 
 The temporal pass already computes exact onset ticks for every element (`architecture.md` pipeline stage 2) — needed anyway for tuplet scaling and measure validation. Exposing it costs nothing. The alternative — an audio engine independently walking the MNX document to compute its own onsets — means two implementations of dotted-note arithmetic, tuplet scaling, tie merging, and pickup-measure handling, which will disagree exactly on the material worth drilling most.
@@ -23,8 +25,8 @@ interface TimeMapEntry {
 interface MeasureTime { index: number; startTick: number; endTick: number; systemIndex: number; x: number; w: number }
 interface TimeMap {
   divisions: number; entries: readonly TimeMapEntry[]; measures: readonly MeasureTime[]; tempo: TempoMap;
-  tickToSeconds(tick: number): number;
-  secondsToTick(seconds: number): number;
+  tickToSeconds(tick: number, tempo?: TempoOverride): number;
+  secondsToTick(seconds: number, tempo?: TempoOverride): number;
   positionAtTick(tick: number): { systemIndex: number; x: number; yTop: number; yBottom: number } | null;
   activeAt(tick: number): readonly NoteId[];    // written spans — a tie continuation lights on its own, not the tie head
   byId(id: NoteId): TimeMapEntry | undefined;   // tie-merged entries — sound still spans the whole tie
@@ -65,11 +67,14 @@ Lives in the MNX document, not the audio engine — a metronome mark is notation
 ```ts
 interface TempoEvent { tick: number; bpm: number; beatUnit?: NoteValueSpec }   // beatUnit default: a quarter note
 type TempoMap = readonly TempoEvent[];    // piecewise-constant; ramps deferred
+type TempoOverride = Omit<TempoEvent, 'tick'>;    // { bpm: number; beatUnit?: NoteValueSpec } — one constant tempo
 ```
 
 A `tempos` entry whose `value` uses a note-value base the engine doesn't support falls back to a quarter-note beat unit + `mnx-unsupported` (`mnx.md`).
 
-`tickToSeconds` = a prefix-sum lookup over the tempo map, O(log n).
+`tickToSeconds` = a prefix-sum lookup over the tempo map, O(log n); with an override the map for that call is a single segment at the override's rate.
+
+Both conversions take an optional `TempoOverride` second argument: a single constant tempo replacing the document's tempo map for that call. The document's `global.measures[].tempos` stay the default when the argument is omitted. This is what a user-adjustable practice tempo needs — the conversions are pure per-call functions, so a tempo slider re-points playback without re-rendering or re-laying out anything, and `TimeMap.tempo` keeps reporting the document's map. Still no clocks: the app converts its own elapsed audio time and hands the notation a position.
 
 ## Modes
 
@@ -81,7 +86,7 @@ type PlaybackView =
   | { mode: 'manual' };   // driven entirely via the imperative handle
 ```
 
-`notes` is the common case — a `Set` membership check written imperatively onto each element's `<g>` ref, `data-pn-playing="true"` on matches. Costs nothing (a chord-ID quiz playing four notes is the whole feature). Implemented (`notation-react`, plan `phase3-rhythm.md` step 7a): `<Notation.Playback view={{mode:'notes', activeIds}} />` for the declarative case, or `handle.setPlaybackTick(tick)` to derive the same highlight from `timemap.activeAt(tick)` without a `Playback` child. `activeAt` looks up each written note/chord's own span, not the tie-merged `entries` (`## Timemap` above) — so a tied continuation lights when playback reaches it, and the tie start unlights; `byId` still resolves to the merged entry, so anything scheduling sound off it keeps hearing one note across the tie. `cursor` is continuous playback; `highlightActive: true` derives `activeIds` from `timemap.activeAt(tick)` so the caller never maintains both — deferred, currently a no-op in `<Notation.Playback>` (doesn't throw).
+`notes` is the common case — a `Set` membership check written imperatively onto each element's `<g>` ref, `data-pn-playing="true"` on matches. Costs nothing (a chord-ID quiz playing four notes is the whole feature). Implemented (`notation-react`, plan `phase3-rhythm.md` step 7a): `<Notation.Playback view={{mode:'notes', activeIds}} />` for the declarative case, or `handle.setPlaybackTick(tick)` to derive the same highlight from `timemap.activeAt(tick)` without a `Playback` child. `activeAt` looks up each written note/chord's own span, not the tie-merged `entries` (`## Timemap` above) — so a tied continuation lights when playback reaches it, and the tie start unlights; `byId` still resolves to the merged entry, so anything scheduling sound off it keeps hearing one note across the tie. `cursor` is continuous playback; `highlightActive: true` derives `activeIds` from `timemap.activeAt(tick)` so the caller never maintains both — deferred, currently a no-op in `<Notation.Playback>` (doesn't throw). With a practice tempo, the app converts its elapsed time with `timemap.secondsToTick(seconds, tempo)` and passes the resulting `activeAt` ids in `notes` mode.
 
 `positionAtTick` interpolates piecewise-linearly between column x positions, timed so the cursor reaches column *i* exactly when it sounds — NOT time-proportional, since spacing follows the power law in `engraving.md` and proportional motion would drift off the noteheads for mixed durations.
 
@@ -97,7 +102,7 @@ A `setState`-driven cursor at 60fps re-renders the whole score 60×/sec — unac
    // keyframes built from timemap column x's, offset = normalized time — reproduces the
    // piecewise-linear motion above in one Animation object
    ```
-   Survives tab throttling, pauseable/seekable via `Animation.currentTime`. Relies on `transform: translateX()` on an SVG `<g>` (SVG2/CSS-transforms) — well-supported in current Chrome/Firefox/Safari but smoke-test Safari before committing (`roadmap.md`).
+   Survives tab throttling, pauseable/seekable via `Animation.currentTime`. Relies on `transform: translateX()` on an SVG `<g>` (SVG2/CSS-transforms) — well-supported in current Chrome/Firefox/Safari but smoke-test Safari before committing (`roadmap.md`). A revived cursor must be driven by app-supplied position, not internal animation timing: `startTimeMs`/`durationMs` are presentation only, the app's clock (derived from `audioContext.currentTime`, per the latency contract above) stays the single source of truth, and pause, seek and tempo changes arrive as new app-supplied positions or spans — the component never reads its own animation back as a position source.
 2. **rAF + a single attribute write** via ref — for seeking/scrubbing, or an engine that doesn't know spans in advance. No React render.
 3. **The declarative `position` prop** — tests, SSR, low-frequency updates. Always correct, never the hot path.
 

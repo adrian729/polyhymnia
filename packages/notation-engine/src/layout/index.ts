@@ -30,7 +30,7 @@ export function layoutScore(doc: MnxDocument, options?: NotationOptions): Layout
   const justified = justify(broken, options);
   const beamed = beams(justified, normalized.beams);
   const tupletShapes = tuplets(justified, groups.tuplets, normalized.beams, beamed, options);
-  const curveShapes = curves(justified, placed, beamed, normalized.ties, options);
+  const curveShapes = curves(justified, placed, beamed, normalized.ties, normalized.slurs, options);
 
   const diagnostics: Diagnostic[] = [
     ...normalized.diagnostics,

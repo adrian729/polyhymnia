@@ -2,8 +2,7 @@
 // LayoutResult`, never a stage in isolation (roadmap.md's testing philosophy).
 
 import { describe, expect, it } from 'vitest';
-import type { Clef } from '@polyhymnia/notation-model';
-import { clearApex, endpointY, type PlacedNote } from '../src/layout/curves.js';
+import type { Clef, MnxDocument } from '@polyhymnia/notation-model';
 import { layoutScore } from '../src/layout/index.js';
 import type { NoteId } from '../src/layout/records.js';
 import { engravingDefaults, glyphAdvanceWidth, glyphBBox } from '../src/font/metadata.js';
@@ -13,6 +12,7 @@ import {
   ALTO,
   BASS,
   TENOR,
+  TREBLE,
   chord,
   fixture,
   measure,
@@ -138,6 +138,143 @@ describe('accidentals', () => {
     expect(accidentals.every((g) => g.x < noteX)).toBe(true);
     // Three pitches this close vertically cannot share a column.
     expect(new Set(accidentals.map((g) => +g.x.toFixed(3))).size).toBe(3);
+  });
+});
+
+const GLYPH_NAME_BY_CP = new Map<number, string>(
+  Object.entries(GLYPH_CODEPOINT).map(([name, code]) => [code, name]),
+);
+
+interface InkBox {
+  l: number;
+  r: number;
+  t: number;
+  b: number;
+}
+
+function inkBox(g: GlyphRun): InkBox {
+  const name = GLYPH_NAME_BY_CP.get(g.cp);
+  if (!name) throw new Error(`no glyph name for codepoint 0x${g.cp.toString(16)}`);
+  const bbox = glyphBBox(name);
+  return {
+    l: g.x + bbox.bBoxSW[0],
+    r: g.x + bbox.bBoxNE[0],
+    t: g.y - bbox.bBoxNE[1],
+    b: g.y - bbox.bBoxSW[1],
+  };
+}
+
+function inkOverlaps(a: InkBox, b: InkBox): boolean {
+  const eps = 1e-9;
+  return a.l < b.r - eps && b.l < a.r - eps && a.t < b.b - eps && b.t < a.b - eps;
+}
+
+function expectInkDisjoint(glyphs: readonly GlyphRun[]): void {
+  for (let i = 0; i < glyphs.length; i += 1) {
+    for (let j = i + 1; j < glyphs.length; j += 1) {
+      expect(inkOverlaps(inkBox(glyphs[i]!), inkBox(glyphs[j]!))).toBe(false);
+    }
+  }
+}
+
+function expectClearOfNoteheads(layout: LayoutResult, glyphs: readonly GlyphRun[]): void {
+  const noteheads = glyphsOf(layout, 'notehead');
+  expect(noteheads.length).toBeGreaterThan(0);
+  for (const g of glyphs) {
+    for (const head of noteheads) {
+      expect(inkOverlaps(inkBox(g), inkBox(head))).toBe(false);
+    }
+  }
+}
+
+describe('accidental stacking', () => {
+  it('keeps a six-note chromatic cluster’s accidentals off each other and off every notehead', () => {
+    const layout = layoutScore(
+      mnx({}, measure(chord(['C#4', 'Db4', 'D#4', 'Eb4', 'F#4', 'Gb4'], 'w'))),
+    );
+    const accidentals = glyphsOf(layout, 'accidental');
+
+    expect(accidentals).toHaveLength(6);
+    expect(glyphsOf(layout, 'notehead')).toHaveLength(6);
+    expectInkDisjoint(accidentals);
+    expectClearOfNoteheads(layout, accidentals);
+  });
+
+  it('keeps the whole block left of the leftmost notehead in a stem-down chord with a second', () => {
+    const layout = layoutScore(
+      mnx({}, measure(chord(['G#4', 'A#4', 'D5'], 'h'), rest('h'))),
+    );
+    const members = boxes(layout)
+      .filter((b) => b.kind === 'chord')
+      .sort((a, b) => a.staffPosition - b.staffPosition);
+    const accidentals = glyphsOf(layout, 'accidental');
+    const stem = layout.rects.find((r) => r.cls === 'stem');
+    const staffTop = layout.systems[0]!.y;
+
+    expect(members).toHaveLength(3);
+    expect(stem).toBeDefined();
+    expect(stem!.y + stem!.h - staffTop).toBeGreaterThan(4);
+    expect(stem!.y - staffTop).toBeLessThan(2);
+    expect(members[1]!.x).toBeCloseTo(members[2]!.x + 1.18, 5);
+
+    expect(accidentals).toHaveLength(2);
+    const leftmost = Math.min(...glyphsOf(layout, 'notehead').map((g) => inkBox(g).l));
+    for (const acc of accidentals) expect(inkBox(acc).r).toBeLessThan(leftmost);
+  });
+
+  it('gives an octave pair with the same accidental one shared column', () => {
+    const layout = layoutScore(mnx({}, measure(chord(['F#4', 'F#5'], 'w'))));
+    const accidentals = glyphsOf(layout, 'accidental');
+
+    expect(accidentals).toHaveLength(2);
+    expect(accidentals.every((g) => g.cp === cp('accidentalSharp'))).toBe(true);
+    expect(accidentals[0]!.x).toBeCloseTo(accidentals[1]!.x, 6);
+  });
+
+  it('makes a parenthesized cautionary column wide enough for its parentheses', () => {
+    const parenthesized = { accidentalDisplay: { show: true, enclosure: { symbol: 'parentheses' as const } } };
+    const layout = layoutScore(
+      mnx(
+        {},
+        measure(chord(['G4', 'A4'], 'h', {}, [parenthesized, parenthesized]), rest('h')),
+      ),
+      { accidentals: { parenthesizeCautionary: true } },
+    );
+    const accidentals = glyphsOf(layout, 'accidental');
+    const byCp = (name: string): readonly GlyphRun[] =>
+      accidentals.filter((g) => g.cp === cp(name));
+
+    expect(byCp('accidentalNatural')).toHaveLength(2);
+    expect(byCp('accidentalParensLeft')).toHaveLength(2);
+    expect(byCp('accidentalParensRight')).toHaveLength(2);
+    expect(byCp('accidentalNatural')[0]!.x).not.toBeCloseTo(byCp('accidentalNatural')[1]!.x, 6);
+    expectInkDisjoint(accidentals);
+    expectClearOfNoteheads(layout, accidentals);
+
+    const leftmost = Math.min(...glyphsOf(layout, 'notehead').map((g) => inkBox(g).l));
+    for (const acc of accidentals) expect(inkBox(acc).r).toBeLessThan(leftmost);
+  });
+
+  it('packs two voices’ accidentals at shared ticks clear across voices', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        voices(
+          [
+            note('G#4', 'h', {}, { id: 'v0a' }),
+            note('B4', 'h', {}, { id: 'v0b', accidentalDisplay: { show: true } }),
+          ],
+          [note('F#4', 'h', {}, { id: 'v1a' }), note('Bb4', 'h', {}, { id: 'v1b' })],
+        ),
+      ),
+    );
+    const accidentals = glyphsOf(layout, 'accidental');
+
+    expect(accidentals).toHaveLength(4);
+    expect(accidentals.filter((g) => g.el === 'v0a' || g.el === 'v1a')).toHaveLength(2);
+    expect(accidentals.filter((g) => g.el === 'v0b' || g.el === 'v1b')).toHaveLength(2);
+    expectInkDisjoint(accidentals);
+    expectClearOfNoteheads(layout, accidentals);
   });
 });
 
@@ -907,6 +1044,28 @@ describe('timemap', () => {
   it('follows a custom tempo map', () => {
     expect(layoutScore(fixture('tempo')).timemap.tickToSeconds(3360)).toBeCloseTo(1, 6);
   });
+
+  it('accepts a constant-tempo override on the seconds conversions, default unchanged', () => {
+    const tm = layoutScore(fixture('tempo')).timemap;
+
+    expect(tm.tickToSeconds(6720)).toBeCloseTo(2, 6);
+    expect(tm.secondsToTick(2)).toBeCloseTo(6720, 6);
+    expect(tm.tickToSeconds(6720, { bpm: 120 })).toBeCloseTo(1, 6);
+    expect(tm.secondsToTick(1, { bpm: 120 })).toBeCloseTo(6720, 6);
+    expect(tm.tickToSeconds(6720, { bpm: 240 })).toBeCloseTo(0.5, 6);
+    expect(tm.secondsToTick(0.5, { bpm: 240 })).toBeCloseTo(6720, 6);
+    expect(tm.tickToSeconds(6720)).toBeCloseTo(2, 6);
+    expect(tm.secondsToTick(2)).toBeCloseTo(6720, 6);
+  });
+
+  it('lets the override carry its own beat unit and replace the whole document tempo map', () => {
+    const tm = layoutScore(fixture('mapping')).timemap;
+
+    expect(tm.tickToSeconds(6720, { bpm: 60, beatUnit: { base: 'half', dots: 0 } })).toBeCloseTo(1, 6);
+    expect(tm.tickToSeconds(6720 + 5040)).toBeCloseTo(1 + 60 / 90, 6);
+    expect(tm.tickToSeconds(6720 + 5040, { bpm: 120 })).toBeCloseTo(1.75, 6);
+    expect(tm.secondsToTick(1.75, { bpm: 120 })).toBeCloseTo(11760, 6);
+  });
 });
 
 describe('purity and glyph coverage', () => {
@@ -1033,6 +1192,20 @@ function curvePoints(d: string): [number, number][] {
   );
 }
 
+function staffLineYs(layout: LayoutResult): number[] {
+  return layout.rects.filter((r) => r.cls === 'staff-line').map((r) => r.y + r.h / 2);
+}
+
+function tieEndYs(d: string): [number, number] {
+  const p = curvePoints(d);
+  return [(p[0]![1]! + p[7]![1]!) / 2, (p[3]![1]! + p[4]![1]!) / 2];
+}
+
+function tieArchFromPath(d: string): number {
+  const p = curvePoints(d);
+  return p[0]![1]! - p[1]![1]!;
+}
+
 describe('ties', () => {
   it('draws one tie path across a barline, named after the source note', () => {
     const layout = layoutScore(fixture('golden-ties-barline'));
@@ -1084,21 +1257,189 @@ describe('ties', () => {
   });
 
   it('nudges a tie endpoint off a staff line into the adjacent space', () => {
-    const spaceNote = { head: { staffPosition: 2.5 } } as unknown as PlacedNote;
-    expect(endpointY(spaceNote, 1)).toBeCloseTo(1.75);
-    expect(endpointY(spaceNote, -1)).toBeCloseTo(3.25);
-
-    const lineNote = { head: { staffPosition: 3 } } as unknown as PlacedNote;
-    expect(endpointY(lineNote, 1)).toBeCloseTo(2.5);
+    const layout = layoutScore(
+      mnx(
+        {},
+        measure(rest('h'), note('A4', 'h', {}, { ties: [{ target: 'held' }] })),
+        measure(note('A4', 'h', {}, { id: 'held' }), rest('h')),
+      ),
+    );
+    const ties = layout.paths.filter((p) => p.cls === 'tie');
+    expect(ties).toHaveLength(1);
+    expect(boxes(layout).filter((b) => b.kind === 'note').map((b) => b.staffPosition)).toEqual([2.5, 2.5]);
+    const lines = staffLineYs(layout);
+    expect(lines).toHaveLength(5);
+    for (const y of tieEndYs(ties[0]!.d)) {
+      for (const line of lines) {
+        expect(Math.abs(y - line)).toBeGreaterThanOrEqual(0.2);
+      }
+    }
   });
 
   it('raises the arch when its apex would graze a staff line', () => {
-    const raised = clearApex(1.75, 1.75, 1, 1.0);
-    expect(raised).toBeGreaterThan(1.0);
-    const apex = 1.75 - 0.75 * raised;
-    expect(Math.abs(apex - Math.round(apex))).toBeGreaterThanOrEqual(0.199);
+    const layout = layoutScore(
+      mnx(
+        {},
+        measure(rest('h'), note('A4', 'h', {}, { ties: [{ target: 'held' }] })),
+        measure(note('A4', 'h', {}, { id: 'held' }), rest('h')),
+      ),
+    );
+    const ties = layout.paths.filter((p) => p.cls === 'tie');
+    expect(ties).toHaveLength(1);
+    const d = ties[0]!.d;
+    const [y0, y3] = tieEndYs(d);
+    const base = (y0 + y3) / 2;
+    const dirArch = tieArchFromPath(d);
+    const apex = base - 0.75 * dirArch;
+    const lines = staffLineYs(layout);
+    for (const line of lines) {
+      expect(Math.abs(apex - line)).toBeGreaterThanOrEqual(0.19);
+    }
+    const span = curvePoints(d)[3]![0]! - curvePoints(d)[0]![0]!;
+    const natural = Math.min(1.0, Math.max(0.35, 0.35 + 0.03 * span));
+    const naturalApex = base - 0.75 * Math.sign(dirArch) * natural;
+    expect(Math.min(...lines.map((line) => Math.abs(naturalApex - line)))).toBeLessThan(0.2);
+    expect(Math.abs(dirArch)).toBeGreaterThan(natural);
+  });
+});
 
-    expect(clearApex(1.5, 1.5, 1, 0.35)).toBeCloseTo(0.35);
+describe('slurs', () => {
+  it('raises the arch to clear a leap over an intervening high note', () => {
+    const archOf = (layout: LayoutResult): number => {
+      const slur = layout.paths.find((p) => p.cls === 'slur')!;
+      return tieArchFromPath(slur.d);
+    };
+    const withLeap = layoutScore(
+      mnx(
+        {},
+        measure(
+          note('C4', 'q', { slurs: [{ target: 'e2', side: 'up' }] }),
+          note('F5', '16'),
+          note('E4', 'q', { id: 'e2' }),
+          rest('q'),
+        ),
+      ),
+    );
+    const withoutLeap = layoutScore(
+      mnx(
+        {},
+        measure(
+          note('C4', 'q', { slurs: [{ target: 'e2', side: 'up' }] }),
+          rest('16'),
+          note('E4', 'q', { id: 'e2' }),
+          rest('q'),
+        ),
+      ),
+    );
+    expect(Math.abs(archOf(withLeap))).toBeGreaterThan(Math.abs(archOf(withoutLeap)));
+  });
+
+  it('keeps a slur outside a beamed group spanning between its endpoints', () => {
+    const archOf = (layout: LayoutResult): number => {
+      const slur = layout.paths.find((p) => p.cls === 'slur')!;
+      return tieArchFromPath(slur.d);
+    };
+    const withBeam = layoutScore(
+      mnx(
+        {},
+        withPart(
+          { beams: [{ events: ['b1', 'b2'] }] },
+          measure(
+            note('C4', 'q', { slurs: [{ target: 'e2', side: 'up' }] }),
+            note('F5', '32', { id: 'b1' }),
+            note('F5', '32', { id: 'b2' }),
+            note('E4', 'q', { id: 'e2' }),
+            rest('q'),
+          ),
+        ),
+      ),
+    );
+    const withoutBeam = layoutScore(
+      mnx(
+        {},
+        measure(
+          note('C4', 'q', { slurs: [{ target: 'e2', side: 'up' }] }),
+          rest('16'),
+          note('E4', 'q', { id: 'e2' }),
+          rest('q'),
+        ),
+      ),
+    );
+    expect(Math.abs(archOf(withBeam))).toBeGreaterThan(Math.abs(archOf(withoutBeam)));
+  });
+
+  it('honours an explicit MNX side over the automatic direction', () => {
+    const up = layoutScore(
+      mnx(
+        {},
+        measure(note('C4', 'q', { slurs: [{ target: 'e2', side: 'up' }] }), rest('q'), note('E4', 'q', { id: 'e2' }), rest('q')),
+      ),
+    );
+    const down = layoutScore(
+      mnx(
+        {},
+        measure(note('C4', 'q', { slurs: [{ target: 'e2', side: 'down' }] }), rest('q'), note('E4', 'q', { id: 'e2' }), rest('q')),
+      ),
+    );
+    expect(tieArchFromPath(up.paths.find((p) => p.cls === 'slur')!.d)).toBeGreaterThan(0);
+    expect(tieArchFromPath(down.paths.find((p) => p.cls === 'slur')!.d)).toBeLessThan(0);
+  });
+
+  it('anchors a slur startNote on a chord member, not the automatic anchor', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        measure(
+          chord(['C4', 'E4', 'G4'], 'q', { slurs: [{ target: 'e2', startNote: 'low', side: 'up' }] }, [{ id: 'low' }, {}, {}]),
+          rest('q'),
+          note('C5', 'q', { id: 'e2' }),
+          rest('q'),
+        ),
+      ),
+    );
+    const slur = layout.paths.find((p) => p.cls === 'slur')!;
+    const y0 = curvePoints(slur.d)[0]![1]!;
+    const low = boxes(layout).find((b) => b.id === 'low')!;
+    const top = boxes(layout)
+      .filter((b) => b.kind === 'chord')
+      .reduce((min, b) => (b.staffPosition < min.staffPosition ? b : min));
+    expect(Math.abs(y0 - low.y)).toBeLessThan(Math.abs(y0 - top.y));
+  });
+
+  it('draws two half-slurs across a system break, sharing one id', () => {
+    const doc: MnxDocument = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          { id: 'm1', time: { count: 4, unit: 4 } },
+          { id: 'm2', barline: { type: 'final' } },
+        ],
+      },
+      parts: [
+        {
+          measures: [
+            {
+              clefs: [{ clef: TREBLE }],
+              sequences: [{ content: [note('D5', 'w', { slurs: [{ target: 'held' }] })] }],
+            },
+            { sequences: [{ content: [note('D5', 'w', { id: 'held' })] }] },
+          ],
+        },
+      ],
+      scores: [{ name: 'Exercise', pages: [{ systems: [{ measure: 'm1' }, { measure: 'm2' }] }] }],
+    };
+    const layout = layoutScore(doc);
+    const slurs = layout.paths.filter((p) => p.cls === 'slur');
+    expect(slurs).toHaveLength(2);
+    expect(slurs[0]!.el).toBe(slurs[1]!.el);
+  });
+
+  it('warns and draws nothing when a slur target is unresolved', () => {
+    const layout = layoutScore(
+      mnx({}, measure(note('C4', 'q', { slurs: [{ target: 'missing' }] }), rest('q'), rest('h'))),
+    );
+    expect(layout.paths.filter((p) => p.cls === 'slur')).toHaveLength(0);
+    expect(layout.diagnostics.some((d) => d.code === 'slur-target-unresolved')).toBe(true);
   });
 });
 

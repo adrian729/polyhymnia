@@ -207,24 +207,11 @@ exports[`official MNX examples lay out without throwing > single-note-tremolos 1
 ]
 `;
 
-exports[`official MNX examples lay out without throwing > slurs 1`] = `
-[
-  "Unsupported MNX: slurs in measure 0; not drawn.",
-  "Unsupported MNX: slurs in measure 1; not drawn.",
-]
-`;
+exports[`official MNX examples lay out without throwing > slurs 1`] = `[]`;
 
-exports[`official MNX examples lay out without throwing > slurs-chords 1`] = `
-[
-  "Unsupported MNX: slurs in measure 0; not drawn.",
-]
-`;
+exports[`official MNX examples lay out without throwing > slurs-chords 1`] = `[]`;
 
-exports[`official MNX examples lay out without throwing > slurs-targeting-specific-notes 1`] = `
-[
-  "Unsupported MNX: slurs in measure 0; not drawn.",
-]
-`;
+exports[`official MNX examples lay out without throwing > slurs-targeting-specific-notes 1`] = `[]`;
 
 exports[`official MNX examples lay out without throwing > system-layouts 1`] = `
 [

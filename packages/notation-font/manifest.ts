@@ -9,6 +9,7 @@ export const GLYPHS: Record<string, string> = {
   // Clefs
   gClef: 'E050', gClef8vb: 'E052', gClef8va: 'E053',
   cClef: 'E05C', fClef: 'E062', fClef8vb: 'E064', fClef8va: 'E065',
+  gClefChange: 'E07A', cClefChange: 'E07B', fClefChange: 'E07C',
   // Time signature digits + common/cut
   timeSig0: 'E080', timeSig1: 'E081', timeSig2: 'E082', timeSig3: 'E083', timeSig4: 'E084',
   timeSig5: 'E085', timeSig6: 'E086', timeSig7: 'E087', timeSig8: 'E088', timeSig9: 'E089',

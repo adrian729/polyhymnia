@@ -41,8 +41,17 @@ export function note(pitch: string, duration: string, extra: Partial<Event> = {}
   return { duration: value(duration), notes: [{ pitch: parsePitch(pitch), ...noteExtra }], ...extra };
 }
 
-export function chord(pitches: readonly string[], duration: string, extra: Partial<Event> = {}): Event {
-  return { duration: value(duration), notes: pitches.map((p) => ({ pitch: parsePitch(p) })), ...extra };
+export function chord(
+  pitches: readonly string[],
+  duration: string,
+  extra: Partial<Event> = {},
+  noteExtras: readonly Partial<Note>[] = [],
+): Event {
+  return {
+    duration: value(duration),
+    notes: pitches.map((p, i) => ({ pitch: parsePitch(p), ...noteExtras[i] })),
+    ...extra,
+  };
 }
 
 export function rest(duration: string, extra: Partial<Event> = {}): Event {

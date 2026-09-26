@@ -20,22 +20,24 @@ function expectValid(doc: unknown): void {
 
 const pitches = (...tokens: string[]) => tokens.map(parsePitch);
 
+const ev = (path: number[]) => ({ measureIndex: 0, sequenceIndex: 0, path });
+
 describe('applyIntent setPitches', () => {
   it('turns a rest into a note, keeping the element id', () => {
     const doc = mnx(measure(rest('q')));
-    const before = elementIds(doc).idOf(doc.parts[0].measures[0].sequences[0].content[0]);
+    const before = elementIds(doc).idAt(ev([0]));
     const result = applyIntent(doc, { type: 'setPitches', event: before!, pitches: pitches('C4') });
     expect(result.changed).toEqual([before]);
     const after = elementIds(result.doc);
     const event = result.doc.parts[0].measures[0].sequences[0].content[0] as any;
-    expect(after.idOf(event)).toBe(before);
+    expect(after.idAt(ev([0]))).toBe(before);
     expect(event.notes[0].id).toBeUndefined();
     expectValid(result.doc);
   });
 
   it('turns a note into a chord, minting member ids', () => {
     const doc = mnx(measure(note('C4', 'q')));
-    const id = elementIds(doc).idOf(doc.parts[0].measures[0].sequences[0].content[0])!;
+    const id = elementIds(doc).idAt(ev([0]))!;
     const result = applyIntent(doc, { type: 'setPitches', event: id, pitches: pitches('C4', 'E4', 'G4') });
     const event = result.doc.parts[0].measures[0].sequences[0].content[0] as any;
     expect(event.notes.map((n: any) => n.id)).toEqual([`${id}.n0`, `${id}.n1`, `${id}.n2`]);
@@ -45,7 +47,7 @@ describe('applyIntent setPitches', () => {
 
   it('turns a chord into a rest, dropping notes', () => {
     const doc = mnx(measure(chord(['C4', 'E4'], 'q')));
-    const id = elementIds(doc).idOf(doc.parts[0].measures[0].sequences[0].content[0])!;
+    const id = elementIds(doc).idAt(ev([0]))!;
     const result = applyIntent(doc, { type: 'setPitches', event: id, pitches: [] });
     const event = result.doc.parts[0].measures[0].sequences[0].content[0] as any;
     expect(event.rest).toEqual({});
@@ -55,7 +57,7 @@ describe('applyIntent setPitches', () => {
 
   it('keeps an explicit note id across a re-pitch', () => {
     const doc = mnx(measure(note('C4', 'q', {}, { id: 'target-note' })));
-    const id = elementIds(doc).idOf(doc.parts[0].measures[0].sequences[0].content[0])!;
+    const id = elementIds(doc).idAt(ev([0]))!;
     const result = applyIntent(doc, { type: 'setPitches', event: id, pitches: pitches('D4') });
     const event = result.doc.parts[0].measures[0].sequences[0].content[0] as any;
     expect(event.notes[0].id).toBe('target-note');
@@ -66,7 +68,7 @@ describe('applyIntent setPitches', () => {
   it('re-pitches inside a triplet', () => {
     const doc = mnx(measure(tuplet([3, '8'], [2, '8'], note('C4', '8'), note('D4', '8'), note('E4', '8'))));
     const t = doc.parts[0].measures[0].sequences[0].content[0] as any;
-    const id = elementIds(doc).idOf(t.content[1])!;
+    const id = elementIds(doc).idAt(ev([0, 1]))!;
     const result = applyIntent(doc, { type: 'setPitches', event: id, pitches: pitches('F4') });
     const newT = result.doc.parts[0].measures[0].sequences[0].content[0] as any;
     expect(newT.content[1].notes[0].pitch).toEqual(parsePitch('F4'));
@@ -85,8 +87,7 @@ describe('applyIntent setPitches', () => {
     Object.freeze(doc.parts[0].measures[0].sequences[0].content);
     Object.freeze(shared);
     const idsForLookup = elementIds(doc);
-    idsForLookup.idOf(shared);
-    const secondId = idsForLookup.idOf(shared)!;
+    const secondId = idsForLookup.idAt(ev([1]))!;
     const result = applyIntent(doc, { type: 'setPitches', event: secondId, pitches: pitches('D4') });
     const [first, second] = result.doc.parts[0].measures[0].sequences[0].content as any[];
     expect(first.notes[0].pitch).toEqual(parsePitch('C4'));
@@ -109,7 +110,7 @@ describe('applyIntent setPitches', () => {
 
   it('returns intent-target-unsupported for a whole-bar rest id', () => {
     const doc = mnx({ sequences: [{ content: [], fullMeasure: {} }] } as any);
-    const fullId = elementIds(doc).idOf((doc.parts[0].measures[0].sequences[0] as any).fullMeasure)!;
+    const fullId = elementIds(doc).idAt({ measureIndex: 0, sequenceIndex: 0, path: [], full: true })!;
     const result = applyIntent(doc, { type: 'setPitches', event: fullId, pitches: pitches('C4') });
     expect(result.doc).toBe(doc);
     expect(result.changed).toEqual([]);
@@ -121,7 +122,7 @@ describe('applyIntent setPitches', () => {
 
   it('is a no-op when the pitches are unchanged', () => {
     const doc = mnx(measure(chord(['C4', 'E4'], 'q')));
-    const id = elementIds(doc).idOf(doc.parts[0].measures[0].sequences[0].content[0])!;
+    const id = elementIds(doc).idAt(ev([0]))!;
     const result = applyIntent(doc, { type: 'setPitches', event: id, pitches: pitches('C4', 'E4') });
     expect(result.doc).toBe(doc);
     expect(result.changed).toEqual([]);
@@ -155,7 +156,7 @@ describe('applyIntent setPitches', () => {
 
   it('leaves untouched part-measures and global as ===', () => {
     const doc = mnx(measure(note('C4', 'q')), measure(note('D4', 'q')));
-    const id = elementIds(doc).idOf(doc.parts[0].measures[0].sequences[0].content[0])!;
+    const id = elementIds(doc).idAt(ev([0]))!;
     const result = applyIntent(doc, { type: 'setPitches', event: id, pitches: pitches('E4') });
     expect(result.doc.global).toBe(doc.global);
     expect(result.doc.parts[0].measures[1]).toBe(doc.parts[0].measures[1]);

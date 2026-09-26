@@ -3,10 +3,21 @@ import type { MnxDocument } from './types.js';
 
 export type NoteId = string;
 
+export interface ElementPosition {
+  measureIndex: number;
+  sequenceIndex: number;
+  path: readonly number[];
+  note?: number;
+  full?: boolean;
+}
+
+export interface ElementIdEntry extends ElementPosition {
+  node: object;
+}
+
 export interface ElementIds {
-  idOf(node: object): NoteId | undefined;
-  nodeOf(id: NoteId): { measureIndex: number; sequenceIndex: number; node: object; path: readonly number[] } | undefined;
-  noteIdsOf(eventId: NoteId): ReadonlyMap<object, NoteId> | undefined;
+  idAt(pos: ElementPosition): NoteId | undefined;
+  nodeOf(id: NoteId): ElementIdEntry | undefined;
   mint(candidate: string): NoteId;
   readonly diagnostics: readonly Diagnostic[];
 }
@@ -44,16 +55,19 @@ interface Scope {
   tupletCount: number;
 }
 
+function positionKey(pos: ElementPosition): string {
+  const parts: string[] = [String(pos.measureIndex), String(pos.sequenceIndex), `[${pos.path.join(',')}]`];
+  if (pos.full) parts.push('full');
+  if (pos.note !== undefined) parts.push(`n${pos.note}`);
+  return parts.join('.');
+}
+
 export function elementIds(doc: MnxDocument): ElementIds {
   const diagnostics: Diagnostic[] = [];
   const explicitIds = collectExplicitIds(doc);
   const usedIds = new Set<string>();
-  const idOfNode = new WeakMap<object, NoteId[]>();
-  const nodeById = new Map<
-    NoteId,
-    { measureIndex: number; sequenceIndex: number; node: object; path: readonly number[] }
-  >();
-  const noteIdsByEventId = new Map<NoteId, Map<object, NoteId>>();
+  const idByPosition = new Map<string, NoteId>();
+  const nodeById = new Map<NoteId, ElementIdEntry>();
 
   function registerExplicit(id: string, measureIndex: number | undefined): void {
     if (usedIds.has(id)) {
@@ -97,17 +111,9 @@ export function elementIds(doc: MnxDocument): ElementIds {
     return synth(candidate, measureIndex);
   }
 
-  function register(
-    node: object,
-    id: NoteId,
-    measureIndex: number,
-    sequenceIndex: number,
-    path: readonly number[],
-  ): void {
-    const queued = idOfNode.get(node);
-    if (queued) queued.push(id);
-    else idOfNode.set(node, [id]);
-    if (!nodeById.has(id)) nodeById.set(id, { measureIndex, sequenceIndex, node, path });
+  function register(node: object, pos: ElementPosition, id: NoteId): void {
+    idByPosition.set(positionKey(pos), id);
+    if (!nodeById.has(id)) nodeById.set(id, { ...pos, node });
   }
 
   function walkContent(content: readonly unknown[], scope: Scope, path: readonly number[]): void {
@@ -120,7 +126,7 @@ export function elementIds(doc: MnxDocument): ElementIds {
           const index = scope.tupletCount;
           scope.tupletCount += 1;
           const id = resolve(item.id, `m${scope.measureIndex}.s${scope.sequenceIndex}.t${index}`, scope.measureIndex);
-          register(item, id, scope.measureIndex, scope.sequenceIndex, itemPath);
+          register(item, { measureIndex: scope.measureIndex, sequenceIndex: scope.sequenceIndex, path: itemPath }, id);
           walkContent(asArray(item.content), scope, itemPath);
           break;
         }
@@ -137,11 +143,11 @@ export function elementIds(doc: MnxDocument): ElementIds {
           const index = scope.eventCount;
           scope.eventCount += 1;
           const id = resolve(item.id, `m${scope.measureIndex}.s${scope.sequenceIndex}.e${index}`, scope.measureIndex);
-          register(item, id, scope.measureIndex, scope.sequenceIndex, itemPath);
+          const pos: ElementPosition = { measureIndex: scope.measureIndex, sequenceIndex: scope.sequenceIndex, path: itemPath };
+          register(item, pos, id);
           const notes = asArray(item.notes)
             .map((n) => asObject(n))
             .filter((n): n is Record<string, any> => n !== undefined);
-          const noteIds = new Map<object, NoteId>();
           notes.forEach((note, k) => {
             const candidate = notes.length === 1 ? id : `${id}.n${k}`;
             const noteId =
@@ -150,10 +156,8 @@ export function elementIds(doc: MnxDocument): ElementIds {
                 : notes.length > 1
                   ? synth(candidate, scope.measureIndex)
                   : candidate;
-            register(note, noteId, scope.measureIndex, scope.sequenceIndex, itemPath);
-            noteIds.set(note, noteId);
+            register(note, { ...pos, note: k }, noteId);
           });
-          noteIdsByEventId.set(id, noteIds);
           break;
         }
         default:
@@ -183,15 +187,14 @@ export function elementIds(doc: MnxDocument): ElementIds {
       const full = asObject(sequence.fullMeasure);
       if (full) {
         const id = resolve(full.id, `m${measureIndex}.s${index}.full`, measureIndex);
-        register(full, id, measureIndex, index, []);
+        register(full, { measureIndex, sequenceIndex: index, path: [], full: true }, id);
       }
     });
   });
 
   return {
-    idOf: (node) => idOfNode.get(node)?.shift(),
+    idAt: (pos) => idByPosition.get(positionKey(pos)),
     nodeOf: (id) => nodeById.get(id),
-    noteIdsOf: (eventId) => noteIdsByEventId.get(eventId),
     mint: (candidate) => synth(candidate, undefined),
     diagnostics,
   };
