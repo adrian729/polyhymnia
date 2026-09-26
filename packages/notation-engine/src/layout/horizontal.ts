@@ -104,13 +104,6 @@ export function horizontal(
   options?: NotationOptions,
 ): HorizontalScore {
   const diagnostics: Diagnostic[] = [];
-  if (normalized.staves.length > 1) {
-    diagnostics.push({
-      severity: 'warning',
-      code: 'multi-staff-not-yet-supported',
-      message: `Score has ${normalized.staves.length} staves; only the first is laid out.`,
-    });
-  }
   const staff = normalized.staves[0];
   if (!staff) return { measures: [], diagnostics };
 

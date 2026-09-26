@@ -245,6 +245,7 @@ export function normalize(doc: MnxDocument, options?: NotationOptions): Normaliz
   if (typeof part.staves === 'number' && part.staves > 1) {
     reader.unsupported(`a part with ${part.staves} staves`, undefined, 'only staff 1 is laid out');
   }
+  reportDocumentConstructs(source, part, reader);
   if (part.kit) reader.unsupported('percussion kit', undefined, 'kit notes are not laid out');
   if (part.transposition) {
     reader.unsupported('part transposition', undefined, 'sounding pitches are laid out');
@@ -291,6 +292,9 @@ export function normalize(doc: MnxDocument, options?: NotationOptions): Normaliz
       if (staff !== 1) {
         reader.unsupported(`clef on staff ${staff}`, index, 'ignored');
         continue;
+      }
+      if (asObject(entry.position)?.graceIndex !== undefined) {
+        reader.unsupported('graceIndex in a clef position', index, 'grace positioning ignored');
       }
       const clef = resolveClef(entry.clef, index, reader);
       if (!clef) continue;
@@ -445,6 +449,9 @@ function readSequences(sequences: readonly unknown[], measureIndex: number, read
     const full = asObject(sequence.fullMeasure);
     if (full) {
       if (full.fermata) reader.unsupported('fermata', measureIndex, 'not drawn');
+      if (full.visualDuration !== undefined) {
+        reader.unsupported('full-measure rest visualDuration', measureIndex, 'drawn as a whole-bar rest');
+      }
       events.push({
         id: idFor(reader, { measureIndex, sequenceIndex: index, path: [], full: true }, `m${measureIndex}.s${index}.full`),
         kind: 'rest',
@@ -677,6 +684,7 @@ function breathOf(event: MnxEvent, measureIndex: number, reader: Reader): 'comma
     return 'caesura';
   }
   if (!breath) return undefined;
+  if (breath.placement !== undefined) reader.unsupported('breath mark placement', measureIndex, 'drawn at the default position');
   if (breath.symbol !== undefined && breath.symbol !== 'comma' && breath.symbol !== 'auto') {
     reader.unsupported(`${String(breath.symbol)} breath mark`, measureIndex, 'drawn as a comma');
   }
@@ -738,6 +746,7 @@ function accidentalPolicyOf(
 ): AccidentalPolicy | undefined {
   const display = asObject(note.accidentalDisplay);
   if (!display) return undefined;
+  if (display.force !== undefined) reader.unsupported('accidental display force', measureIndex, 'ignored');
   if (display.show === false) return 'never';
   if (display.show !== true) return undefined;
   const symbol = asObject(display.enclosure)?.symbol;
@@ -746,6 +755,42 @@ function accidentalPolicyOf(
     reader.unsupported(`${String(symbol)} accidental enclosure`, measureIndex, 'treated as cautionary');
   }
   return 'cautionary';
+}
+
+function reportDocumentConstructs(source: MnxDocument, part: Record<string, unknown>, reader: Reader): void {
+  const root = source as unknown as Record<string, unknown>;
+  const support = asObject(asObject(root.mnx)?.support);
+  if (support?.useAccidentalDisplay === false) {
+    reader.unsupported('mnx.support.useAccidentalDisplay false', undefined, 'accidental display settings are applied regardless');
+  }
+  if (asArray(root.layouts).length > 0) {
+    reader.unsupported('layouts', undefined, 'staff-group layouts are ignored');
+  }
+  if (asObject(root.global)?.lyrics !== undefined) {
+    reader.unsupported('global lyrics', undefined, 'not drawn');
+  }
+  if (part.name !== undefined || part.shortName !== undefined) {
+    reader.unsupported('part name', undefined, 'not drawn');
+  }
+  for (const raw of asArray(root.scores)) {
+    const score = asObject(raw);
+    if (!score) continue;
+    if (score.name !== undefined) reader.unsupported('score name', undefined, 'not drawn');
+    if (score.useWritten === true) {
+      reader.unsupported('score.useWritten', undefined, 'sounding pitches are drawn');
+    }
+    if (score.layout !== undefined) reader.unsupported('score layout', undefined, 'ignored');
+    for (const page of asArray(score.pages)) {
+      const pageObject = asObject(page);
+      if (pageObject?.layout !== undefined) reader.unsupported('page layout', undefined, 'ignored');
+      for (const system of asArray(pageObject?.systems)) {
+        const systemObject = asObject(system);
+        if (systemObject?.layout !== undefined || systemObject?.layoutChanges !== undefined) {
+          reader.unsupported('system layout', undefined, 'ignored');
+        }
+      }
+    }
+  }
 }
 
 function resolveTies(reader: Reader): void {
@@ -770,7 +815,14 @@ function resolveTies(reader: Reader): void {
     }
     from.tie = from.tie === 'stop' || from.tie === 'continue' ? 'continue' : 'start';
     target.tie = target.tie === 'start' || target.tie === 'continue' ? 'continue' : 'stop';
-    reader.resolvedTies.push({ id: `${from.id}.tie`, from: from.id, to: target.id, measureIndex });
+    const side = tie.side === 'up' || tie.side === 'down' ? tie.side : undefined;
+    reader.resolvedTies.push({
+      id: `${from.id}.tie`,
+      from: from.id,
+      to: target.id,
+      ...(side ? { side } : {}),
+      measureIndex,
+    });
 
     const fromOrder = reader.noteOrder.get(from);
     const targetOrder = reader.noteOrder.get(target);
@@ -910,6 +962,9 @@ function resolveTempo(
     for (const entry of asArray(asObject(raw)?.tempos)) {
       const t = asObject(entry);
       if (!t || typeof t.bpm !== 'number' || !(t.bpm > 0)) continue;
+      if (asObject(t.location)?.graceIndex !== undefined) {
+        reader.unsupported('graceIndex in a tempo position', index, 'grace positioning ignored');
+      }
       const offset = fractionOf(asObject(t.location)?.fraction) ?? R.ZERO;
       const value = asObject(t.value) as NoteValue | undefined;
       const dots = typeof value?.dots === 'number' ? value.dots : 0;

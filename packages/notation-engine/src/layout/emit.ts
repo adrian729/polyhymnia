@@ -4,8 +4,6 @@
 // `ElementBox` per addressable note, and the timemap. Nothing here computes geometry
 // that an earlier stage owns — it only adds the staff origin of each system and turns
 // the results into flat records.
-//
-// Not emitted yet, by scope: tie/slur paths (stage 10).
 
 import { engravingDefaults, glyphAdvanceWidth, glyphBBox } from '../font/metadata.js';
 import { glyphCodepoint } from '../font/glyphs.js';
@@ -179,7 +177,7 @@ export function emit(input: EmitInput, _options?: NotationOptions): LayoutResult
     systems,
     glyphs,
     rects,
-    paths, // beams (stage 9); ties and slurs are stage 10, not in this slice
+    paths,
     elements,
     slots,
     measures,

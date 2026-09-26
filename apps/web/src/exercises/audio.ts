@@ -1,11 +1,5 @@
 import type { Pitch } from '@polyhymnia/notation-react';
 
-export interface TimedNote {
-  midi: number;
-  startSeconds: number;
-  durationSeconds: number;
-}
-
 const STEP_SEMITONES: Readonly<Record<Pitch['step'], number>> = {
   C: 0,
   D: 2,
@@ -15,6 +9,12 @@ const STEP_SEMITONES: Readonly<Record<Pitch['step'], number>> = {
   A: 9,
   B: 11,
 };
+
+export interface TimedNote {
+  midi: number;
+  startSeconds: number;
+  durationSeconds: number;
+}
 
 export function midiOfPitch(pitch: Pitch): number {
   return 12 * (pitch.octave + 1) + STEP_SEMITONES[pitch.step] + (pitch.alter ?? 0);

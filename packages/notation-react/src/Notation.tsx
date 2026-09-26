@@ -177,6 +177,7 @@ export function Notation({
       viewBox={viewBoxAttr(layout.viewBox)}
       role="img"
       aria-label={describeScore(layout)}
+      data-pn-interactive={targets.length > 0 ? '' : undefined}
       onClick={handleClick}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}

@@ -1,8 +1,6 @@
 // The single options surface, shared by `layoutScore(score, options)` and the React
 // `options` prop (interface.md "## Options"). Every field defaults.
 
-import type { NoteValue } from '@polyhymnia/notation-model';
-
 export interface NotationOptions {
   divisions?: number;
   /** engraving.md spring/rod spacing, default k=0.55 base=3.2sp */
@@ -16,11 +14,8 @@ export interface NotationOptions {
     parenthesizeCautionary?: boolean;
     insertAlteration?: 'key' | 'natural'; // interaction.md, default 'key'
   };
-  /** default: beat subdivision implied by the meter */
-  insertGrid?: NoteValue;
   /** engraving.md, default false — numeral shows actual only */
   tuplets?: { showRatio?: boolean };
-  font?: { family?: string; url?: string };
   /** system width in sp (engraving.md) */
   widthSp?: number;
   /** default 0.65 (engraving.md) */

@@ -48,7 +48,11 @@ exports[`official MNX examples lay out without throwing > dynamics-accents 1`] =
 ]
 `;
 
-exports[`official MNX examples lay out without throwing > full-measure-rests 1`] = `[]`;
+exports[`official MNX examples lay out without throwing > full-measure-rests 1`] = `
+[
+  "Unsupported MNX: full-measure rest visualDuration in measure 1; drawn as a whole-bar rest.",
+]
+`;
 
 exports[`official MNX examples lay out without throwing > grace-note 1`] = `
 [
@@ -65,6 +69,7 @@ exports[`official MNX examples lay out without throwing > grace-notes-beamed 1`]
 exports[`official MNX examples lay out without throwing > grand-staff 1`] = `
 [
   "Unsupported MNX: a part with 2 staves; only staff 1 is laid out.",
+  "Unsupported MNX: part name; not drawn.",
   "Unsupported MNX: clef on staff 2 in measure 0; ignored.",
   "Unsupported MNX: sequence on staff 2 in measure 0; not laid out.",
   "Unsupported MNX: sequence on staff 2 in measure 1; not laid out.",
@@ -92,6 +97,7 @@ exports[`official MNX examples lay out without throwing > key-signatures 1`] = `
 
 exports[`official MNX examples lay out without throwing > lyric-line-metadata 1`] = `
 [
+  "Unsupported MNX: global lyrics; not drawn.",
   "Unsupported MNX: lyrics in measure 0; not drawn.",
   "Unsupported MNX: lyrics in measure 1; not drawn.",
 ]
@@ -135,6 +141,9 @@ exports[`official MNX examples lay out without throwing > multi-note-tremolos 1`
 exports[`official MNX examples lay out without throwing > multimeasure-rests 1`] = `
 [
   "Unsupported MNX: 2 parts; only the first part is laid out.",
+  "Unsupported MNX: layouts; staff-group layouts are ignored.",
+  "Unsupported MNX: score name; not drawn.",
+  "Unsupported MNX: score layout; ignored.",
   "Unsupported MNX: 3 scores; only the first score's layout is used.",
 ]
 `;
@@ -142,6 +151,10 @@ exports[`official MNX examples lay out without throwing > multimeasure-rests 1`]
 exports[`official MNX examples lay out without throwing > multiple-layouts 1`] = `
 [
   "Unsupported MNX: 4 parts; only the first part is laid out.",
+  "Unsupported MNX: layouts; staff-group layouts are ignored.",
+  "Unsupported MNX: part name; not drawn.",
+  "Unsupported MNX: score name; not drawn.",
+  "Unsupported MNX: system layout; ignored.",
   "Unsupported MNX: 3 scores; only the first score's layout is used.",
 ]
 `;
@@ -151,12 +164,18 @@ exports[`official MNX examples lay out without throwing > multiple-voices 1`] = 
 exports[`official MNX examples lay out without throwing > orchestral-layout 1`] = `
 [
   "Unsupported MNX: 13 parts; only the first part is laid out.",
+  "Unsupported MNX: layouts; staff-group layouts are ignored.",
+  "Unsupported MNX: score name; not drawn.",
+  "Unsupported MNX: system layout; ignored.",
 ]
 `;
 
 exports[`official MNX examples lay out without throwing > organ-layout 1`] = `
 [
   "Unsupported MNX: a part with 3 staves; only staff 1 is laid out.",
+  "Unsupported MNX: layouts; staff-group layouts are ignored.",
+  "Unsupported MNX: score name; not drawn.",
+  "Unsupported MNX: system layout; ignored.",
   "Unsupported MNX: sequence on staff 2 in measure 0; not laid out.",
   "Unsupported MNX: sequence on staff 3 in measure 0; not laid out.",
 ]
@@ -171,6 +190,7 @@ exports[`official MNX examples lay out without throwing > ottavas-8va 1`] = `
 exports[`official MNX examples lay out without throwing > parts 1`] = `
 [
   "Unsupported MNX: 2 parts; only the first part is laid out.",
+  "Unsupported MNX: part name; not drawn.",
 ]
 `;
 
@@ -216,6 +236,10 @@ exports[`official MNX examples lay out without throwing > slurs-targeting-specif
 exports[`official MNX examples lay out without throwing > system-layouts 1`] = `
 [
   "Unsupported MNX: 6 parts; only the first part is laid out.",
+  "Unsupported MNX: layouts; staff-group layouts are ignored.",
+  "Unsupported MNX: part name; not drawn.",
+  "Unsupported MNX: score name; not drawn.",
+  "Unsupported MNX: system layout; ignored.",
 ]
 `;
 
@@ -225,6 +249,7 @@ exports[`official MNX examples lay out without throwing > three-note-chord-and-h
 
 exports[`official MNX examples lay out without throwing > tie-target-type 1`] = `
 [
+  "Unsupported MNX: clef glyph in measure 0; ignored.",
   "Unsupported MNX: ending in measure 2; not drawn.",
   "Unsupported MNX: ending in measure 3; not drawn.",
   "Unsupported MNX: tie with targetType crossVoice in measure 0; not drawn.",
@@ -236,7 +261,11 @@ exports[`official MNX examples lay out without throwing > tie-target-type 1`] = 
 
 exports[`official MNX examples lay out without throwing > ties 1`] = `[]`;
 
-exports[`official MNX examples lay out without throwing > time-signature-glyphs 1`] = `[]`;
+exports[`official MNX examples lay out without throwing > time-signature-glyphs 1`] = `
+[
+  "Unsupported MNX: part name; not drawn.",
+]
+`;
 
 exports[`official MNX examples lay out without throwing > time-signatures 1`] = `[]`;
 

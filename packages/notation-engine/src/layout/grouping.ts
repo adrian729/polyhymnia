@@ -9,7 +9,7 @@ import type { NotationOptions } from '../options.js';
 import type { Diagnostic } from '@polyhymnia/notation-model';
 import type { NormalizedScore } from './normalize.js';
 import type { NoteId, TupletDisplay } from './records.js';
-import type { TemporalElement, TemporalScore } from './temporal.js';
+import type { TemporalScore } from './temporal.js';
 
 /** engraving.md "## Tuplets". `display` carries the MNX `bracket`/`showNumber`/
  *  `placement` settings through; `showBracket` resolves `display.bracket` (`'yes'`/`'no'`
@@ -113,12 +113,4 @@ function resolveBracket(span: PendingSpan, beamIdByElement: ReadonlyMap<NoteId, 
     else if (beamId !== b) return true;
   }
   return false;
-}
-
-/** Convenience for a later beaming stage: the span an element belongs to, if any. */
-export function tupletOf(
-  groups: GroupingScore,
-  el: TemporalElement,
-): TupletSpan | undefined {
-  return groups.tuplets.find((span) => span.elements.includes(el.id));
 }

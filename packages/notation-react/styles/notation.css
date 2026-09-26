@@ -21,6 +21,17 @@
   max-width: 100%;
   height: auto;
   overflow: visible;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pn-notation text {
+  cursor: inherit;
+}
+
+.pn-notation[data-pn-interactive] {
+  cursor: pointer;
 }
 
 .pn-notation [data-pn='staff-line'] {
@@ -37,5 +48,6 @@
   opacity: var(--pn-cursor-opacity, 0.25);
 }
 .pn-notation [data-pn='preview'] {
+  pointer-events: none;
   opacity: var(--pn-preview-opacity, 0.45);
 }

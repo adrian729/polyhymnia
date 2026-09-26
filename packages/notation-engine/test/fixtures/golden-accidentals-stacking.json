@@ -1,0 +1,93 @@
+{
+  "mnx": {
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "time": {
+          "count": 4,
+          "unit": 4
+        },
+        "barline": {
+          "type": "final"
+        }
+      }
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "C",
+                        "octave": 4,
+                        "alter": 1
+                      }
+                    },
+                    {
+                      "pitch": {
+                        "step": "E",
+                        "octave": 4,
+                        "alter": -1
+                      }
+                    },
+                    {
+                      "pitch": {
+                        "step": "G",
+                        "octave": 4,
+                        "alter": 1
+                      }
+                    },
+                    {
+                      "pitch": {
+                        "step": "B",
+                        "octave": 4,
+                        "alter": -1
+                      }
+                    },
+                    {
+                      "pitch": {
+                        "step": "D",
+                        "octave": 5
+                      },
+                      "accidentalDisplay": {
+                        "show": true,
+                        "enclosure": {
+                          "symbol": "parentheses"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "rest": {}
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

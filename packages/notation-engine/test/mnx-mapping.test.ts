@@ -220,7 +220,7 @@ describe('global measure properties', () => {
     };
     const layout = layoutScore(doc);
     expect(layout.systems).toHaveLength(1);
-    expect(layout.diagnostics.map((d) => d.code)).toEqual(['system-measure-unresolved']);
+    expect(layout.diagnostics.map((d) => d.code)).toEqual(['mnx-unsupported', 'system-measure-unresolved']);
   });
 });
 
@@ -814,5 +814,36 @@ describe('beams', () => {
       { level: 2, first: 'a', last: 'a', hook: 'right' },
       { level: 2, first: 'b', last: 'b', hook: 'left' },
     ]);
+  });
+});
+
+describe('silent-drop constructs', () => {
+  const base = (): MnxDocument => mnx({}, measure(note('C4', 'w')));
+  const cases: [string, (doc: MnxDocument) => void][] = [
+    ['layouts', (d) => Object.assign(d, { layouts: [{ id: 'l', content: [] }] })],
+    ['useAccidentalDisplay', (d) => Object.assign(d.mnx, { support: { useAccidentalDisplay: false } })],
+    ['scores', (d) => Object.assign(d, { scores: [{ name: 'T', useWritten: true, layout: 'l', pages: [{ layout: 'l', systems: [{ measure: 'x', layout: 'l' }] }] }] })],
+    ['part name', (d) => Object.assign(d.parts[0]!, { name: 'Piano' })],
+    ['global lyrics', (d) => Object.assign(d.global, { lyrics: { lineMetadata: {}, lineOrder: [] } })],
+    ['clef', (d) => Object.assign(d.parts[0]!.measures![0]!.clefs![0]!.clef, { glyph: 'gClef', hide: true, showOctave: true, color: 'red' })],
+    ['clef graceIndex', (d) => Object.assign(d.parts[0]!.measures![0]!.clefs![0]!, { position: { fraction: [0, 1], graceIndex: 0 } })],
+    ['tempo graceIndex', (d) => Object.assign(d.global.measures![0]!, { tempos: [{ bpm: 90, location: { fraction: [0, 1], graceIndex: 1 } }] })],
+    ['accidental force', (d) => Object.assign(d.parts[0]!.measures![0]!.sequences![0]!.content[0]!, { notes: [{ pitch: { step: 'C', octave: 4 }, accidentalDisplay: { show: true, force: true } }] })],
+    ['breath placement', (d) => Object.assign(d.parts[0]!.measures![0]!.sequences![0]!.content[0]!, { markings: { breath: { placement: 'above' } } })],
+    ['visualDuration', (d) => { d.parts[0]!.measures![0]!.sequences![0] = { content: [], fullMeasure: { visualDuration: { base: 'whole' } } } as never; }],
+  ];
+  it.each(cases)('reports %s', (_name, patch) => {
+    const doc = base();
+    patch(doc);
+    const result = layoutScore(doc);
+    expect(result.diagnostics.some((d) => d.code === 'mnx-unsupported')).toBe(true);
+    expect(result.systems.length).toBeGreaterThan(0);
+  });
+
+  it('honors tie side', () => {
+    const tied = (side?: 'up' | 'down'): MnxDocument =>
+      mnx({}, measure(note('C4', 'h', {}, { id: 'a', ties: [{ target: 'b', ...(side ? { side } : {}) }] }), note('C4', 'h', {}, { id: 'b' })));
+    const d = (side?: 'up' | 'down'): string => layoutScore(tied(side)).paths.find((p) => p.cls === 'tie')!.d;
+    expect(d('up')).not.toBe(d('down'));
   });
 });

@@ -129,7 +129,7 @@ function applyIntent(doc: MnxDocument, intent: EditIntent): ApplyResult;
 - `changed` lists the touched event's id plus every note id added or removed, so an app can drop per-id state (exercise "given"/"correct" flags, `AGENTS.md`) for ids that no longer exist.
 - Structural sharing: only the path from the document root to the touched part-measure, and any other part-measure cleanup actually touched, is copied; everything else — `global`, other parts, untouched measures — is `===` the input.
 
-There's no `inverse` and no history knowledge; undo is deferred (`undo-design.md`, Q1). A richer set of intents — inserting/deleting/moving elements, which have to renumber positional ids and repad a voice's rests to keep its total duration fixed — is future work once slot-based insertion lands (`roadmap.md`).
+There's no `inverse` and no history knowledge; undo is deferred (see "Undo design (deferred)" below). A richer set of intents — inserting/deleting/moving elements, which have to renumber positional ids and repad a voice's rests to keep its total duration fixed — is future work once slot-based insertion lands (`roadmap.md`).
 
 ## Accessibility
 
@@ -142,6 +142,19 @@ Recorded here so they don't leak into I2/I3 or later exercise work:
 - Rhythm-changing edits: `insertNote` with rest splicing, `deleteElements` with rest replacement, `modifyDuration`, `moveElements`, grid slots (`options.insertGrid`), measure growth.
 - Editor gestures: drag to change pitch, on-canvas duration palette, caret entry, `navigate`, `contextMenu`, keyboard note entry.
 - Free multi-voice entry (creating a voice-1 sequence), measure/meter/key/clef edits, copy/paste.
-- Undo/redo history (`undo-design.md`, Q1) and semantic inverse intents (only needed for collaboration).
+- Undo/redo history ("Undo design (deferred)" below) and semantic inverse intents (only needed for collaboration).
 - `modifyAccidental`/`AccidentalPolicy` edits beyond what `setPitches` expresses.
 - A rhythm edit intent (`setRhythm` or similar). Rhythm dictation itself needs none: the app keeps its own duration list and regenerates MNX; the notation only needs to expose `point.tick` (already in `hitTest`'s `point` kind, above).
+
+## Undo design (deferred)
+
+Not built; no current exercise needs it (answer entry is set/clear a slot's pitch). The intended shape, so nothing built now has to be undone later:
+
+- `applyIntent(doc, intent)` stays pure: no inverse, no history knowledge. Unapplicable intents return the unchanged document plus a diagnostic.
+- History is a separate, generic module over document states: a stack of immutable MNX documents. Structural sharing keeps it cheap, since untouched measures are `===` across states.
+- The history knows nothing about intents. It records states, plus the app-supplied selection at each one so undo restores it.
+- Group fences (`begin`/`end`) fold several intents (one gesture) into a single undo step; grouping and selection restore live in the history layer, never in `applyIntent`.
+- It is not React-specific: a small pure helper or app code.
+- Rejected for now: per-intent semantic inverses (each intent needs a correct, sometimes multi-element inverse, more code and bug surface) and JSON patches (path-keyed, fragile against id-addressed MNX).
+- Revisit semantic inverses only if collaboration needs intents as ops.
+- Why deferred: no consumer, and a general history can be added later without changing `applyIntent`.

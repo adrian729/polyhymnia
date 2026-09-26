@@ -9,7 +9,7 @@ const FIXTURES = fileURLToPath(new URL('./fixtures/', import.meta.url));
 const EXAMPLES = fileURLToPath(new URL('../../notation-model/schema/examples/', import.meta.url));
 
 const fixtureNames = readdirSync(FIXTURES)
-  .filter((f) => /^golden-.*\.json$/.test(f))
+  .filter((f) => /.*\.json$/.test(f))
   .map((f) => f.replace(/\.json$/, ''))
   .sort();
 

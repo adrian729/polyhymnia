@@ -1,0 +1,659 @@
+{
+  "version": 1,
+  "viewBox": {
+    "x": -1,
+    "y": 0,
+    "w": 67,
+    "h": 12
+  },
+  "systems": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 4,
+      "w": 65,
+      "h": 4
+    }
+  ],
+  "glyphs": [
+    {
+      "x": 0,
+      "y": 5,
+      "cp": 57436,
+      "cls": "clef"
+    },
+    {
+      "x": 3.396,
+      "y": 5,
+      "cp": 57476,
+      "cls": "time-signature"
+    },
+    {
+      "x": 3.396,
+      "y": 7,
+      "cp": 57476,
+      "cls": "time-signature"
+    },
+    {
+      "x": 5.876,
+      "y": 5,
+      "cp": 57508,
+      "cls": "notehead",
+      "el": "n1"
+    },
+    {
+      "x": 13.322,
+      "y": 5,
+      "cp": 57508,
+      "cls": "notehead",
+      "el": "n2"
+    },
+    {
+      "x": 20.768,
+      "y": 5,
+      "cp": 57508,
+      "cls": "notehead",
+      "el": "n3"
+    },
+    {
+      "x": 28.214,
+      "y": 5,
+      "cp": 58597,
+      "cls": "rest",
+      "el": "m0.s0.e3"
+    },
+    {
+      "x": 36.62,
+      "y": 4,
+      "cp": 57507,
+      "cls": "notehead",
+      "el": "m1.s0.e0.n0"
+    },
+    {
+      "x": 36.62,
+      "y": 3,
+      "cp": 57507,
+      "cls": "notehead",
+      "el": "m1.s0.e0.n1"
+    },
+    {
+      "x": 47.492,
+      "y": 3.5,
+      "cp": 57954,
+      "cls": "accidental",
+      "el": "m1.s0.e1"
+    },
+    {
+      "x": 48.648,
+      "y": 3.5,
+      "cp": 57508,
+      "cls": "notehead",
+      "el": "m1.s0.e1"
+    },
+    {
+      "x": 56.094,
+      "y": 3.5,
+      "cp": 57508,
+      "cls": "notehead",
+      "el": "m1.s0.e2"
+    }
+  ],
+  "rects": [
+    {
+      "x": 0,
+      "y": 3.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 4.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 5.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 6.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 7.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 36.06,
+      "y": 4,
+      "w": 0.16,
+      "h": 4,
+      "cls": "barline"
+    },
+    {
+      "x": 5.876,
+      "y": 5.168,
+      "w": 0.12,
+      "h": 3.332,
+      "cls": "stem",
+      "el": "n1"
+    },
+    {
+      "x": 14.382,
+      "y": 1.5,
+      "w": 0.12,
+      "h": 3.332,
+      "cls": "stem",
+      "el": "n2"
+    },
+    {
+      "x": 20.768,
+      "y": 5.168,
+      "w": 0.12,
+      "h": 3.332,
+      "cls": "stem",
+      "el": "n3"
+    },
+    {
+      "x": 64.5,
+      "y": 4,
+      "w": 0.5,
+      "h": 4,
+      "cls": "barline"
+    },
+    {
+      "x": 63.94,
+      "y": 4,
+      "w": 0.16,
+      "h": 4,
+      "cls": "barline"
+    },
+    {
+      "x": 36.22,
+      "y": 2.92,
+      "w": 1.98,
+      "h": 0.16,
+      "cls": "ledger-line",
+      "el": "m1.s0.e0.n1"
+    },
+    {
+      "x": 36.62,
+      "y": 3.168,
+      "w": 0.12,
+      "h": 4.332,
+      "cls": "stem",
+      "el": "m1.s0.e0.n0"
+    },
+    {
+      "x": 48.648,
+      "y": 3.668,
+      "w": 0.12,
+      "h": 3.332,
+      "cls": "stem",
+      "el": "m1.s0.e1"
+    },
+    {
+      "x": 56.094,
+      "y": 3.668,
+      "w": 0.12,
+      "h": 3.332,
+      "cls": "stem",
+      "el": "m1.s0.e2"
+    }
+  ],
+  "paths": [
+    {
+      "d": "M7.356,4.450 C8.773,3.517 11.606,3.517 13.022,4.450 L13.022,4.550 C11.606,3.837 8.773,3.837 7.356,4.550 Z",
+      "cls": "tie",
+      "el": "n1.tie"
+    },
+    {
+      "d": "M14.802,5.550 C16.219,6.483 19.052,6.483 20.468,5.550 L20.468,5.450 C19.052,6.163 16.219,6.163 14.802,5.450 Z",
+      "cls": "tie",
+      "el": "n2.tie"
+    }
+  ],
+  "elements": {
+    "n1": {
+      "id": "n1",
+      "kind": "note",
+      "systemIndex": 0,
+      "measureIndex": 0,
+      "voice": 0,
+      "x": 5.876,
+      "y": 4.5,
+      "w": 1.18,
+      "h": 1,
+      "hitBox": {
+        "x": 5.726,
+        "y": 4.35,
+        "w": 1.48,
+        "h": 1.3
+      },
+      "staffPosition": 1,
+      "tick": 0,
+      "durationTicks": 3360,
+      "label": "C 4, quarter note, measure 1",
+      "eventId": "ev1",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 4
+      }
+    },
+    "n2": {
+      "id": "n2",
+      "kind": "note",
+      "systemIndex": 0,
+      "measureIndex": 0,
+      "voice": 0,
+      "x": 13.322,
+      "y": 4.5,
+      "w": 1.18,
+      "h": 1,
+      "hitBox": {
+        "x": 13.172,
+        "y": 4.35,
+        "w": 1.48,
+        "h": 1.3
+      },
+      "staffPosition": 1,
+      "tick": 3360,
+      "durationTicks": 3360,
+      "label": "C 4, quarter note, measure 1",
+      "eventId": "m0.s0.e1",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 4
+      }
+    },
+    "n3": {
+      "id": "n3",
+      "kind": "note",
+      "systemIndex": 0,
+      "measureIndex": 0,
+      "voice": 0,
+      "x": 20.768,
+      "y": 4.5,
+      "w": 1.18,
+      "h": 1,
+      "hitBox": {
+        "x": 20.618,
+        "y": 4.35,
+        "w": 1.48,
+        "h": 1.3
+      },
+      "staffPosition": 1,
+      "tick": 6720,
+      "durationTicks": 3360,
+      "label": "C 4, quarter note, measure 1",
+      "eventId": "m0.s0.e2",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 4
+      }
+    },
+    "m0.s0.e3": {
+      "id": "m0.s0.e3",
+      "kind": "rest",
+      "systemIndex": 0,
+      "measureIndex": 0,
+      "voice": 0,
+      "x": 28.214,
+      "y": 3.508,
+      "w": 1.08,
+      "h": 2.992,
+      "hitBox": {
+        "x": 28.064,
+        "y": 3.358,
+        "w": 1.38,
+        "h": 3.292
+      },
+      "staffPosition": 1,
+      "tick": 10080,
+      "durationTicks": 3360,
+      "label": "quarter rest, measure 1",
+      "eventId": "m0.s0.e3"
+    },
+    "m1.s0.e0.n0": {
+      "id": "m1.s0.e0.n0",
+      "kind": "chord",
+      "systemIndex": 0,
+      "measureIndex": 1,
+      "voice": 0,
+      "x": 36.62,
+      "y": 3.5,
+      "w": 1.18,
+      "h": 1,
+      "hitBox": {
+        "x": 36.47,
+        "y": 3.35,
+        "w": 1.48,
+        "h": 1.3
+      },
+      "staffPosition": 0,
+      "tick": 13440,
+      "durationTicks": 6720,
+      "label": "E 4, half note, measure 2",
+      "eventId": "m1.s0.e0",
+      "pitch": {
+        "step": 2,
+        "alter": 0,
+        "octave": 4
+      }
+    },
+    "m1.s0.e0.n1": {
+      "id": "m1.s0.e0.n1",
+      "kind": "chord",
+      "systemIndex": 0,
+      "measureIndex": 1,
+      "voice": 0,
+      "x": 36.62,
+      "y": 2.5,
+      "w": 1.18,
+      "h": 1,
+      "hitBox": {
+        "x": 36.47,
+        "y": 2.35,
+        "w": 1.48,
+        "h": 1.3
+      },
+      "staffPosition": -1,
+      "tick": 13440,
+      "durationTicks": 6720,
+      "label": "G 4, half note, measure 2",
+      "eventId": "m1.s0.e0",
+      "pitch": {
+        "step": 4,
+        "alter": 0,
+        "octave": 4
+      }
+    },
+    "m1.s0.e1": {
+      "id": "m1.s0.e1",
+      "kind": "note",
+      "systemIndex": 0,
+      "measureIndex": 1,
+      "voice": 0,
+      "x": 48.648,
+      "y": 3,
+      "w": 1.18,
+      "h": 1,
+      "hitBox": {
+        "x": 48.498,
+        "y": 2.85,
+        "w": 1.48,
+        "h": 1.3
+      },
+      "staffPosition": -0.5,
+      "tick": 20160,
+      "durationTicks": 3360,
+      "label": "F sharp 4, quarter note, measure 2",
+      "eventId": "m1.s0.e1",
+      "pitch": {
+        "step": 3,
+        "alter": 1,
+        "octave": 4
+      }
+    },
+    "m1.s0.e2": {
+      "id": "m1.s0.e2",
+      "kind": "note",
+      "systemIndex": 0,
+      "measureIndex": 1,
+      "voice": 0,
+      "x": 56.094,
+      "y": 3,
+      "w": 1.18,
+      "h": 1,
+      "hitBox": {
+        "x": 55.944,
+        "y": 2.85,
+        "w": 1.48,
+        "h": 1.3
+      },
+      "staffPosition": -0.5,
+      "tick": 23520,
+      "durationTicks": 3360,
+      "label": "F sharp 4, quarter note, measure 2",
+      "eventId": "m1.s0.e2",
+      "pitch": {
+        "step": 3,
+        "alter": 1,
+        "octave": 4
+      }
+    }
+  },
+  "slots": [
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 0,
+      "x": 5.876,
+      "w": 7.446,
+      "eventId": "ev1",
+      "elementIds": [
+        "n1"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 3360,
+      "x": 13.322,
+      "w": 7.446,
+      "eventId": "m0.s0.e1",
+      "elementIds": [
+        "n2"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 6720,
+      "x": 20.768,
+      "w": 7.446,
+      "eventId": "m0.s0.e2",
+      "elementIds": [
+        "n3"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 10080,
+      "x": 28.214,
+      "w": 7.446,
+      "eventId": "m0.s0.e3",
+      "elementIds": [
+        "m0.s0.e3"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 13440,
+      "x": 36.62,
+      "w": 10.871,
+      "eventId": "m1.s0.e0",
+      "elementIds": [
+        "m1.s0.e0.n0",
+        "m1.s0.e0.n1"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 20160,
+      "x": 47.492,
+      "w": 8.602,
+      "eventId": "m1.s0.e1",
+      "elementIds": [
+        "m1.s0.e1"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 23520,
+      "x": 56.094,
+      "w": 7.446,
+      "eventId": "m1.s0.e2",
+      "elementIds": [
+        "m1.s0.e2"
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "index": 0,
+      "systemIndex": 0,
+      "x": 0,
+      "w": 36.22,
+      "contentX": 5.876,
+      "startTick": 0,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "tenor"
+      },
+      "key": {
+        "fifths": 0
+      }
+    },
+    {
+      "index": 1,
+      "systemIndex": 0,
+      "x": 36.22,
+      "w": 28.78,
+      "contentX": 36.62,
+      "startTick": 13440,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "tenor"
+      },
+      "key": {
+        "fifths": 0
+      }
+    }
+  ],
+  "diagnostics": [],
+  "timemap": {
+    "divisions": 3360,
+    "entries": [
+      {
+        "ids": [
+          "n1"
+        ],
+        "tick": 0,
+        "durationTicks": 10080,
+        "measureIndex": 0,
+        "voice": 0,
+        "systemIndex": 0,
+        "x": 5.876,
+        "y": 5,
+        "kind": "note",
+        "midi": 60
+      },
+      {
+        "ids": [
+          "m0.s0.e3"
+        ],
+        "tick": 10080,
+        "durationTicks": 3360,
+        "measureIndex": 0,
+        "voice": 0,
+        "systemIndex": 0,
+        "x": 28.214,
+        "y": 5,
+        "kind": "rest"
+      },
+      {
+        "ids": [
+          "m1.s0.e0.n0",
+          "m1.s0.e0.n1"
+        ],
+        "tick": 13440,
+        "durationTicks": 6720,
+        "measureIndex": 1,
+        "voice": 0,
+        "systemIndex": 0,
+        "x": 36.62,
+        "y": 4,
+        "kind": "chord",
+        "midiNotes": [
+          64,
+          67
+        ]
+      },
+      {
+        "ids": [
+          "m1.s0.e1"
+        ],
+        "tick": 20160,
+        "durationTicks": 3360,
+        "measureIndex": 1,
+        "voice": 0,
+        "systemIndex": 0,
+        "x": 48.648,
+        "y": 3.5,
+        "kind": "note",
+        "midi": 66
+      },
+      {
+        "ids": [
+          "m1.s0.e2"
+        ],
+        "tick": 23520,
+        "durationTicks": 3360,
+        "measureIndex": 1,
+        "voice": 0,
+        "systemIndex": 0,
+        "x": 56.094,
+        "y": 3.5,
+        "kind": "note",
+        "midi": 66
+      }
+    ],
+    "measures": [
+      {
+        "index": 0,
+        "startTick": 0,
+        "endTick": 13440,
+        "systemIndex": 0,
+        "x": 0,
+        "w": 36.22
+      },
+      {
+        "index": 1,
+        "startTick": 13440,
+        "endTick": 26880,
+        "systemIndex": 0,
+        "x": 36.22,
+        "w": 28.78
+      }
+    ],
+    "tempo": [
+      {
+        "tick": 6720,
+        "bpm": 90,
+        "beatUnit": {
+          "base": "quarter",
+          "dots": 1
+        }
+      }
+    ]
+  }
+}

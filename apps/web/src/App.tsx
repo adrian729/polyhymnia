@@ -68,8 +68,8 @@ export function App() {
         <code>layoutScore()</code> rendered by <code>&lt;Notation&gt;</code>: SVG in staff-space
         units, glyphs from the subsetted Bravura build, no colour anywhere but the
         stylesheet. Beams and tuplet brackets are drawn, auto-grouped per the meter when a
-        score doesn&rsquo;t specify <code>support.useBeams</code>; ties, slurs, second voices
-        and every interactive affordance are later pipeline stages.
+        score doesn&rsquo;t specify <code>support.useBeams</code>; ties, slurs and second voices
+        are drawn too, and the exercises further down exercise hit-testing and answer entry.
       </p>
 
       <h2>Chords</h2>
@@ -301,10 +301,10 @@ export function App() {
       </section>
 
       <footer>
-        Not rendered yet, and deliberately absent: slurs, and every interactive affordance —
-        pointer hit-testing, the playback cursor and the
-        <code> Notation.Interaction</code>/<code>Notation.Playback</code> compound children.
-        Those land with the engine stages behind them.
+        Interaction is opt-in: hit-testing and answer entry come from the{' '}
+        <code>Notation.Interaction</code> and <code>Notation.Marks</code> children, and playback
+        highlighting from <code>Notation.Playback</code>, all driven by the app. The notation
+        packages never produce sound and never run a clock.
       </footer>
     </main>
   );

@@ -1,5 +1,5 @@
 # Modules
-- Each package (`notation-model`, `notation-engine`, `notation-react`, `notation-font`, `tools/musicxml-to-mnx`) is an isolated module, publishable as its own npm package later without moving code.
+- Each package (`notation-model`, `notation-engine`, `notation-react`, `tools/musicxml-to-mnx`) is an isolated module, publishable as its own npm package later without moving code. `notation-font` is a font build pipeline (not yet a pnpm workspace package) whose outputs are synced into engine/react assets.
 - Dependency direction only: model ← engine ← react; tools may use model + engine. Never import upward or sideways.
 - Cross-package imports go through the package name and entry points declared in its `package.json` `exports`, never relative paths or deep `src/` paths. Every cross-package import must be declared in that package's `package.json`.
 - `notation-model` and `notation-engine`: no DOM, no React, no Node APIs (`lib` excludes DOM). Renderer-specific code lives only in a renderer package (`notation-react`, future others).
@@ -35,5 +35,5 @@
 
 # Dependencies
 - Simple work → write it ourselves even if a library exists. Complex work → dependency, pinned, wrapped for replacement, maintained and tracking the MNX schema.
-- Ajv and `json-schema-to-typescript` are devDependencies only; never in runtime bundles.
+- Ajv and `json-schema-to-typescript` are devDependencies only; never in `notation-*` runtime bundles. Sole exception: `tools/musicxml-to-mnx` lists Ajv under `dependencies` because its offline CLI validates at run time.
 - Rejected, don't reintroduce without re-evaluation: Python `w3c-cg/mnxconverter` (stale), `@mnxjs/*` (source gone), `@quonset/minim`, `musicxml-interfaces` (AGPL), `@stringsync/musicxml` (stale).

@@ -58,7 +58,7 @@ Integration only — no isolated-function unit tests. Every test enters through 
 - **`divisions = 3360`**: kept. MNX expresses any tuplet exactly; the value is an internal-only unit, not serialized, so it stays cheap to revisit.
 - **Tempo**: MNX tempos are the default source of truth; `tickToSeconds(tick, tempo?)`/`secondsToTick(seconds, tempo?)` take an optional override argument instead of a separate clock — notation packages never run clocks/timers/rAF, the app owns time and passes position (`AGENTS.md`).
 - **`options.accidentals.insertAlteration` default = key-aware**: kept. F line in D major → F♯.
-- **`options.beaming.halfBarBeaming` default = on**: kept, per-exercise option.
+- **`options.beaming.mergeBeats` default = on**: kept, per-exercise option (merges plain eighths across beats in 2/4, 3/4, 4/4).
 
 ## Open questions
 
@@ -80,4 +80,15 @@ Integration only — no isolated-function unit tests. Every test enters through 
 - **Grand staff + cross-staff beaming**: deferred, depends on grand staff landing first (see "Resolved decisions").
 - **One-line percussion staff**: deferred, no current exercise needs it.
 - **E4 (mid-score clef changes) + E5 (end-of-system courtesy clef/key/time)**: pending. Font glyphs for E4 (`gClefChange`/`cClefChange`/`fClefChange`, `font.md`) exist; layout doesn't use them yet.
-- **Golden fixture for accidental stacking**: tests exist, fixture missing.
+- **Golden fixture for accidental stacking**: done.
+- **abcjs/VexFlow side-by-side quality harness**: not built (see "Open questions").
+- **Dev gallery route with size/theme toggle and golden fixtures wired in**: missing.
+- **Golden coverage**: limited to `golden-*` fixtures plus selected examples.
+- **15 keys x 4 clefs corpus**: in progress; meant to catch the hand-written tenor octave irregularity in `src/layout/staff.ts`.
+- **Property tests**: cover 3 of 5 planned invariants, single-measure documents only.
+- **`apps/web` tests**: none.
+- **Grand staff**: structurally absent; normalize always yields one staff.
+- **Knuth-Plass line breaking**: not done; greedy only, measures indivisible.
+- **`applyIntent`/`elementIds` addressing**: only part 0, staff 1, first 2 sequences.
+- **`EditIntent`**: one variant (`setPitches`).
+- **`[data-pn-cursor]` CSS and `animateCursor` (`Notation.tsx`)**: belong to the deferred cursor mode.

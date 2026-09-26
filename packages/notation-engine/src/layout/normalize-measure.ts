@@ -54,6 +54,9 @@ export function resolveClef(value: unknown, measureIndex: number, reader: Reader
     kind = fallback;
   }
 
+  for (const key of ['glyph', 'hide', 'showOctave', 'color'] as const) {
+    if (clef[key] !== undefined) reader.unsupported(`clef ${key}`, measureIndex, 'ignored');
+  }
   const octave = clef.octave ?? 0;
   if (octave === 1 || octave === -1) return { kind, octaveShift: octave };
   if (octave !== 0) {

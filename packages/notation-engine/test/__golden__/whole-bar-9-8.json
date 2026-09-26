@@ -1,0 +1,257 @@
+{
+  "version": 1,
+  "viewBox": {
+    "x": -1,
+    "y": 0,
+    "w": 67,
+    "h": 12
+  },
+  "systems": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 4,
+      "w": 65,
+      "h": 4
+    }
+  ],
+  "glyphs": [
+    {
+      "x": 0,
+      "y": 7,
+      "cp": 57424,
+      "cls": "clef"
+    },
+    {
+      "x": 3.288,
+      "y": 5,
+      "cp": 57481,
+      "cls": "time-signature"
+    },
+    {
+      "x": 3.284,
+      "y": 7,
+      "cp": 57480,
+      "cls": "time-signature"
+    },
+    {
+      "x": 19.525,
+      "y": 5,
+      "cp": 58595,
+      "cls": "rest",
+      "el": "m0.s0.full"
+    },
+    {
+      "x": 49.411,
+      "y": 5,
+      "cp": 58595,
+      "cls": "rest",
+      "el": "m1.s0.full"
+    }
+  ],
+  "rects": [
+    {
+      "x": 0,
+      "y": 3.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 4.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 5.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 6.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 7.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 34.954,
+      "y": 4,
+      "w": 0.16,
+      "h": 4,
+      "cls": "barline"
+    },
+    {
+      "x": 64.84,
+      "y": 4,
+      "w": 0.16,
+      "h": 4,
+      "cls": "barline"
+    }
+  ],
+  "paths": [],
+  "elements": {
+    "m0.s0.full": {
+      "id": "m0.s0.full",
+      "kind": "rest",
+      "systemIndex": 0,
+      "measureIndex": 0,
+      "voice": 0,
+      "x": 19.525,
+      "y": 4.964,
+      "w": 1.132,
+      "h": 0.576,
+      "hitBox": {
+        "x": 19.375,
+        "y": 4.814,
+        "w": 1.432,
+        "h": 0.876
+      },
+      "staffPosition": 1,
+      "tick": 0,
+      "durationTicks": 15120,
+      "label": "whole-bar rest, measure 1",
+      "eventId": "m0.s0.full"
+    },
+    "m1.s0.full": {
+      "id": "m1.s0.full",
+      "kind": "rest",
+      "systemIndex": 0,
+      "measureIndex": 1,
+      "voice": 0,
+      "x": 49.411,
+      "y": 4.964,
+      "w": 1.132,
+      "h": 0.576,
+      "hitBox": {
+        "x": 49.261,
+        "y": 4.814,
+        "w": 1.432,
+        "h": 0.876
+      },
+      "staffPosition": 1,
+      "tick": 15120,
+      "durationTicks": 15120,
+      "label": "whole-bar rest, measure 2",
+      "eventId": "m1.s0.full"
+    }
+  },
+  "slots": [
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 0,
+      "x": 5.628,
+      "w": 28.926,
+      "eventId": "m0.s0.full",
+      "elementIds": [
+        "m0.s0.full"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 15120,
+      "x": 35.514,
+      "w": 28.926,
+      "eventId": "m1.s0.full",
+      "elementIds": [
+        "m1.s0.full"
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "index": 0,
+      "systemIndex": 0,
+      "x": 0,
+      "w": 35.114,
+      "contentX": 5.628,
+      "startTick": 0,
+      "capacityTicks": 15120,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    },
+    {
+      "index": 1,
+      "systemIndex": 0,
+      "x": 35.114,
+      "w": 29.886,
+      "contentX": 35.514,
+      "startTick": 15120,
+      "capacityTicks": 15120,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    }
+  ],
+  "diagnostics": [],
+  "timemap": {
+    "divisions": 3360,
+    "entries": [
+      {
+        "ids": [
+          "m0.s0.full"
+        ],
+        "tick": 0,
+        "durationTicks": 15120,
+        "measureIndex": 0,
+        "voice": 0,
+        "systemIndex": 0,
+        "x": 19.525,
+        "y": 5,
+        "kind": "rest"
+      },
+      {
+        "ids": [
+          "m1.s0.full"
+        ],
+        "tick": 15120,
+        "durationTicks": 15120,
+        "measureIndex": 1,
+        "voice": 0,
+        "systemIndex": 0,
+        "x": 49.411,
+        "y": 5,
+        "kind": "rest"
+      }
+    ],
+    "measures": [
+      {
+        "index": 0,
+        "startTick": 0,
+        "endTick": 15120,
+        "systemIndex": 0,
+        "x": 0,
+        "w": 35.114
+      },
+      {
+        "index": 1,
+        "startTick": 15120,
+        "endTick": 30240,
+        "systemIndex": 0,
+        "x": 35.114,
+        "w": 29.886
+      }
+    ],
+    "tempo": []
+  }
+}

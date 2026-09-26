@@ -30,6 +30,8 @@ jobs:
       - run: pnpm -r build
         env:
           PAGES_BASE: /${{ github.event.repository.name }}/
+      - run: pnpm typecheck
+      - run: pnpm test -- --reporter=dot
       - uses: actions/upload-pages-artifact@v3
         with:
           path: apps/web/dist

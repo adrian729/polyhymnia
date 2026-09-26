@@ -89,7 +89,8 @@ export function curves(
     const siblings = siblingTies
       .map((t) => noteMap.get(t.from))
       .filter((p): p is PlacedNote => p !== undefined);
-    const dir = directionFor(from, siblings, twoVoiceMeasures.has(tie.measureIndex));
+    const dir =
+      tie.side === 'up' ? 1 : tie.side === 'down' ? -1 : directionFor(from, siblings, twoVoiceMeasures.has(tie.measureIndex));
 
     if (from.systemIndex === to.systemIndex) {
       shapes.push(oneCurve(tie.id, from, to, dir));

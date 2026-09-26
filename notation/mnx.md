@@ -60,6 +60,11 @@ Note values: `breve`, `whole`, `half`, `quarter`, `eighth`, `16th`, `32nd`, `64t
 - A tie's `targetType` other than `nextNote`/absent (`crossVoice`, `arpeggio`, `crossJump` — not drawn)
 - Nested tuplets (flattened to one combined ratio), a tuplet whose `inner`/`outer` note value isn't supported (its content is laid out untupled, or keeps only the outer ratio when nested)
 - More than one `scores[]` entry (only the first score's layout is used)
+- Root `layouts`, `score.layout`, `page.layout`, `system.layout`/`layoutChanges` (staff-group layouts are ignored)
+- `score.useWritten: true` (sounding pitches are drawn); `mnx.support.useAccidentalDisplay: false` (accidental display settings are applied regardless)
+- `clef.glyph`/`hide`/`showOctave`/`color` (ignored); `accidental-display.force` (ignored); `breath-mark.placement` (default position); `full-measure-rest.visualDuration` (drawn as a whole-bar rest)
+- `part.name`/`shortName`, `score.name`, `global.lyrics` (not drawn)
+- `graceIndex` in tempo and clef positions (grace positioning ignored)
 - A synthesized positional id that collides with an id already in use (disambiguated with a `~2`, `~3`, … suffix, diagnostic `id-collision`); an explicit id reused on more than one laid-out element (diagnostic `id-collision`, first occurrence wins)
 
 One construct the engine reads but doesn't yet lay out is downstream of `normalize`, not gated through the same `unsupported()` helper, so it gets its own diagnostic code instead of `mnx-unsupported`:

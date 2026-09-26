@@ -77,8 +77,7 @@ export interface ElementBox {
   pitch?: Pitch;
 }
 
-// interaction.md's slot model. The type lives here so `LayoutResult` can name it; the
-// generation algorithm is a later stage (`query/slots.ts`).
+// interaction.md's slot model. The type lives here so `LayoutResult` can name it; slots are generated in `query/slots.ts`.
 export interface SlotRef {
   measureIndex: number;
   voice: 0 | 1;

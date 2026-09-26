@@ -78,7 +78,7 @@ const FLAT_ORDER: readonly number[] = [...SHARP_ORDER].reverse();
 
 /** Staff positions in treble, in accidental order (engraving.md "Key signatures"). */
 const TREBLE_SHARP_Y: readonly number[] = [0, 1.5, -0.5, 1, 2.5, 0.5, 2];
-const TREBLE_FLAT_Y: readonly number[] = [2, 0.5, 2.5, 1, 3, 1.5, 0];
+const TREBLE_FLAT_Y: readonly number[] = [2, 0.5, 2.5, 1, 3, 1.5, 3.5];
 
 /** Steps altered by a key, octave-agnostic (engraving.md's separate lookup). */
 export function keyAlterations(key: KeySpec): ReadonlyMap<number, -1 | 1> {

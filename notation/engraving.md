@@ -166,12 +166,12 @@ Octave placement (clef-dependent, one irregularity):
 
 | Clef | Sharps | Flats |
 | --- | --- | --- |
-| Treble | F♯ 0, C♯ 1.5, G♯ −0.5, D♯ 1, A♯ 2.5, E♯ 0.5, B♯ 2 (staff positions from top line, half-spaces) | B♭ 2, E♭ 0.5, A♭ 2.5, D♭ 1, G♭ 3, C♭ 1.5, F♭ 0 |
+| Treble | F♯ 0, C♯ 1.5, G♯ −0.5, D♯ 1, A♯ 2.5, E♯ 0.5, B♯ 2 (staff positions from top line, half-spaces) | B♭ 2, E♭ 0.5, A♭ 2.5, D♭ 1, G♭ 3, C♭ 1.5, F♭ 3.5 (bottom space; the 7-flat key only) |
 | Bass | treble pattern, shifted 1sp lower | same shift |
 | Alto | treble pattern, shifted by topLineStep offset | same |
 | Tenor | **irregular**: F♯/C♯ placed an octave down vs. naive derivation (avoids a ledger-line sharp) | regular |
 
-Implementation: treble pattern as canonical array, derive others by `topLineStep` offset, tenor sharps as an explicit override. 15 keys × 4 clefs = 60 golden test cases.
+Implementation: treble pattern as canonical array, derive others by `topLineStep` offset, tenor sharps as an explicit override. 15 keys × 4 clefs = 60 cases in `test/key-clef-corpus.test.ts`, asserted against independent staff-position tables.
 
 Key change: emit naturals for accidentals present in the outgoing key and absent in the incoming, before the new key's accidentals.
 
