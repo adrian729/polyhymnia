@@ -4,3 +4,4 @@
 // is a thin layer over it, so the package root re-exports the MNX layer whole.
 
 export * from './mnx/index.js';
+export * from './edit/index.js';

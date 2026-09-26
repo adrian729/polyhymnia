@@ -3,9 +3,10 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Clef } from '@polyhymnia/notation-model';
+import { clearApex, endpointY, type PlacedNote } from '../src/layout/curves.js';
 import { layoutScore } from '../src/layout/index.js';
 import type { NoteId } from '../src/layout/records.js';
-import { engravingDefaults, glyphBBox } from '../src/font/metadata.js';
+import { engravingDefaults, glyphAdvanceWidth, glyphBBox } from '../src/font/metadata.js';
 import { GLYPH_CODEPOINT } from '../src/font/glyphs.js';
 import type { ElementBox, GlyphRun, LayoutResult } from '../src/layout/types.js';
 import {
@@ -58,7 +59,12 @@ describe('chords are addressable per member', () => {
     // A whole note has no stem, and this slice draws no beams.
     expect(layout.rects.some((r) => r.cls === 'stem')).toBe(false);
     expect(layout.paths).toEqual([]);
-    expect(layout.slots).toEqual([]);
+    expect(layout.slots).toHaveLength(1);
+    expect(new Set(members.map((b) => b.eventId)).size).toBe(1);
+    expect(layout.slots[0]!.eventId).toBe(members[0]!.eventId);
+    expect(layout.slots[0]!.elementIds.slice().sort()).toEqual(
+      members.map((b) => b.id).sort(),
+    );
   });
 
   it('shifts a chord member a second above its neighbour off the stem', () => {
@@ -558,15 +564,240 @@ describe('breath marks', () => {
   });
 });
 
+function n(pitch: string, duration: string, id: string, extra: Parameters<typeof note>[2] = {}) {
+  return note(pitch, duration, extra, { id });
+}
+
+function box(layout: LayoutResult, id: string): ElementBox {
+  const found = layout.elements[id];
+  if (!found) throw new Error(`no ElementBox ${id}`);
+  return found;
+}
+
+function stemOf(layout: LayoutResult, id: string) {
+  const found = layout.rects.find((r) => r.cls === 'stem' && r.el === id);
+  if (!found) throw new Error(`no stem for ${id}`);
+  return found;
+}
+
+function stemsUp(layout: LayoutResult, id: string): boolean {
+  const stem = stemOf(layout, id);
+  const head = box(layout, id);
+  return stem.y + stem.h < head.y + head.h;
+}
+
+function xRange(g: GlyphRun, name: string): [number, number] {
+  const bbox = glyphBBox(name);
+  return [g.x + bbox.bBoxSW[0], g.x + bbox.bBoxNE[0]];
+}
+
+describe('two voices', () => {
+  it('forces v0 stems up and v1 stems down only in a two-voice measure', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        voices([n('A5', 'h', 'hi0'), n('A5', 'h', 'hi1')], [n('C4', 'h', 'lo0'), n('C4', 'h', 'lo1')]),
+        measure(n('A5', 'h', 'solo-hi'), n('C4', 'h', 'solo-lo')),
+      ),
+    );
+
+    expect(stemsUp(layout, 'hi0')).toBe(true);
+    expect(stemsUp(layout, 'hi1')).toBe(true);
+    expect(stemsUp(layout, 'lo0')).toBe(false);
+    expect(stemsUp(layout, 'lo1')).toBe(false);
+    expect(stemsUp(layout, 'solo-hi')).toBe(false);
+    expect(stemsUp(layout, 'solo-lo')).toBe(true);
+    expect(box(layout, 'hi0').voice).toBe(0);
+    expect(box(layout, 'lo0').voice).toBe(1);
+    expect(layout.diagnostics).toEqual([]);
+  });
+
+  it('lets an explicit MNX stemDirection win over the voice direction', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        voices(
+          [n('A5', 'h', 'forced-down', { stemDirection: 'down' }), n('A5', 'h', 'auto')],
+          [n('C4', 'h', 'forced-up', { stemDirection: 'up' }), n('C4', 'h', 'auto1')],
+        ),
+      ),
+    );
+
+    expect(stemsUp(layout, 'forced-down')).toBe(false);
+    expect(stemsUp(layout, 'forced-up')).toBe(true);
+    expect(stemsUp(layout, 'auto')).toBe(true);
+    expect(stemsUp(layout, 'auto1')).toBe(false);
+  });
+
+  it('beams each voice separately in its forced direction', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        voices(
+          [n('A5', '8', 'a'), n('B5', '8', 'b'), rest('h.')],
+          [n('C4', '8', 'c'), n('D4', '8', 'd'), rest('h.')],
+        ),
+      ),
+    );
+    const staffTop = layout.systems[0]!.y;
+    const beams = layout.paths.filter((p) => p.cls === 'beam');
+
+    expect(beams).toHaveLength(2);
+    expect(glyphsOf(layout, 'flag')).toHaveLength(0);
+    for (const id of ['a', 'b']) {
+      expect(stemsUp(layout, id)).toBe(true);
+      expect(stemOf(layout, id).y - staffTop).toBeLessThan(box(layout, id).staffPosition);
+    }
+    for (const id of ['c', 'd']) {
+      expect(stemsUp(layout, id)).toBe(false);
+      const stem = stemOf(layout, id);
+      expect(stem.y + stem.h - staffTop).toBeGreaterThan(box(layout, id).staffPosition);
+    }
+    const beamYs = beams.map((b) => Math.min(...pathPoints(b.d).map(([, y]) => y)) - staffTop);
+    expect(Math.min(...beamYs)).toBeLessThan(0);
+    expect(Math.max(...beamYs)).toBeGreaterThan(4);
+  });
+
+  it('offsets rests one space up (v0) and down (v1) unless MNX gives a staff position', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        voices(
+          [rest('q', { id: 'r0q' }), rest('h', { id: 'r0h' }), rest('q', { id: 'r0p', rest: { staffPosition: 0 } })],
+          [rest('q', { id: 'r1q' }), rest('h', { id: 'r1h' }), rest('q', { id: 'r1p' })],
+        ),
+        voices([rest('w', { id: 'r0w' })], [rest('w', { id: 'r1w' })]),
+      ),
+    );
+    const y = (id: string): number => box(layout, id).staffPosition;
+
+    expect(y('r0q')).toBe(0);
+    expect(y('r1q')).toBe(4);
+    expect(y('r0h')).toBe(1);
+    expect(y('r1h')).toBe(3);
+    expect(y('r0w')).toBe(0);
+    expect(y('r1w')).toBe(2);
+    expect(y('r0p')).toBe(2);
+    expect(y('r1p')).toBe(5);
+  });
+
+  it('keeps simultaneous rests bbox-clear for several durations, snapped to whole staff spaces', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        voices([rest('w', { id: 'w0' })], [rest('w', { id: 'w1' })]),
+        voices([rest('h', { id: 'h0' })], [rest('h', { id: 'h1' })]),
+        voices([rest('q', { id: 'q0' })], [rest('q', { id: 'q1' })]),
+        voices([n('C5', 'q', 'filler0'), rest('8', { id: 'e0' })], [n('C4', 'q', 'filler1'), rest('8', { id: 'e1' })]),
+      ),
+    );
+    for (const [upId, downId] of [
+      ['w0', 'w1'],
+      ['h0', 'h1'],
+      ['q0', 'q1'],
+      ['e0', 'e1'],
+    ] as const) {
+      const upBox = layout.elements[upId]!;
+      const downBox = layout.elements[downId]!;
+      expect(upBox.y + upBox.h).toBeLessThanOrEqual(downBox.y + 1e-9);
+      expect(Number.isInteger(upBox.staffPosition)).toBe(true);
+      expect(Number.isInteger(downBox.staffPosition)).toBe(true);
+    }
+  });
+
+  it('puts the dot of a v1 note on a line in the space below', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        voices([n('B4', 'h.', 'up'), rest('q')], [n('G4', 'h.', 'down'), rest('q')]),
+      ),
+    );
+    const staffTop = layout.systems[0]!.y;
+    const dotY = (id: string): number =>
+      +(glyphsOf(layout, 'dot').find((g) => g.el === id)!.y - staffTop).toFixed(3);
+
+    expect(dotY('up')).toBe(1.5);
+    expect(dotY('down')).toBe(3.5);
+  });
+
+  it('shares one column x for same-tick elements of both voices', () => {
+    const layout = layoutScore(
+      mnx({}, voices([n('E5', 'h', 'top'), n('E5', 'h', 'top2')], [n('E4', 'h', 'bottom'), n('E4', 'h', 'bottom2')])),
+    );
+
+    expect(box(layout, 'top').x).toBeCloseTo(box(layout, 'bottom').x, 6);
+    expect(box(layout, 'top2').x).toBeCloseTo(box(layout, 'bottom2').x, 6);
+    expect(box(layout, 'top').tick).toBe(box(layout, 'bottom').tick);
+  });
+
+  it('shifts the v0 notehead one notehead width right of a v1 note a second below', () => {
+    const layout = layoutScore(
+      mnx({}, voices([n('D5', 'h', 'upper'), rest('h')], [n('C5', 'h', 'lower'), rest('h')])),
+    );
+    const width = glyphAdvanceWidth('noteheadHalf');
+
+    expect(box(layout, 'upper').x - box(layout, 'lower').x).toBeCloseTo(width, 6);
+    expect(stemOf(layout, 'upper').x - box(layout, 'upper').x).toBeGreaterThan(0);
+    expect(stemsUp(layout, 'upper')).toBe(true);
+    expect(stemsUp(layout, 'lower')).toBe(false);
+  });
+
+  it('keeps a same-glyph unison on one x, each voice with its own ElementBox', () => {
+    const layout = layoutScore(
+      mnx({}, voices([n('C5', 'h', 'u0'), rest('h')], [n('C5', 'h', 'u1'), rest('h')])),
+    );
+    const heads = glyphsOf(layout, 'notehead');
+
+    expect(box(layout, 'u0').x).toBeCloseTo(box(layout, 'u1').x, 6);
+    expect(box(layout, 'u0').voice).toBe(0);
+    expect(box(layout, 'u1').voice).toBe(1);
+    expect(heads.filter((g) => g.el === 'u0' || g.el === 'u1')).toHaveLength(2);
+  });
+
+  it('shifts v1 right of a unison with a different notehead glyph or dot count', () => {
+    const glyphs = layoutScore(
+      mnx({}, voices([n('C5', 'h', 'g0'), rest('h')], [n('C5', 'q', 'g1'), rest('q'), rest('h')])),
+    );
+    expect(box(glyphs, 'g1').x - box(glyphs, 'g0').x).toBeCloseTo(glyphAdvanceWidth('noteheadHalf'), 6);
+
+    const dots = layoutScore(
+      mnx(
+        {},
+        voices([n('C5', 'q.', 'd0'), n('C5', '8', 'd0b'), rest('h')], [n('C5', 'q', 'd1'), rest('q'), rest('h')]),
+      ),
+    );
+    expect(box(dots, 'd1').x - box(dots, 'd0').x).toBeCloseTo(glyphAdvanceWidth('noteheadBlack'), 6);
+    const dot = glyphsOf(dots, 'dot').find((g) => g.el === 'd0')!;
+    expect(dot.x).toBeGreaterThan(box(dots, 'd1').x + box(dots, 'd1').w);
+  });
+
+  it('packs both voices’ accidentals at a shared tick so no two glyphs collide', () => {
+    const layout = layoutScore(
+      mnx({}, voices([n('Bb4', 'w', 'flat')], [n('G#4', 'w', 'sharp')])),
+    );
+    const accidentals = glyphsOf(layout, 'accidental');
+    const flat = accidentals.find((g) => g.el === 'flat')!;
+    const sharp = accidentals.find((g) => g.el === 'sharp')!;
+    const [fl, fr] = xRange(flat, 'accidentalFlat');
+    const [sl, sr] = xRange(sharp, 'accidentalSharp');
+    const headX = Math.min(box(layout, 'flat').x, box(layout, 'sharp').x);
+
+    expect(accidentals).toHaveLength(2);
+    expect(fr <= sl || sr <= fl).toBe(true);
+    expect(Math.max(fr, sr)).toBeLessThan(headX);
+  });
+});
+
 describe('diagnostics', () => {
-  it('carries normalize and temporal diagnostics through, and flags a second voice', () => {
+  it('carries normalize and temporal diagnostics through and lays out a second voice', () => {
     const layout = layoutScore(mnx({}, measure(note('C4', 'w')), voices([note('C4', 'q')], [note('E4', 'q')])));
     const codes = layout.diagnostics.map((d) => d.code);
 
-    expect(codes).toContain('measure-underfull'); // temporal
-    expect(codes).toContain('voice-1-not-yet-supported');
-    // Voice 1 is not laid out at all.
-    expect(boxes(layout).every((b) => b.voice === 0)).toBe(true);
+    expect(codes).toContain('measure-underfull');
+    expect(codes).not.toContain('voice-1-not-yet-supported');
+    const voiceOne = boxes(layout).filter((b) => b.voice === 1);
+    expect(voiceOne.length).toBeGreaterThan(0);
+    expect(voiceOne.every((b) => b.measureIndex === 1)).toBe(true);
   });
 
   it('never throws on a malformed document', () => {
@@ -622,6 +853,55 @@ describe('timemap', () => {
     expect(tm.activeAt(6720)).toEqual(['c-start']);
     expect(tm.activeAt(13440)).toEqual(['c-stop']);
     expect(tm.byId('c-start')!.durationTicks).toBe(13440); // sound still spans the merged tie
+  });
+
+  it('carries both voices, with entries and active ids at a shared tick', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        voices(
+          [n('C5', 'h', 'v0a'), n('C5', 'h', 'v0b')],
+          [n('E4', 'q', 'v1a'), n('F4', 'q', 'v1b'), n('G4', 'h', 'v1c')],
+        ),
+      ),
+    );
+    const tm = layout.timemap;
+    const atZero = tm.entries.filter((e) => e.tick === 0);
+
+    expect(atZero.map((e) => e.voice)).toEqual([0, 1]);
+    expect(atZero.map((e) => e.ids)).toEqual([['v0a'], ['v1a']]);
+    expect(tm.entries.filter((e) => e.voice === 1)).toHaveLength(3);
+    expect([...tm.activeAt(0)].sort()).toEqual(['v0a', 'v1a']);
+    expect([...tm.activeAt(3360)].sort()).toEqual(['v0a', 'v1b']);
+    expect([...tm.activeAt(6720)].sort()).toEqual(['v0b', 'v1c']);
+    expect(tm.positionAtTick(3360)!.x).toBeCloseTo(box(layout, 'v1b').x, 6);
+  });
+
+  it('merges a tie within one voice while the other voice moves', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        voices(
+          [n('C5', 'h', 't0'), n('C5', 'h', 't1')],
+          [n('E4', 'q', 'm0'), n('F4', 'q', 'm1'), n('G4', 'h', 'm2')],
+        ),
+      ),
+    );
+    const tied = layoutScore(
+      mnx(
+        {},
+        voices(
+          [note('C5', 'h', {}, { id: 't0', ties: [{ target: 't1' }] }), n('C5', 'h', 't1')],
+          [n('E4', 'q', 'm0'), n('F4', 'q', 'm1'), n('G4', 'h', 'm2')],
+        ),
+      ),
+    );
+
+    expect(layout.timemap.entries.filter((e) => e.voice === 0)).toHaveLength(2);
+    const merged = tied.timemap.entries.filter((e) => e.voice === 0);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]!.durationTicks).toBe(13440);
+    expect(tied.timemap.entries.filter((e) => e.voice === 1)).toHaveLength(3);
   });
 
   it('follows a custom tempo map', () => {
@@ -744,6 +1024,81 @@ describe('viewBox', () => {
     expect(layout.viewBox.w).toBeGreaterThanOrEqual(
       Math.max(...layout.systems.map((s) => s.w)),
     );
+  });
+});
+
+function curvePoints(d: string): [number, number][] {
+  return [...d.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)].map(
+    (m) => [Number(m[1]), Number(m[2])] as [number, number],
+  );
+}
+
+describe('ties', () => {
+  it('draws one tie path across a barline, named after the source note', () => {
+    const layout = layoutScore(fixture('golden-ties-barline'));
+    const ties = layout.paths.filter((p) => p.cls === 'tie');
+    expect(ties).toHaveLength(1);
+    expect(ties[0]!.el!.endsWith('.tie')).toBe(true);
+  });
+
+  it('draws two half-ties across a system break, sharing one id', () => {
+    const layout = layoutScore(fixture('golden-ties-system-break'));
+    const ties = layout.paths.filter((p) => p.cls === 'tie');
+    expect(ties).toHaveLength(2);
+    expect(ties[0]!.el).toBe(ties[1]!.el);
+    const ys = ties.map((t) => curvePoints(t.d)[0]![1]!);
+    expect(Math.abs(ys[0]! - ys[1]!)).toBeGreaterThan(4);
+  });
+
+  it('arches chord ties outward, inner notes following the nearest outer', () => {
+    const layout = layoutScore(fixture('golden-ties-chord'));
+    const ties = layout.paths.filter((p) => p.cls === 'tie');
+    expect(ties).toHaveLength(3);
+    const arch = (d: string): number => {
+      const points = curvePoints(d);
+      return points[1]![1]! - points[0]![1]!;
+    };
+    const [top, mid, bottom] = ties as [typeof ties[0], typeof ties[0], typeof ties[0]];
+    expect(arch(top.d)).toBeLessThan(0);
+    expect(arch(bottom.d)).toBeGreaterThan(0);
+    expect(arch(mid.d)).toBeLessThan(0);
+  });
+
+  it('keeps tie ids stable across a re-layout of the same document', () => {
+    const doc = fixture('golden-ties-barline');
+    const a = layoutScore(doc).paths.filter((p) => p.cls === 'tie').map((p) => p.el);
+    const b = layoutScore(doc).paths.filter((p) => p.cls === 'tie').map((p) => p.el);
+    expect(a).toEqual(b);
+  });
+
+  it('warns, but still draws, a tie whose target skips an intervening note', () => {
+    const layout = layoutScore(
+      mnx(
+        {},
+        measure(note('C4', 'q'), note('E5', 'q', {}, { ties: [{ target: 'held' }] }), note('D4', 'h')),
+        measure(note('E5', 'w', {}, { id: 'held' })),
+      ),
+    );
+    expect(layout.paths.filter((p) => p.cls === 'tie')).toHaveLength(1);
+    expect(layout.diagnostics.some((d) => d.code === 'tie-target-not-adjacent')).toBe(true);
+  });
+
+  it('nudges a tie endpoint off a staff line into the adjacent space', () => {
+    const spaceNote = { head: { staffPosition: 2.5 } } as unknown as PlacedNote;
+    expect(endpointY(spaceNote, 1)).toBeCloseTo(1.75);
+    expect(endpointY(spaceNote, -1)).toBeCloseTo(3.25);
+
+    const lineNote = { head: { staffPosition: 3 } } as unknown as PlacedNote;
+    expect(endpointY(lineNote, 1)).toBeCloseTo(2.5);
+  });
+
+  it('raises the arch when its apex would graze a staff line', () => {
+    const raised = clearApex(1.75, 1.75, 1, 1.0);
+    expect(raised).toBeGreaterThan(1.0);
+    const apex = 1.75 - 0.75 * raised;
+    expect(Math.abs(apex - Math.round(apex))).toBeGreaterThanOrEqual(0.199);
+
+    expect(clearApex(1.5, 1.5, 1, 0.35)).toBeCloseTo(0.35);
   });
 });
 

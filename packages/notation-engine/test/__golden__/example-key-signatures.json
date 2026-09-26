@@ -321,7 +321,13 @@
       "staffPosition": 0.5,
       "tick": 0,
       "durationTicks": 3360,
-      "label": "E 5, quarter note, measure 1"
+      "label": "E 5, quarter note, measure 1",
+      "eventId": "m0.s0.e0",
+      "pitch": {
+        "step": 2,
+        "alter": 0,
+        "octave": 5
+      }
     },
     "m0.s0.e1": {
       "id": "m0.s0.e1",
@@ -342,7 +348,13 @@
       "staffPosition": 0,
       "tick": 3360,
       "durationTicks": 3360,
-      "label": "F sharp 5, quarter note, measure 1"
+      "label": "F sharp 5, quarter note, measure 1",
+      "eventId": "m0.s0.e1",
+      "pitch": {
+        "step": 3,
+        "alter": 1,
+        "octave": 5
+      }
     },
     "m0.s0.e2": {
       "id": "m0.s0.e2",
@@ -363,7 +375,13 @@
       "staffPosition": -0.5,
       "tick": 6720,
       "durationTicks": 3360,
-      "label": "G sharp 5, quarter note, measure 1"
+      "label": "G sharp 5, quarter note, measure 1",
+      "eventId": "m0.s0.e2",
+      "pitch": {
+        "step": 4,
+        "alter": 1,
+        "octave": 5
+      }
     },
     "m0.s0.e3": {
       "id": "m0.s0.e3",
@@ -384,7 +402,13 @@
       "staffPosition": 0.5,
       "tick": 10080,
       "durationTicks": 3360,
-      "label": "E 5, quarter note, measure 1"
+      "label": "E 5, quarter note, measure 1",
+      "eventId": "m0.s0.e3",
+      "pitch": {
+        "step": 2,
+        "alter": 0,
+        "octave": 5
+      }
     },
     "m1.s0.e0": {
       "id": "m1.s0.e0",
@@ -405,7 +429,13 @@
       "staffPosition": -0.5,
       "tick": 13440,
       "durationTicks": 13440,
-      "label": "G sharp 5, whole note, measure 2"
+      "label": "G sharp 5, whole note, measure 2",
+      "eventId": "m1.s0.e0",
+      "pitch": {
+        "step": 4,
+        "alter": 1,
+        "octave": 5
+      }
     },
     "m2.s0.e0": {
       "id": "m2.s0.e0",
@@ -426,7 +456,13 @@
       "staffPosition": 2.5,
       "tick": 26880,
       "durationTicks": 3360,
-      "label": "A flat 4, quarter note, measure 3"
+      "label": "A flat 4, quarter note, measure 3",
+      "eventId": "m2.s0.e0",
+      "pitch": {
+        "step": 5,
+        "alter": -1,
+        "octave": 4
+      }
     },
     "m2.s0.e1": {
       "id": "m2.s0.e1",
@@ -447,7 +483,13 @@
       "staffPosition": 2,
       "tick": 30240,
       "durationTicks": 3360,
-      "label": "B flat 4, quarter note, measure 3"
+      "label": "B flat 4, quarter note, measure 3",
+      "eventId": "m2.s0.e1",
+      "pitch": {
+        "step": 6,
+        "alter": -1,
+        "octave": 4
+      }
     },
     "m2.s0.e2": {
       "id": "m2.s0.e2",
@@ -468,7 +510,13 @@
       "staffPosition": 1.5,
       "tick": 33600,
       "durationTicks": 3360,
-      "label": "C 5, quarter note, measure 3"
+      "label": "C 5, quarter note, measure 3",
+      "eventId": "m2.s0.e2",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 5
+      }
     },
     "m2.s0.e3": {
       "id": "m2.s0.e3",
@@ -489,7 +537,13 @@
       "staffPosition": 2.5,
       "tick": 36960,
       "durationTicks": 3360,
-      "label": "A flat 4, quarter note, measure 3"
+      "label": "A flat 4, quarter note, measure 3",
+      "eventId": "m2.s0.e3",
+      "pitch": {
+        "step": 5,
+        "alter": -1,
+        "octave": 4
+      }
     },
     "m3.s0.e0": {
       "id": "m3.s0.e0",
@@ -510,10 +564,189 @@
       "staffPosition": 1.5,
       "tick": 40320,
       "durationTicks": 13440,
-      "label": "C 5, whole note, measure 4"
+      "label": "C 5, whole note, measure 4",
+      "eventId": "m3.s0.e0",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 5
+      }
     }
   },
-  "slots": [],
+  "slots": [
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 0,
+      "x": 10.748,
+      "w": 3.605,
+      "eventId": "m0.s0.e0",
+      "elementIds": [
+        "m0.s0.e0"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 3360,
+      "x": 14.353,
+      "w": 3.605,
+      "eventId": "m0.s0.e1",
+      "elementIds": [
+        "m0.s0.e1"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 6720,
+      "x": 17.958,
+      "w": 3.605,
+      "eventId": "m0.s0.e2",
+      "elementIds": [
+        "m0.s0.e2"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 10080,
+      "x": 21.563,
+      "w": 3.605,
+      "eventId": "m0.s0.e3",
+      "elementIds": [
+        "m0.s0.e3"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 13440,
+      "x": 26.128,
+      "w": 7.72,
+      "eventId": "m1.s0.e0",
+      "elementIds": [
+        "m1.s0.e0"
+      ]
+    },
+    {
+      "measureIndex": 2,
+      "voice": 0,
+      "tick": 26880,
+      "x": 41.34,
+      "w": 3.605,
+      "eventId": "m2.s0.e0",
+      "elementIds": [
+        "m2.s0.e0"
+      ]
+    },
+    {
+      "measureIndex": 2,
+      "voice": 0,
+      "tick": 30240,
+      "x": 44.945,
+      "w": 3.605,
+      "eventId": "m2.s0.e1",
+      "elementIds": [
+        "m2.s0.e1"
+      ]
+    },
+    {
+      "measureIndex": 2,
+      "voice": 0,
+      "tick": 33600,
+      "x": 48.55,
+      "w": 3.605,
+      "eventId": "m2.s0.e2",
+      "elementIds": [
+        "m2.s0.e2"
+      ]
+    },
+    {
+      "measureIndex": 2,
+      "voice": 0,
+      "tick": 36960,
+      "x": 52.155,
+      "w": 3.605,
+      "eventId": "m2.s0.e3",
+      "elementIds": [
+        "m2.s0.e3"
+      ]
+    },
+    {
+      "measureIndex": 3,
+      "voice": 0,
+      "tick": 40320,
+      "x": 56.72,
+      "w": 7.72,
+      "eventId": "m3.s0.e0",
+      "elementIds": [
+        "m3.s0.e0"
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "index": 0,
+      "systemIndex": 0,
+      "x": 0,
+      "w": 25.728,
+      "contentX": 10.748,
+      "startTick": 0,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 4
+      }
+    },
+    {
+      "index": 1,
+      "systemIndex": 0,
+      "x": 25.728,
+      "w": 8.68,
+      "contentX": 26.128,
+      "startTick": 13440,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 4
+      }
+    },
+    {
+      "index": 2,
+      "systemIndex": 0,
+      "x": 34.408,
+      "w": 21.912,
+      "contentX": 41.34,
+      "startTick": 26880,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": -4
+      }
+    },
+    {
+      "index": 3,
+      "systemIndex": 0,
+      "x": 56.32,
+      "w": 8.68,
+      "contentX": 56.72,
+      "startTick": 40320,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": -4
+      }
+    }
+  ],
   "diagnostics": [],
   "timemap": {
     "divisions": 3360,

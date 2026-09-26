@@ -1,0 +1,90 @@
+{
+  "mnx": {
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "time": { "count": 4, "unit": 4 }
+      },
+      {},
+      {},
+      {
+        "barline": { "type": "final" }
+      }
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "clefs": [{ "clef": { "sign": "G", "staffPosition": -2 } }],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": { "base": "quarter" },
+                  "notes": [{ "pitch": { "step": "C", "octave": 4 } }]
+                },
+                {
+                  "duration": { "base": "quarter" },
+                  "notes": [{ "pitch": { "step": "D", "octave": 4 } }]
+                },
+                {
+                  "duration": { "base": "half" },
+                  "notes": [
+                    { "pitch": { "step": "E", "octave": 5 }, "ties": [{ "target": "held" }] }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": { "base": "whole" },
+                  "notes": [{ "pitch": { "step": "E", "octave": 5 }, "id": "held" }]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": { "base": "whole" },
+                  "notes": [
+                    { "pitch": { "step": "C", "octave": 5 }, "ties": [{ "target": "top" }] },
+                    { "pitch": { "step": "G", "octave": 4 }, "ties": [{ "target": "mid" }] },
+                    { "pitch": { "step": "C", "octave": 4 }, "ties": [{ "target": "bottom" }] }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": { "base": "whole" },
+                  "notes": [
+                    { "pitch": { "step": "C", "octave": 5 }, "id": "top" },
+                    { "pitch": { "step": "G", "octave": 4 }, "id": "mid" },
+                    { "pitch": { "step": "C", "octave": 4 }, "id": "bottom" }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

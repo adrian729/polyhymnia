@@ -1,0 +1,52 @@
+{
+  "mnx": { "version": 1 },
+  "global": {
+    "measures": [
+      { "id": "m1", "time": { "count": 4, "unit": 4 } },
+      { "id": "m2", "barline": { "type": "final" } }
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "clefs": [{ "clef": { "sign": "G", "staffPosition": -2 } }],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": { "base": "whole" },
+                  "notes": [
+                    { "pitch": { "step": "D", "octave": 5 }, "ties": [{ "target": "held" }] }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": { "base": "whole" },
+                  "notes": [{ "pitch": { "step": "D", "octave": 5 }, "id": "held" }]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scores": [
+    {
+      "name": "Exercise",
+      "pages": [
+        {
+          "systems": [{ "measure": "m1" }, { "measure": "m2" }]
+        }
+      ]
+    }
+  ]
+}

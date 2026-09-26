@@ -21,6 +21,7 @@ const SELECTED_EXAMPLES = [
   'beam-hooks',
   'beams-secondary-beam-breaks',
   'beams-secondary-beam-breaks-implied',
+  'ties',
 ];
 
 function loadFixture(name: string): MnxDocument {

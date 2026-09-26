@@ -1,0 +1,321 @@
+{
+  "version": 1,
+  "viewBox": {
+    "x": -1,
+    "y": 0,
+    "w": 102,
+    "h": 24
+  },
+  "systems": [
+    {
+      "index": 0,
+      "x": 0,
+      "y": 4,
+      "w": 100,
+      "h": 4
+    },
+    {
+      "index": 1,
+      "x": 0,
+      "y": 16,
+      "w": 65,
+      "h": 4
+    }
+  ],
+  "glyphs": [
+    {
+      "x": 0,
+      "y": 7,
+      "cp": 57424,
+      "cls": "clef"
+    },
+    {
+      "x": 3.284,
+      "y": 5,
+      "cp": 57476,
+      "cls": "time-signature"
+    },
+    {
+      "x": 3.284,
+      "y": 7,
+      "cp": 57476,
+      "cls": "time-signature"
+    },
+    {
+      "x": 5.764,
+      "y": 5,
+      "cp": 57506,
+      "cls": "notehead",
+      "el": "m0.s0.e0"
+    },
+    {
+      "x": 0,
+      "y": 19,
+      "cp": 57424,
+      "cls": "clef"
+    },
+    {
+      "x": 3.284,
+      "y": 17,
+      "cp": 57506,
+      "cls": "notehead",
+      "el": "held"
+    }
+  ],
+  "rects": [
+    {
+      "x": 0,
+      "y": 3.935,
+      "w": 100,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 4.935,
+      "w": 100,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 5.935,
+      "w": 100,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 6.935,
+      "w": 100,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 7.935,
+      "w": 100,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 99.84,
+      "y": 4,
+      "w": 0.16,
+      "h": 4,
+      "cls": "barline"
+    },
+    {
+      "x": 0,
+      "y": 15.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 16.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 17.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 18.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 0,
+      "y": 19.935,
+      "w": 65,
+      "h": 0.13,
+      "cls": "staff-line"
+    },
+    {
+      "x": 64.5,
+      "y": 16,
+      "w": 0.5,
+      "h": 4,
+      "cls": "barline"
+    },
+    {
+      "x": 63.94,
+      "y": 16,
+      "w": 0.16,
+      "h": 4,
+      "cls": "barline"
+    }
+  ],
+  "paths": [
+    {
+      "d": "M7.752,4.450 C7.902,4.082 8.202,4.082 8.352,4.450 L8.352,4.550 C8.202,4.402 7.902,4.402 7.752,4.550 Z",
+      "cls": "tie",
+      "el": "m0.s0.e0.tie"
+    },
+    {
+      "d": "M1.784,16.450 C2.084,16.064 2.684,16.064 2.984,16.450 L2.984,16.550 C2.684,16.384 2.084,16.384 1.784,16.550 Z",
+      "cls": "tie",
+      "el": "m0.s0.e0.tie"
+    }
+  ],
+  "elements": {
+    "m0.s0.e0": {
+      "id": "m0.s0.e0",
+      "kind": "note",
+      "systemIndex": 0,
+      "measureIndex": 0,
+      "voice": 0,
+      "x": 5.764,
+      "y": 4.5,
+      "w": 1.688,
+      "h": 1,
+      "hitBox": {
+        "x": 5.614,
+        "y": 4.35,
+        "w": 1.988,
+        "h": 1.3
+      },
+      "staffPosition": 1,
+      "tick": 0,
+      "durationTicks": 13440,
+      "label": "D 5, whole note, measure 1",
+      "eventId": "m0.s0.e0",
+      "pitch": {
+        "step": 1,
+        "alter": 0,
+        "octave": 5
+      }
+    },
+    "held": {
+      "id": "held",
+      "kind": "note",
+      "systemIndex": 1,
+      "measureIndex": 1,
+      "voice": 0,
+      "x": 3.284,
+      "y": 16.5,
+      "w": 1.688,
+      "h": 1,
+      "hitBox": {
+        "x": 3.134,
+        "y": 16.35,
+        "w": 1.988,
+        "h": 1.3
+      },
+      "staffPosition": 1,
+      "tick": 13440,
+      "durationTicks": 13440,
+      "label": "D 5, whole note, measure 2",
+      "eventId": "m1.s0.e0",
+      "pitch": {
+        "step": 1,
+        "alter": 0,
+        "octave": 5
+      }
+    }
+  },
+  "slots": [
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 0,
+      "x": 5.764,
+      "w": 93.676,
+      "eventId": "m0.s0.e0",
+      "elementIds": [
+        "m0.s0.e0"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 13440,
+      "x": 3.284,
+      "w": 60.256,
+      "eventId": "m1.s0.e0",
+      "elementIds": [
+        "held"
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "index": 0,
+      "systemIndex": 0,
+      "x": 0,
+      "w": 100,
+      "contentX": 5.764,
+      "startTick": 0,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    },
+    {
+      "index": 1,
+      "systemIndex": 1,
+      "x": 0,
+      "w": 65,
+      "contentX": 3.284,
+      "startTick": 13440,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    }
+  ],
+  "diagnostics": [],
+  "timemap": {
+    "divisions": 3360,
+    "entries": [
+      {
+        "ids": [
+          "m0.s0.e0"
+        ],
+        "tick": 0,
+        "durationTicks": 26880,
+        "measureIndex": 0,
+        "voice": 0,
+        "systemIndex": 0,
+        "x": 5.764,
+        "y": 5,
+        "kind": "note",
+        "midi": 74
+      }
+    ],
+    "measures": [
+      {
+        "index": 0,
+        "startTick": 0,
+        "endTick": 13440,
+        "systemIndex": 0,
+        "x": 0,
+        "w": 100
+      },
+      {
+        "index": 1,
+        "startTick": 13440,
+        "endTick": 26880,
+        "systemIndex": 1,
+        "x": 0,
+        "w": 65
+      }
+    ],
+    "tempo": []
+  }
+}

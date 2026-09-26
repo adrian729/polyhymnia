@@ -25,6 +25,8 @@ import underfull from './scores/underfull.mnx.json';
 import rhythm44 from './scores/rhythm-4-4.mnx.json';
 import rhythm68 from './scores/rhythm-6-8.mnx.json';
 import triplets from './scores/triplets.mnx.json';
+import twoVoices from './scores/two-voices.mnx.json';
+import ties from './scores/ties.mnx.json';
 
 const MELODY = melody as MnxDocument;
 const WHOLE_BAR_REST = wholeBarRest as MnxDocument;
@@ -34,6 +36,8 @@ const UNDERFULL = underfull as MnxDocument;
 const RHYTHM_4_4 = rhythm44 as MnxDocument;
 const RHYTHM_6_8 = rhythm68 as MnxDocument;
 const TRIPLETS = triplets as MnxDocument;
+const TWO_VOICES = twoVoices as MnxDocument;
+const TIES = ties as MnxDocument;
 
 const KEY_EXAMPLES: readonly { label: string; doc: MnxDocument }[] = [
   { label: 'C major — no accidentals', doc: keyCMajor as MnxDocument },
@@ -231,6 +235,32 @@ export function App() {
         {(onLayout) => <Notation score={TRIPLETS} onLayout={onLayout} />}
       </Example>
 
+      <h2>Two voices</h2>
+      <p className="note">
+        A second sequence in a part lays out as a second voice on the same staff: voice 0
+        stems up, voice 1 stems down; simultaneous rests offset apart; a second between the
+        voices shifts the upper notehead right, a true unison overlaps.
+      </p>
+      <Example
+        title="Two voices, one staff"
+        caption="Beat 1: a second (v0 shifts right). Beat 2: a unison (no shift). Beat 3: simultaneous rests, offset apart. Beat 4: independent rhythm, per-voice beaming."
+      >
+        {(onLayout) => <Notation score={TWO_VOICES} onLayout={onLayout} />}
+      </Example>
+
+      <h2>Ties</h2>
+      <p className="note">
+        A tie curves opposite the stem for a single note; a chord ties each member
+        separately, outer notes arching outward and inner notes following the nearest
+        outer one.
+      </p>
+      <Example
+        title="Ties across a barline and a chord"
+        caption="Beat 2 ties into the next bar; the last bar's chord ties into a repeated chord"
+      >
+        {(onLayout) => <Notation score={TIES} onLayout={onLayout} />}
+      </Example>
+
       <h2>Diagnostics</h2>
       <p className="note">
         A malformed score degrades visibly instead of throwing. This bar holds one quarter
@@ -242,9 +272,8 @@ export function App() {
       </Example>
 
       <footer>
-        Not rendered yet, and deliberately absent: ties and slurs (<code>paths</code> is
-        empty), second voices, and every interactive affordance — pointer hit-testing, the
-        playback cursor and the
+        Not rendered yet, and deliberately absent: slurs, and every interactive affordance —
+        pointer hit-testing, the playback cursor and the
         <code> Notation.Interaction</code>/<code>Notation.Playback</code> compound children.
         Those land with the engine stages behind them.
       </footer>

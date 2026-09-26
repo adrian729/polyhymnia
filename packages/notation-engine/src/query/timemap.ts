@@ -75,7 +75,7 @@ export function buildTimeMap(input: TimeMapInput): TimeMap {
   const writtenSpans = buildWrittenSpans(input);
   const segments = buildTempoSegments(input.tempo, input.divisions);
   const measures = [...input.measures].sort((a, b) => a.startTick - b.startTick);
-  const byTick = [...entries].sort((a, b) => a.tick - b.tick);
+  const byTick = onsets(entries);
 
   const tickToSeconds = (tick: number): number => {
     const t = Math.max(0, tick);
@@ -112,7 +112,7 @@ export function buildTimeMap(input: TimeMapInput): TimeMap {
 
     for (let i = 0; i < byTick.length; i += 1) {
       const entry = byTick[i]!;
-      const end = entry.tick + entry.durationTicks;
+      const end = entry.end;
       if (tick >= end && i < byTick.length - 1) continue;
       const next = byTick[i + 1];
       const span = Math.max(1, (next ? next.tick : end) - entry.tick);
@@ -187,8 +187,34 @@ function toEntry(head: TemporalElement, input: TimeMapInput, durationTicks: numb
   };
 }
 
+interface Onset {
+  tick: number;
+  end: number;
+  systemIndex: number;
+  x: number;
+}
+
+function onsets(entries: readonly TimeMapEntry[]): Onset[] {
+  const byTick = new Map<number, Onset>();
+  for (const entry of entries) {
+    const end = entry.tick + entry.durationTicks;
+    const existing = byTick.get(entry.tick);
+    if (existing) existing.end = Math.max(existing.end, end);
+    else byTick.set(entry.tick, { tick: entry.tick, end, systemIndex: entry.systemIndex, x: entry.x });
+  }
+  return [...byTick.values()].sort((a, b) => a.tick - b.tick);
+}
+
 function buildEntries(input: TimeMapInput): TimeMapEntry[] {
-  const ordered = orderElements(input);
+  const all = orderElements(input);
+  const entries: TimeMapEntry[] = [];
+  for (const voice of [0, 1] as const) {
+    entries.push(...mergeTies(all.filter((e) => e.voice === voice), input));
+  }
+  return entries.sort((a, b) => a.tick - b.tick || a.voice - b.voice);
+}
+
+function mergeTies(ordered: readonly TemporalElement[], input: TimeMapInput): TimeMapEntry[] {
   const entries: TimeMapEntry[] = [];
 
   let i = 0;

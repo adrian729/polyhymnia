@@ -29,15 +29,15 @@ Renders the `<svg>`, computes layout (`useMemo`, keyed on `score` identity), pro
 
 ```tsx
 <Notation score={doc} options={opts} ref={handleRef}>
-  <Notation.Interaction mode="insert" insertDefaults={{ duration: { base: 'quarter' } }} onIntent={handleIntent} />
+  <Notation.Interaction targets={['slot', 'element']} onIntent={handleIntent} />
+  <Notation.Marks states={states} selection={selection} preview={preview} />
   <Notation.Playback view={{ mode: 'notes', activeIds }} />
 </Notation>
 ```
 
-- `Notation.Interaction` props = `NotationInteraction` (`interaction.md`, not built yet). `Notation.Playback` props = `{ view: PlaybackView }` (`playback.md`) — implemented for `mode:'notes'`/`'off'`; `mode:'cursor'` is a no-op (deferred to plan `phase3-rhythm.md` step 7b), `mode:'manual'` is left untouched (driven only via `handle.setPlaybackTick`).
+- `Notation.Interaction` props = `NotationInteractionProps` and `Notation.Marks` props = `NotationMarksProps` (both `interaction.md`). `Notation.Playback` props = `{ view: PlaybackView }` (`playback.md`) — implemented for `mode:'notes'`/`'off'`; `mode:'cursor'` is a no-op (deferred), `mode:'manual'` is left untouched (driven only via `handle.setPlaybackTick`).
 - Render nothing themselves. `<Notation>` extracts their props via direct-child introspection (`React.Children`) — single render pass, no context round-trip. Must be direct children, same constraint as `<select><option>`.
 - One of each meaningful; duplicate = last wins.
-- `useNotationLayout()` exported for custom overlay components — same mechanism `Notation.Playback` uses internally.
 - Compound over flat props: pay only for what's used (no interaction code in the tree for a read-only reveal); a new behavior is a new child, not a bigger prop object.
 
 ## Imperative handle
@@ -46,15 +46,15 @@ Renders the `<svg>`, computes layout (`useMemo`, keyed on `score` identity), pro
 interface NotationHandle {
   getLayout(): LayoutResult;
   getTimeMap(): TimeMap;
-  hitTest(p: { x: number; y: number }): HitResult | null;
+  hitTest(p: { x: number; y: number }, opts?: HitOptions): HitResult | null;
   setPlaybackTick(tick: number): void;
-  animateCursor(span: CursorSpan): Animation;    // CursorSpan — playback.md
+  animateCursor(span: unknown): never;            // deferred — mode:'cursor' is not built
   exportSVG(): string;
   focus(id: NoteId): void;                        // NoteId — a plain string, mnx.md's ID rule
 }
 ```
 
-Implemented in `notation-react` (plan `phase3-rhythm.md` step 7a): `getLayout`, `getTimeMap`, `exportSVG`, `setPlaybackTick` (drives `mode:'notes'` highlighting from `timemap.activeAt(tick)`, imperatively, no re-render). `hitTest`, `animateCursor`, `focus` still throw — no engine `hitTest`, no WAAPI cursor (step 7b), no interaction focus targets yet.
+Implemented in `notation-react`: `getLayout`, `getTimeMap`, `exportSVG`, `setPlaybackTick` (drives `mode:'notes'` highlighting from `timemap.activeAt(tick)`, imperatively, no re-render), `hitTest` (delegates to the engine's `hitTest` over the current layout), `focus` (focuses the element `<g>` by id via the same ref map `setPlaybackTick` uses; no-op if the id has no on-screen element). `animateCursor` still throws — `mode:'cursor'` is deferred (`roadmap.md`).
 
 ## Options
 

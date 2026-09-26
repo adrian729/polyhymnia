@@ -1,7 +1,7 @@
 import { Rational as R } from '@polyhymnia/notation-model';
-import type { Rational } from '@polyhymnia/notation-model';
+import type { NoteId as ModelNoteId, Rational } from '@polyhymnia/notation-model';
 
-export type NoteId = string;
+export type NoteId = ModelNoteId;
 
 export type StepNumber = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export type Alter = -2 | -1 | 0 | 1 | 2;
@@ -60,6 +60,14 @@ export interface NormalizedBeam {
   segments: readonly BeamSegment[];
 }
 
+export interface NormalizedTie {
+  id: string;
+  from: NoteId;
+  to: NoteId;
+  side?: 'up' | 'down';
+  measureIndex: number;
+}
+
 export interface Duration extends NoteValueSpec {
   tuplet?: TupletRef;
 }
@@ -104,7 +112,7 @@ export const DURATION_BASES: readonly DurationBase[] = [
   '64th',
 ];
 
-const STEP_LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const;
+export const STEP_LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const;
 const STEP_SEMITONES: readonly number[] = [0, 2, 4, 5, 7, 9, 11];
 
 const BASE_WHOLE_NOTES: Record<DurationBase, Rational> = {

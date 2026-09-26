@@ -5,9 +5,10 @@
 // caller handed us. Produces diagnostics, NEVER throws: a hand-written or deserialized
 // document must degrade visibly in a live quiz rather than crash it.
 
-import { noteValueLength, readMnx, tupletRatio, Rational as R } from '@polyhymnia/notation-model';
+import { elementIds, noteValueLength, readMnx, tupletRatio, Rational as R } from '@polyhymnia/notation-model';
 import type {
   Diagnostic,
+  ElementIds,
   Event as MnxEvent,
   MeasureGlobal,
   MnxDocument,
@@ -30,6 +31,7 @@ import {
   type NormalizedBeam,
   type NoteId,
   type NoteValueSpec,
+  type NormalizedTie,
   type Pitch,
   type StepNumber,
   type TempoEvent,
@@ -115,6 +117,7 @@ export interface NormalizedScore {
   tempo: TempoMap;
   staves: readonly NormalizedStaff[];
   beams: readonly NormalizedBeam[];
+  ties: readonly NormalizedTie[];
   diagnostics: readonly Diagnostic[];
   /** Every id already in use — explicit or synthesized — so later stages can keep
    *  disambiguating their own positional ids against it. */
@@ -140,8 +143,17 @@ export interface Reader {
   unsupported(construct: string, measureIndex: number | undefined, consequence: string): void;
   notesById: Map<string, MutableNote>;
   ties: PendingTie[];
-  explicitIds: ReadonlySet<string>;
+  resolvedTies: NormalizedTie[];
+  noteOrder: Map<MutableNote, { voice: 0 | 1; order: number }>;
+  eventOrder: [number, number];
+  ids: ElementIds;
   usedIds: Set<string>;
+}
+
+function idFor(reader: Reader, node: object, explicit: unknown, candidate: string): NoteId {
+  const id = reader.ids.idOf(node) ?? reader.ids.mint(candidate);
+  reader.usedIds.add(id);
+  return id;
 }
 
 interface SequenceScope {
@@ -161,6 +173,7 @@ export function normalize(doc: MnxDocument, options?: NotationOptions): Normaliz
     tempo: [],
     staves: [],
     beams: [],
+    ties: [],
     diagnostics,
     usedIds: new Set(),
   });
@@ -173,11 +186,15 @@ export function normalize(doc: MnxDocument, options?: NotationOptions): Normaliz
   if (!source) return empty();
 
   const seen = new Set<string>();
+  const ids = elementIds(source);
   const reader: Reader = {
     diagnostics,
     notesById: new Map(),
     ties: [],
-    explicitIds: collectExplicitIds(source),
+    resolvedTies: [],
+    noteOrder: new Map(),
+    eventOrder: [0, 0],
+    ids,
     usedIds: new Set(),
     unsupported(construct, measureIndex, consequence) {
       const key = `${construct}@${measureIndex ?? ''}`;
@@ -312,6 +329,7 @@ export function normalize(doc: MnxDocument, options?: NotationOptions): Normaliz
   resolveTies(reader);
   applySystemBreaks(source, globals, measures, reader);
   const tempo = resolveTempo(globals, measures, divisions, reader);
+  diagnostics.push(...ids.diagnostics);
   const beams = resolveBeams(source, partMeasures, measures, reader, options);
 
   return {
@@ -328,6 +346,7 @@ export function normalize(doc: MnxDocument, options?: NotationOptions): Normaliz
       },
     ],
     beams,
+    ties: reader.resolvedTies,
     diagnostics,
     usedIds: reader.usedIds,
   };
@@ -347,53 +366,9 @@ export function asObject(value: unknown): Record<string, any> | undefined {
     : undefined;
 }
 
-function collectExplicitIds(source: MnxDocument): Set<string> {
-  const ids = new Set<string>();
-  const visit = (value: unknown): void => {
-    if (Array.isArray(value)) {
-      for (const item of value) visit(item);
-      return;
-    }
-    const obj = asObject(value);
-    if (!obj) return;
-    if (typeof obj.id === 'string') ids.add(obj.id);
-    for (const key of Object.keys(obj)) visit(obj[key]);
-  };
-  visit(source);
-  return ids;
-}
-
-function registerExplicitId(id: string, reader: Reader, measureIndex: number | undefined): void {
-  if (reader.usedIds.has(id)) {
-    reader.diagnostics.push({
-      severity: 'warning',
-      code: 'id-collision',
-      message: `Duplicate id ${JSON.stringify(id)} appears on more than one laid-out element; only the first is addressable.`,
-      ...(measureIndex === undefined ? {} : { measureIndex }),
-    });
-    return;
-  }
+export function synthId(candidate: string, reader: Reader): NoteId {
+  const id = reader.ids.mint(candidate);
   reader.usedIds.add(id);
-}
-
-export function synthId(candidate: string, reader: Reader, measureIndex: number | undefined): string {
-  if (!reader.explicitIds.has(candidate) && !reader.usedIds.has(candidate)) {
-    reader.usedIds.add(candidate);
-    return candidate;
-  }
-  let n = 2;
-  let id = `${candidate}~${n}`;
-  while (reader.explicitIds.has(id) || reader.usedIds.has(id)) {
-    n += 1;
-    id = `${candidate}~${n}`;
-  }
-  reader.usedIds.add(id);
-  reader.diagnostics.push({
-    severity: 'warning',
-    code: 'id-collision',
-    message: `Synthesized id ${JSON.stringify(candidate)} collides with an existing id; using ${JSON.stringify(id)} instead.`,
-    ...(measureIndex === undefined ? {} : { measureIndex }),
-  });
   return id;
 }
 
@@ -401,13 +376,22 @@ export function resolveId(
   explicit: unknown,
   candidate: string,
   reader: Reader,
-  measureIndex: number | undefined,
-): string {
+  measureIndex?: number,
+): NoteId {
   if (typeof explicit === 'string') {
-    registerExplicitId(explicit, reader, measureIndex);
+    if (reader.usedIds.has(explicit)) {
+      reader.diagnostics.push({
+        severity: 'warning',
+        code: 'id-collision',
+        message: `Duplicate id ${JSON.stringify(explicit)} appears on more than one laid-out element; only the first is addressable.`,
+        ...(measureIndex === undefined ? {} : { measureIndex }),
+      });
+      return explicit;
+    }
+    reader.usedIds.add(explicit);
     return explicit;
   }
-  return synthId(candidate, reader, measureIndex);
+  return synthId(candidate, reader);
 }
 
 function readSequences(sequences: readonly unknown[], measureIndex: number, reader: Reader): NormalizedVoice[] {
@@ -441,7 +425,7 @@ function readSequences(sequences: readonly unknown[], measureIndex: number, read
     if (full) {
       if (full.fermata) reader.unsupported('fermata', measureIndex, 'not drawn');
       events.push({
-        id: resolveId(full.id, `m${measureIndex}.s${index}.full`, reader, measureIndex),
+        id: idFor(reader, full, full.id, `m${measureIndex}.s${index}.full`),
         kind: 'rest',
         base: 'whole',
         dots: 0,
@@ -510,12 +494,7 @@ function readTuplet(
 ): TupletRef | undefined {
   const index = scope.tupletCount;
   scope.tupletCount += 1;
-  const id = resolveId(
-    item.id,
-    `m${scope.measureIndex}.s${scope.sequenceIndex}.t${index}`,
-    reader,
-    scope.measureIndex,
-  );
+  const id = idFor(reader, item, item.id, `m${scope.measureIndex}.s${scope.sequenceIndex}.t${index}`);
   if (typeof item.staff === 'number' && item.staff !== 1) {
     reader.unsupported('cross-staff tuplet', scope.measureIndex, 'laid out on staff 1');
   }
@@ -551,16 +530,13 @@ function readEvent(
   const { measureIndex, sequenceIndex } = scope;
   const index = scope.eventCount;
   scope.eventCount += 1;
-  const id: NoteId = resolveId(
-    event.id,
-    `m${measureIndex}.s${sequenceIndex}.e${index}`,
-    reader,
-    measureIndex,
-  );
+  const id: NoteId = idFor(reader, event, event.id, `m${measureIndex}.s${sequenceIndex}.e${index}`);
 
   const value = readNoteValue(event.duration, measureIndex, reader);
   if (!value) return undefined;
   const length = scaled(value.length, tuplet);
+  const order = reader.eventOrder[scope.voice];
+  reader.eventOrder[scope.voice] = order + 1;
 
   reportEventConstructs(event, measureIndex, reader);
 
@@ -596,8 +572,9 @@ function readEvent(
   }
 
   const elementNotes = notes.map((note, k) =>
-    readNote(note, notes.length === 1 ? id : `${id}.n${k}`, notes.length > 1, measureIndex, reader),
+    readNote(note, notes.length === 1 ? id : `${id}.n${k}`, measureIndex, reader),
   );
+  for (const en of elementNotes) reader.noteOrder.set(en, { voice: scope.voice, order });
   const stem = event.stemDirection === 'up' || event.stemDirection === 'down' ? event.stemDirection : undefined;
   const breath = breathOf(event, measureIndex, reader);
   return {
@@ -670,16 +647,10 @@ function breathOf(event: MnxEvent, measureIndex: number, reader: Reader): 'comma
 function readNote(
   note: MnxNote,
   candidate: NoteId,
-  synthesizeCandidate: boolean,
   measureIndex: number,
   reader: Reader,
 ): ElementNote {
-  const noteId =
-    typeof note.id === 'string'
-      ? (registerExplicitId(note.id, reader, measureIndex), note.id)
-      : synthesizeCandidate
-        ? synthId(candidate, reader, measureIndex)
-        : candidate;
+  const noteId = idFor(reader, note, note.id, candidate);
   const element: MutableNote = {
     id: noteId,
     pitch: readPitch(note.pitch, measureIndex, reader),
@@ -759,6 +730,23 @@ function resolveTies(reader: Reader): void {
     }
     from.tie = from.tie === 'stop' || from.tie === 'continue' ? 'continue' : 'start';
     target.tie = target.tie === 'start' || target.tie === 'continue' ? 'continue' : 'stop';
+    reader.resolvedTies.push({ id: `${from.id}.tie`, from: from.id, to: target.id, measureIndex });
+
+    const fromOrder = reader.noteOrder.get(from);
+    const targetOrder = reader.noteOrder.get(target);
+    const adjacent =
+      fromOrder !== undefined &&
+      targetOrder !== undefined &&
+      fromOrder.voice === targetOrder.voice &&
+      targetOrder.order === fromOrder.order + 1;
+    if (!adjacent) {
+      reader.diagnostics.push({
+        severity: 'warning',
+        code: 'tie-target-not-adjacent',
+        message: `Measure ${measureIndex}: tie from note ${from.id} targets ${target.id}, which is not the next event in the voice; drawn anyway.`,
+        measureIndex,
+      });
+    }
   }
 }
 

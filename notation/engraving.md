@@ -68,7 +68,9 @@ Geometry, per group, computed by `layout/beams.ts` (stage 9) from the resolved `
 6. shift the whole beam so every stem clears MIN_STEM = 3.0sp, measured to its own
    *innermost* level (the beam line nearest its notehead — the binding constraint, since a
    note's stem always continues on to the outer primary line regardless); a beamed stem on a
-   note far off the staff is shifted further still so it reaches at least the middle line.
+   note far off the staff is shifted further still so it reaches at least the middle line —
+   except in a two-voice measure, where a voice's beam never has to reach the middle line
+   (Two voices, below).
 7. beam shape: a parallelogram `PathShape` (`cls: 'beam'`, `el` = the beam's own id) — a
    thin slab (vertical thickness, not perpendicular) whose near edge is exactly the line
    every re-terminated stem in it touches, and whose far edge sits `beamThickness` (0.5sp)
@@ -276,10 +278,16 @@ Placement:
 
 Exactly 2 per staff — covers everything needed, avoids the 3+-voice collision combinatorics.
 
-- Stem direction forced by voice: v0 up, v1 down. No per-note exception.
-- Rests offset ±1sp vertically (v0 up, v1 down) so simultaneous rests don't overlap.
+- Stem direction decided per measure (per staff): the voice whose notes have the smaller mean `staffPosition` (the higher-pitched voice — `y` increases downward, `staff.md`) gets stems up, the other down; a tie keeps sequence order (`sequences[0]` up). This is computed from real pitches, not sequence order, so a part that lists its lower line first (`multiple-voices.json`) no longer gets crossed stems. An explicit MNX `stemDirection` on the note/beam still wins per event, same as before.
+- Rests offset ±1sp vertically (up for the up-stemmed voice, down for the other, per the same per-measure decision) from the single-voice anchor, unless MNX gives `rest.staffPosition`.
+- Augmentation dots on a v1 note that lands on a staff line go to the space below, instead of the usual space above.
 - Shared tick → shared column, rod = union of both voices' requirements.
-- Seconds between voices: horizontal offset by one notehead width. True unisons: one notehead, two stems.
+- Seconds between voices at a shared tick: shift the v0 (upper, stem-up) notehead one notehead width right.
+- Same-tick unison, identical notehead glyph and dot count: no shift — both voices' noteheads sit at the same x, each keeps its own element/hitbox.
+- Same-tick unison, different notehead glyphs: shift v1 right by one notehead width instead.
+- Accidentals at a shared tick are packed across both voices together so their glyphs can't collide.
 - Beaming runs per voice independently, direction pre-forced.
+
+A beam's own stem-reach-the-middle-line rule (Beams, above) is skipped for a beam in a two-voice measure — a voice's beam is expected to sit off to its own side of the staff and never has to cross toward the middle line.
 
 Out of scope: shared-stem merging, opposing-voice accidental interleaving.

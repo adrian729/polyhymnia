@@ -5,10 +5,6 @@
 // accidental packing and rest anchors — everything that is a function of pitch and not
 // of x. All measurements come from the font metadata; nothing here is a magic constant
 // except the engraving heuristics called out by name below.
-//
-// Voice 0 only: two-voice layout (forced stem directions, ±1sp rest offsets, shared
-// columns) is a later slice, and a voice 1 with content raises a diagnostic instead of
-// being laid out half-correctly.
 
 import { engravingDefaults, glyphAdvanceWidth, glyphAnchor, glyphBBox } from '../font/metadata.js';
 import type { NotationOptions } from '../options.js';
@@ -148,21 +144,88 @@ export function vertical(
 ): VerticalScore {
   const diagnostics: Diagnostic[] = [];
   const elements: VerticalElement[] = [];
-  const elementBeam = beamDirectionsByElement(normalized, score, diagnostics);
+  const twoVoice = twoVoiceMeasures(score);
+  const upVoice = computeUpVoice(normalized, score, twoVoice);
+  const elementBeam = beamDirectionsByElement(normalized, score, twoVoice, upVoice, diagnostics);
 
   for (const staff of normalized.staves) {
     for (const measure of staff.measures) {
-      reportVoiceOne(measure, score, staff.index, diagnostics);
       const rows = score.elements
-        .filter(
-          (e) => e.staffIndex === staff.index && e.measureIndex === measure.index && e.voice === 0,
-        )
-        .sort((a, b) => a.tick - b.tick);
-      for (const row of rows) elements.push(layOut(row, measure, resolved, elementBeam.get(row.id)));
+        .filter((e) => e.staffIndex === staff.index && e.measureIndex === measure.index)
+        .sort((a, b) => a.tick - b.tick || a.voice - b.voice);
+      const key = measureKey(staff.index, measure.index);
+      const shared = twoVoice.has(key);
+      const laidOut = rows.map((row) =>
+        layOut(row, measure, resolved, shared, upVoice.get(key) ?? 0, elementBeam.get(row.id)),
+      );
+      if (shared) {
+        resolveSharedTicks(laidOut);
+        resolveSharedRests(laidOut, upVoice.get(key) ?? 0);
+      }
+      elements.push(...laidOut);
     }
   }
 
   return { elements, diagnostics };
+}
+
+function measureKey(staffIndex: number, measureIndex: number): string {
+  return `${staffIndex}:${measureIndex}`;
+}
+
+function twoVoiceMeasures(score: TemporalScore): Set<string> {
+  const keys = new Set<string>();
+  for (const el of score.elements) {
+    if (el.voice === 1) keys.add(measureKey(el.staffIndex, el.measureIndex));
+  }
+  return keys;
+}
+
+function voiceDirection(voice: 0 | 1, upVoice: 0 | 1): 1 | -1 {
+  return voice === upVoice ? 1 : -1;
+}
+
+function buildClefByMeasure(normalized: NormalizedScore): Map<number, ClefSpec> {
+  const clefByMeasure = new Map<number, ClefSpec>();
+  for (const staff of normalized.staves) {
+    for (const measure of staff.measures) clefByMeasure.set(measure.index, measure.clef);
+  }
+  return clefByMeasure;
+}
+
+function computeUpVoice(
+  normalized: NormalizedScore,
+  score: TemporalScore,
+  twoVoice: ReadonlySet<string>,
+): Map<string, 0 | 1> {
+  const clefByMeasure = buildClefByMeasure(normalized);
+  const totals = new Map<string, [number, number, number, number]>();
+  for (const el of score.elements) {
+    if (el.kind === 'rest') continue;
+    const key = measureKey(el.staffIndex, el.measureIndex);
+    if (!twoVoice.has(key)) continue;
+    const clef = clefByMeasure.get(el.measureIndex) ?? { kind: 'treble' as const };
+    const entry = totals.get(key) ?? [0, 0, 0, 0];
+    for (const note of el.notes) {
+      const pos = staffPositionOf(note.pitch, clef);
+      if (el.voice === 0) {
+        entry[0] += pos;
+        entry[1] += 1;
+      } else {
+        entry[2] += pos;
+        entry[3] += 1;
+      }
+    }
+    totals.set(key, entry);
+  }
+  const result = new Map<string, 0 | 1>();
+  for (const [key, [sum0, count0, sum1, count1]] of totals) {
+    if (count0 === 0 && count1 === 0) continue;
+    const mean0 = count0 > 0 ? sum0 / count0 : Infinity;
+    const mean1 = count1 > 0 ? sum1 / count1 : Infinity;
+    result.set(key, mean0 <= mean1 ? 0 : 1);
+  }
+  return result;
 }
 
 interface BeamMembership {
@@ -173,12 +236,11 @@ interface BeamMembership {
 function beamDirectionsByElement(
   normalized: NormalizedScore,
   score: TemporalScore,
+  twoVoice: ReadonlySet<string>,
+  upVoice: ReadonlyMap<string, 0 | 1>,
   diagnostics: Diagnostic[],
 ): Map<NoteId, BeamMembership> {
-  const clefByMeasure = new Map<number, ClefSpec>();
-  for (const staff of normalized.staves) {
-    for (const measure of staff.measures) clefByMeasure.set(measure.index, measure.clef);
-  }
+  const clefByMeasure = buildClefByMeasure(normalized);
   const byId = new Map<NoteId, TemporalElement>();
   for (const el of score.elements) byId.set(el.id, el);
 
@@ -206,6 +268,8 @@ function beamDirectionsByElement(
         });
       }
       dir = first === 'up' ? 1 : -1;
+    } else if (twoVoice.has(measureKey(notes[0]!.staffIndex, beam.measureIndex))) {
+      dir = voiceDirection(beam.voice, upVoice.get(measureKey(notes[0]!.staffIndex, beam.measureIndex)) ?? 0);
     } else {
       const clef = clefByMeasure.get(beam.measureIndex) ?? { kind: 'treble' as const };
       let furthest = 0;
@@ -233,29 +297,12 @@ function beamDirectionsByElement(
   return result;
 }
 
-function reportVoiceOne(
-  measure: NormalizedMeasure,
-  score: TemporalScore,
-  staffIndex: number,
-  diagnostics: Diagnostic[],
-): void {
-  const hasVoiceOne = score.elements.some(
-    (e) => e.staffIndex === staffIndex && e.measureIndex === measure.index && e.voice === 1,
-  );
-  if (!hasVoiceOne) return;
-  diagnostics.push({
-    severity: 'warning',
-    code: 'voice-1-not-yet-supported',
-    message: `Measure ${measure.index} has a second voice; only voice 0 is laid out.`,
-    measureIndex: measure.index,
-    voice: 1,
-  });
-}
-
 function layOut(
   row: TemporalElement,
   measure: NormalizedMeasure,
   resolved: AccidentalScore,
+  shared: boolean,
+  upVoice: 0 | 1,
   beamInfo?: BeamMembership,
 ): VerticalElement {
   const duration: Duration = {
@@ -277,7 +324,7 @@ function layOut(
   };
 
   if (row.kind === 'rest') {
-    const rest = layOutRest(row, duration);
+    const rest = layOutRest(row, duration, shared, upVoice);
     return {
       ...base,
       noteheads: [],
@@ -295,7 +342,11 @@ function layOut(
     staffPosition: staffPositionOf(note.pitch, measure.clef),
   }));
 
-  const dir = beamInfo ? beamInfo.dir : stemDirection(heads, row.stem);
+  const dir = beamInfo
+    ? beamInfo.dir
+    : shared && row.stem !== 'up' && row.stem !== 'down'
+      ? voiceDirection(row.voice, upVoice)
+      : stemDirection(heads, row.stem);
   const shifts = secondShifts(heads, width);
 
   const noteheads: NoteheadLayout[] = heads.map((head, i) => {
@@ -325,21 +376,175 @@ function layOut(
   });
 
   const leftWidth = packAccidentals(noteheads);
-  const headExtent = noteheads.reduce((max, n) => Math.max(max, n.dx + n.width), 0);
-  for (const head of noteheads) head.dots = dotPositions(duration.dots, headExtent, head.staffPosition);
-
   const stem = layOutStem(duration, dir, noteheads, row.stem, beamInfo !== undefined);
-  const noteRight = headExtent + dotsWidth(duration.dots);
-  const breath = layOutBreath(row.breath, noteRight);
-
-  return {
+  const element: VerticalElement = {
     ...base,
     noteheads,
     ...(stem ? { stem } : {}),
-    ...(breath ? { breath } : {}),
     leftWidth,
-    rightWidth: noteRight + (breath ? BREATH_GAP + glyphAdvanceWidth(breath.glyph) : 0),
+    rightWidth: 0,
   };
+  placeRight(element, headExtent(noteheads), shared);
+  return element;
+}
+
+function headExtent(noteheads: readonly NoteheadLayout[]): number {
+  return noteheads.reduce((max, n) => Math.max(max, n.dx + n.width), 0);
+}
+
+function placeRight(element: VerticalElement, extent: number, shared: boolean): void {
+  const { dots } = element.duration;
+  const below = shared && element.voice === 1;
+  for (const head of element.noteheads) {
+    head.dots = dotPositions(dots, extent, head.staffPosition, below);
+  }
+  const noteRight = extent + dotsWidth(dots);
+  const breath = layOutBreath(element.source.breath, noteRight);
+  if (breath) element.breath = breath;
+  element.rightWidth = noteRight + (breath ? BREATH_GAP + glyphAdvanceWidth(breath.glyph) : 0);
+}
+
+function resolveSharedTicks(elements: readonly VerticalElement[]): void {
+  const byTick = new Map<number, VerticalElement[]>();
+  for (const el of elements) {
+    if (el.noteheads.length === 0) continue;
+    const bucket = byTick.get(el.tick);
+    if (bucket) bucket.push(el);
+    else byTick.set(el.tick, [el]);
+  }
+
+  for (const group of byTick.values()) {
+    const upper = group.find((e) => e.voice === 0);
+    const lower = group.find((e) => e.voice === 1);
+    if (!upper || !lower) continue;
+
+    const shift = crossVoiceShift(upper, lower);
+    if (shift) shiftElement(shift.element, shift.by);
+
+    const extent = Math.max(...group.map((e) => headExtent(e.noteheads)));
+    for (const el of group) placeRight(el, extent, true);
+
+    const leftWidth = packAccidentals(group.flatMap((e) => e.noteheads));
+    for (const el of group) el.leftWidth = leftWidth;
+  }
+}
+
+function restRange(el: VerticalElement): [number, number] {
+  const bbox = glyphBBox(el.rest!.glyph);
+  return [el.rest!.y - bbox.bBoxNE[1], el.rest!.y - bbox.bBoxSW[1]];
+}
+
+function noteRange(el: VerticalElement): [number, number] {
+  let top = Infinity;
+  let bottom = -Infinity;
+  for (const head of el.noteheads) {
+    const bbox = glyphBBox(head.glyph);
+    top = Math.min(top, head.staffPosition - bbox.bBoxNE[1]);
+    bottom = Math.max(bottom, head.staffPosition - bbox.bBoxSW[1]);
+  }
+  if (el.stem) {
+    top = Math.min(top, el.stem.yTop);
+    bottom = Math.max(bottom, el.stem.yBottom);
+  }
+  return [top, bottom];
+}
+
+function rangesOverlap(a: readonly [number, number], b: readonly [number, number]): boolean {
+  return a[0] < b[1] && b[0] < a[1];
+}
+
+function clearRest(el: VerticalElement, avoid: readonly [number, number][], dir: 1 | -1): void {
+  const rest = el.rest!;
+  const bbox = glyphBBox(rest.glyph);
+  const topOffset = -bbox.bBoxNE[1];
+  const bottomOffset = -bbox.bBoxSW[1];
+  let y = rest.y;
+  let moved = false;
+  for (let guard = 0; guard < 40; guard += 1) {
+    const range: [number, number] = [y + topOffset, y + bottomOffset];
+    if (!avoid.some((a) => rangesOverlap(range, a))) break;
+    y += dir * 0.25;
+    moved = true;
+  }
+  if (moved) y = dir === -1 ? Math.floor(y) : Math.ceil(y);
+  rest.y = y;
+  rest.dots = dotPositions(rest.dots.length as 0 | 1 | 2, rest.width, y, false);
+}
+
+function symmetricClearRests(upEl: VerticalElement, downEl: VerticalElement): void {
+  const upBBox = glyphBBox(upEl.rest!.glyph);
+  const downBBox = glyphBBox(downEl.rest!.glyph);
+  const upBottomOffset = -upBBox.bBoxSW[1];
+  const downTopOffset = -downBBox.bBoxNE[1];
+  let upY = upEl.rest!.y;
+  let downY = downEl.rest!.y;
+  let moved = false;
+  for (let guard = 0; guard < 40; guard += 1) {
+    if (upY + upBottomOffset <= downY + downTopOffset) break;
+    upY -= 0.25;
+    downY += 0.25;
+    moved = true;
+  }
+  if (moved) {
+    upY = Math.floor(upY);
+    downY = Math.ceil(downY);
+  }
+  upEl.rest!.y = upY;
+  upEl.rest!.dots = dotPositions(upEl.rest!.dots.length as 0 | 1 | 2, upEl.rest!.width, upY, false);
+  downEl.rest!.y = downY;
+  downEl.rest!.dots = dotPositions(downEl.rest!.dots.length as 0 | 1 | 2, downEl.rest!.width, downY, false);
+}
+
+function resolveSharedRests(elements: readonly VerticalElement[], upVoice: 0 | 1): void {
+  const byTick = new Map<number, VerticalElement[]>();
+  for (const el of elements) {
+    const bucket = byTick.get(el.tick);
+    if (bucket) bucket.push(el);
+    else byTick.set(el.tick, [el]);
+  }
+
+  for (const group of byTick.values()) {
+    const upper = group.find((e) => e.voice === 0);
+    const lower = group.find((e) => e.voice === 1);
+    if (!upper || !lower) continue;
+    const [upEl, downEl] = upVoice === 0 ? [upper, lower] : [lower, upper];
+    const upFree = upEl.rest && upEl.source.staffPosition === undefined;
+    const downFree = downEl.rest && downEl.source.staffPosition === undefined;
+
+    if (upEl.rest && downEl.rest && upFree && downFree) {
+      symmetricClearRests(upEl, downEl);
+      continue;
+    }
+    if (upFree) clearRest(upEl, [downEl.rest ? restRange(downEl) : noteRange(downEl)], -1);
+    if (downFree) clearRest(downEl, [upEl.rest ? restRange(upEl) : noteRange(upEl)], 1);
+  }
+}
+
+function crossVoiceShift(
+  upper: VerticalElement,
+  lower: VerticalElement,
+): { element: VerticalElement; by: number } | undefined {
+  const pairs = upper.noteheads.flatMap((a) => lower.noteheads.map((b) => [a, b] as const));
+  const apart = (a: NoteheadLayout, b: NoteheadLayout): number =>
+    Math.abs(a.staffPosition - b.staffPosition);
+
+  if (pairs.some(([a, b]) => Math.abs(apart(a, b) - 0.5) < 1e-9)) {
+    return { element: upper, by: headExtent(lower.noteheads) };
+  }
+  const unisons = pairs.filter(([a, b]) => apart(a, b) < 1e-9);
+  if (unisons.length === 0) return undefined;
+  const identical =
+    upper.duration.dots === lower.duration.dots && unisons.every(([a, b]) => a.glyph === b.glyph);
+  if (identical) return undefined;
+  return { element: lower, by: headExtent(upper.noteheads) };
+}
+
+function shiftElement(element: VerticalElement, by: number): void {
+  for (const head of element.noteheads) head.dx += by;
+  if (element.stem) {
+    element.stem.dx += by;
+    if (element.stem.flag) element.stem.flag.dx += by;
+  }
 }
 
 // --- breath marks -----------------------------------------------------------
@@ -388,21 +593,20 @@ const REST_Y: Partial<Record<DurationBase, number>> = {
 };
 const REST_BASELINE = MIDDLE_LINE;
 
-function layOutRest(row: TemporalElement, duration: Duration): RestLayout {
+function layOutRest(row: TemporalElement, duration: Duration, shared: boolean, upVoice: 0 | 1): RestLayout {
   // A `wholeBar` rest always draws the single whole-rest glyph, whatever the meter
   // (mnx.md); its tick length diverging from its `Duration` is the temporal
   // stage's business, not this one's.
   const glyph = row.wholeBar ? 'restWhole' : (REST_GLYPH[duration.base] ?? 'restQuarter');
-  const y =
-    row.staffPosition ??
-    (row.wholeBar ? REST_Y.whole! : (REST_Y[duration.base] ?? REST_BASELINE));
+  const anchor = row.wholeBar ? REST_Y.whole! : (REST_Y[duration.base] ?? REST_BASELINE);
+  const y = row.staffPosition ?? anchor + (shared ? -voiceDirection(row.voice, upVoice) : 0);
   const width = glyphAdvanceWidth(glyph);
   return {
     glyph,
     y,
     width,
     wholeBar: row.wholeBar === true,
-    dots: row.wholeBar ? [] : dotPositions(duration.dots, width, y),
+    dots: row.wholeBar ? [] : dotPositions(duration.dots, width, y, false),
   };
 }
 
@@ -514,11 +718,12 @@ function dotPositions(
   dots: 0 | 1 | 2,
   fromX: number,
   y: number,
+  below: boolean,
 ): { dx: number; y: number }[] {
   if (!dots) return [];
   const width = glyphAdvanceWidth('augmentationDot');
   const onLine = Math.abs(y - Math.round(y)) < 1e-9;
-  const dotY = onLine ? y - 0.5 : y;
+  const dotY = onLine ? (below ? y + 0.5 : y - 0.5) : y;
   const out: { dx: number; y: number }[] = [];
   for (let i = 0; i < dots; i += 1) {
     out.push({ dx: fromX + DOT_GAP + i * (width + DOT_SPACING), y: dotY });

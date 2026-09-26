@@ -2,15 +2,13 @@
 // interface.md's options surface). Every stage is a pure function, so the whole
 // composition is pure: StrictMode double-invocation produces identical output, and the
 // result is testable in Node with no DOM and no font loaded.
-//
-// Stage 10 (curves) is not implemented yet: `paths` carries beams only, ties/slurs
-// still need drawing.
 
 import type { NotationOptions } from '../options.js';
 import type { Diagnostic, MnxDocument } from '@polyhymnia/notation-model';
 import { accidentals } from './accidentals.js';
 import { beams } from './beams.js';
 import { breakSystems } from './break.js';
+import { curves } from './curves.js';
 import { emit } from './emit.js';
 import { grouping } from './grouping.js';
 import { horizontal } from './horizontal.js';
@@ -32,6 +30,7 @@ export function layoutScore(doc: MnxDocument, options?: NotationOptions): Layout
   const justified = justify(broken, options);
   const beamed = beams(justified, normalized.beams);
   const tupletShapes = tuplets(justified, groups.tuplets, normalized.beams, beamed, options);
+  const curveShapes = curves(justified, placed, beamed, normalized.ties, options);
 
   const diagnostics: Diagnostic[] = [
     ...normalized.diagnostics,
@@ -44,6 +43,7 @@ export function layoutScore(doc: MnxDocument, options?: NotationOptions): Layout
     ...justified.diagnostics,
     ...beamed.diagnostics,
     ...tupletShapes.diagnostics,
+    ...curveShapes.diagnostics,
   ];
 
   return emit(
@@ -55,6 +55,7 @@ export function layoutScore(doc: MnxDocument, options?: NotationOptions): Layout
       diagnostics,
       beams: beamed,
       tuplets: tupletShapes,
+      curves: curveShapes,
     },
     options,
   );

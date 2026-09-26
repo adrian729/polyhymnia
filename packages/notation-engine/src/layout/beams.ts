@@ -44,6 +44,10 @@ export function beams(justified: JustifiedScore, groups: readonly NormalizedBeam
   const thickness = engravingDefaults.beamThickness;
   const stack = engravingDefaults.beamThickness + engravingDefaults.beamSpacing;
   const stemW = engravingDefaults.stemThickness;
+  const twoVoiceMeasures = new Set<number>();
+  for (const p of placedById.values()) {
+    if (p.el.voice === 1) twoVoiceMeasures.add(p.el.measureIndex);
+  }
 
   const polygons: BeamPolygon[] = [];
   const stemOverrides = new Map<NoteId, { yTop: number; yBottom: number }>();
@@ -84,9 +88,11 @@ export function beams(justified: JustifiedScore, groups: readonly NormalizedBeam
       const stemLen = dir === 1 ? attach(p) - innerY : innerY - attach(p);
       if (stemLen < MIN_STEM) shift = Math.max(shift, MIN_STEM - stemLen);
 
-      const primaryY = beamYAt(x(p));
-      const reach = dir === 1 ? primaryY - MIDDLE_LINE : MIDDLE_LINE - primaryY;
-      if (reach > EPS) shift = Math.max(shift, reach);
+      if (!twoVoiceMeasures.has(group.measureIndex)) {
+        const primaryY = beamYAt(x(p));
+        const reach = dir === 1 ? primaryY - MIDDLE_LINE : MIDDLE_LINE - primaryY;
+        if (reach > EPS) shift = Math.max(shift, reach);
+      }
     }
     yLeft -= dir * shift;
 

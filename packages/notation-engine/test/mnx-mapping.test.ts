@@ -63,6 +63,13 @@ describe('ids', () => {
     expect(map.elements[3]!.tuplet?.id).toBe('m0.s0.t0');
   });
 
+  it('gives a shared event object distinct ids at each of its layout positions', () => {
+    const shared = note('C4', 'q');
+    const doc = mnx({}, measure(shared, shared));
+    const map = temporal(normalize(doc));
+    expect(map.elements.map((e) => e.id)).toEqual(['m0.s0.e0', 'm0.s0.e1']);
+  });
+
   it('keys ElementBoxes by note id and a full-measure rest by its positional id', () => {
     const layout = layoutScore(
       mnx({}, measure(note('C4', 'w', {}, { id: 'n-c' })), { sequences: [{ content: [], fullMeasure: {} }] }),
@@ -365,6 +372,21 @@ describe('id collisions', () => {
     const doc = mnx(
       {},
       measure(note('C4', 'q', { id: 'dup' }), note('D4', 'q', { id: 'dup' })),
+    );
+    const diagnostics = layoutScore(doc).diagnostics;
+
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ severity: 'warning', code: 'id-collision', measureIndex: 0 }),
+    );
+  });
+
+  it('reports id-collision with measureIndex when an explicit beam id collides with an existing id', () => {
+    const doc = mnx(
+      {},
+      withPart(
+        { beams: [{ id: 'a', events: ['a', 'b'] }] },
+        measure(note('C4', '8', { id: 'a' }), note('D4', '8', { id: 'b' })),
+      ),
     );
     const diagnostics = layoutScore(doc).diagnostics;
 

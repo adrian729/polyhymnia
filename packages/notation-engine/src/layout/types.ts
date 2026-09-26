@@ -6,7 +6,7 @@
 // serializes, the lookup helpers do not.
 
 import type { Diagnostic } from '@polyhymnia/notation-model';
-import type { NoteId } from './records.js';
+import type { ClefSpec, KeySpec, NoteId, Pitch } from './records.js';
 import type { TimeMap } from '../query/timemap.js';
 
 export interface ViewBox {
@@ -73,10 +73,12 @@ export interface ElementBox {
   durationTicks: number;
   /** "E flat 4, quarter note, measure 2" — a11y + text-alternative source. */
   label: string;
+  eventId: NoteId;
+  pitch?: Pitch;
 }
 
 // interaction.md's slot model. The type lives here so `LayoutResult` can name it; the
-// generation algorithm is a later stage (`query/slots.ts`), so `slots` is always empty.
+// generation algorithm is a later stage (`query/slots.ts`).
 export interface SlotRef {
   measureIndex: number;
   voice: 0 | 1;
@@ -86,8 +88,20 @@ export interface SlotRef {
 export interface Slot extends SlotRef {
   x: number;
   w: number;
-  occupiedBy?: NoteId;
-  gridTicks: number;
+  eventId: NoteId;
+  elementIds: readonly NoteId[];
+}
+
+export interface MeasureBox {
+  index: number;
+  systemIndex: number;
+  x: number;
+  w: number;
+  contentX: number;
+  startTick: number;
+  capacityTicks: number;
+  clef: ClefSpec;
+  key: KeySpec;
 }
 
 export interface LayoutResult {
@@ -99,6 +113,7 @@ export interface LayoutResult {
   paths: readonly PathShape[];
   elements: Readonly<Record<NoteId, ElementBox>>;
   slots: readonly Slot[];
+  measures: readonly MeasureBox[];
   timemap: TimeMap;
   diagnostics: readonly Diagnostic[];
 }

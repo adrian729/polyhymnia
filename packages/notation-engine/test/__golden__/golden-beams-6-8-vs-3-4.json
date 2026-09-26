@@ -338,7 +338,13 @@
       "staffPosition": 5,
       "tick": 0,
       "durationTicks": 1680,
-      "label": "C 4, eighth note, measure 1"
+      "label": "C 4, eighth note, measure 1",
+      "eventId": "m0.s0.e0",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m0.s0.e1": {
       "id": "m0.s0.e1",
@@ -359,7 +365,13 @@
       "staffPosition": 4.5,
       "tick": 1680,
       "durationTicks": 1680,
-      "label": "D 4, eighth note, measure 1"
+      "label": "D 4, eighth note, measure 1",
+      "eventId": "m0.s0.e1",
+      "pitch": {
+        "step": 1,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m0.s0.e2": {
       "id": "m0.s0.e2",
@@ -380,7 +392,13 @@
       "staffPosition": 4,
       "tick": 3360,
       "durationTicks": 1680,
-      "label": "E 4, eighth note, measure 1"
+      "label": "E 4, eighth note, measure 1",
+      "eventId": "m0.s0.e2",
+      "pitch": {
+        "step": 2,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m0.s0.e3": {
       "id": "m0.s0.e3",
@@ -401,7 +419,13 @@
       "staffPosition": 3.5,
       "tick": 5040,
       "durationTicks": 1680,
-      "label": "F 4, eighth note, measure 1"
+      "label": "F 4, eighth note, measure 1",
+      "eventId": "m0.s0.e3",
+      "pitch": {
+        "step": 3,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m0.s0.e4": {
       "id": "m0.s0.e4",
@@ -422,7 +446,13 @@
       "staffPosition": 3,
       "tick": 6720,
       "durationTicks": 1680,
-      "label": "G 4, eighth note, measure 1"
+      "label": "G 4, eighth note, measure 1",
+      "eventId": "m0.s0.e4",
+      "pitch": {
+        "step": 4,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m0.s0.e5": {
       "id": "m0.s0.e5",
@@ -443,7 +473,13 @@
       "staffPosition": 2.5,
       "tick": 8400,
       "durationTicks": 1680,
-      "label": "A 4, eighth note, measure 1"
+      "label": "A 4, eighth note, measure 1",
+      "eventId": "m0.s0.e5",
+      "pitch": {
+        "step": 5,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m1.s0.e0": {
       "id": "m1.s0.e0",
@@ -464,7 +500,13 @@
       "staffPosition": 5,
       "tick": 10080,
       "durationTicks": 1680,
-      "label": "C 4, eighth note, measure 2"
+      "label": "C 4, eighth note, measure 2",
+      "eventId": "m1.s0.e0",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m1.s0.e1": {
       "id": "m1.s0.e1",
@@ -485,7 +527,13 @@
       "staffPosition": 4.5,
       "tick": 11760,
       "durationTicks": 1680,
-      "label": "D 4, eighth note, measure 2"
+      "label": "D 4, eighth note, measure 2",
+      "eventId": "m1.s0.e1",
+      "pitch": {
+        "step": 1,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m1.s0.e2": {
       "id": "m1.s0.e2",
@@ -506,7 +554,13 @@
       "staffPosition": 4,
       "tick": 13440,
       "durationTicks": 1680,
-      "label": "E 4, eighth note, measure 2"
+      "label": "E 4, eighth note, measure 2",
+      "eventId": "m1.s0.e2",
+      "pitch": {
+        "step": 2,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m1.s0.e3": {
       "id": "m1.s0.e3",
@@ -527,7 +581,13 @@
       "staffPosition": 3.5,
       "tick": 15120,
       "durationTicks": 1680,
-      "label": "F 4, eighth note, measure 2"
+      "label": "F 4, eighth note, measure 2",
+      "eventId": "m1.s0.e3",
+      "pitch": {
+        "step": 3,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m1.s0.e4": {
       "id": "m1.s0.e4",
@@ -548,7 +608,13 @@
       "staffPosition": 3,
       "tick": 16800,
       "durationTicks": 1680,
-      "label": "G 4, eighth note, measure 2"
+      "label": "G 4, eighth note, measure 2",
+      "eventId": "m1.s0.e4",
+      "pitch": {
+        "step": 4,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m1.s0.e5": {
       "id": "m1.s0.e5",
@@ -569,10 +635,181 @@
       "staffPosition": 2.5,
       "tick": 18480,
       "durationTicks": 1680,
-      "label": "A 4, eighth note, measure 2"
+      "label": "A 4, eighth note, measure 2",
+      "eventId": "m1.s0.e5",
+      "pitch": {
+        "step": 5,
+        "alter": 0,
+        "octave": 4
+      }
     }
   },
-  "slots": [],
+  "slots": [
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 0,
+      "x": 5.628,
+      "w": 4.573,
+      "eventId": "m0.s0.e0",
+      "elementIds": [
+        "m0.s0.e0"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 1680,
+      "x": 10.201,
+      "w": 4.573,
+      "eventId": "m0.s0.e1",
+      "elementIds": [
+        "m0.s0.e1"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 3360,
+      "x": 14.773,
+      "w": 4.573,
+      "eventId": "m0.s0.e2",
+      "elementIds": [
+        "m0.s0.e2"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 5040,
+      "x": 19.346,
+      "w": 4.573,
+      "eventId": "m0.s0.e3",
+      "elementIds": [
+        "m0.s0.e3"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 6720,
+      "x": 23.919,
+      "w": 4.573,
+      "eventId": "m0.s0.e4",
+      "elementIds": [
+        "m0.s0.e4"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 8400,
+      "x": 28.491,
+      "w": 4.573,
+      "eventId": "m0.s0.e5",
+      "elementIds": [
+        "m0.s0.e5"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 10080,
+      "x": 36.104,
+      "w": 4.573,
+      "eventId": "m1.s0.e0",
+      "elementIds": [
+        "m1.s0.e0"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 11760,
+      "x": 40.677,
+      "w": 4.573,
+      "eventId": "m1.s0.e1",
+      "elementIds": [
+        "m1.s0.e1"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 13440,
+      "x": 45.249,
+      "w": 4.573,
+      "eventId": "m1.s0.e2",
+      "elementIds": [
+        "m1.s0.e2"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 15120,
+      "x": 49.822,
+      "w": 4.573,
+      "eventId": "m1.s0.e3",
+      "elementIds": [
+        "m1.s0.e3"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 16800,
+      "x": 54.395,
+      "w": 4.573,
+      "eventId": "m1.s0.e4",
+      "elementIds": [
+        "m1.s0.e4"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 18480,
+      "x": 58.967,
+      "w": 4.573,
+      "eventId": "m1.s0.e5",
+      "elementIds": [
+        "m1.s0.e5"
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "index": 0,
+      "systemIndex": 0,
+      "x": 0,
+      "w": 33.624,
+      "contentX": 5.628,
+      "startTick": 0,
+      "capacityTicks": 10080,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    },
+    {
+      "index": 1,
+      "systemIndex": 0,
+      "x": 33.624,
+      "w": 31.376,
+      "contentX": 36.104,
+      "startTick": 10080,
+      "capacityTicks": 10080,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    }
+  ],
   "diagnostics": [],
   "timemap": {
     "divisions": 3360,

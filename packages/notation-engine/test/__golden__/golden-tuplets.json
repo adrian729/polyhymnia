@@ -1039,7 +1039,13 @@
       "staffPosition": 5,
       "tick": 0,
       "durationTicks": 1120,
-      "label": "C 4, eighth note, measure 1"
+      "label": "C 4, eighth note, measure 1",
+      "eventId": "m0.s0.e0",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m0.s0.e1": {
       "id": "m0.s0.e1",
@@ -1060,7 +1066,13 @@
       "staffPosition": 4.5,
       "tick": 1120,
       "durationTicks": 1120,
-      "label": "D 4, eighth note, measure 1"
+      "label": "D 4, eighth note, measure 1",
+      "eventId": "m0.s0.e1",
+      "pitch": {
+        "step": 1,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m0.s0.e2": {
       "id": "m0.s0.e2",
@@ -1081,7 +1093,13 @@
       "staffPosition": 4,
       "tick": 2240,
       "durationTicks": 1120,
-      "label": "E 4, eighth note, measure 1"
+      "label": "E 4, eighth note, measure 1",
+      "eventId": "m0.s0.e2",
+      "pitch": {
+        "step": 2,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m0.s0.e3": {
       "id": "m0.s0.e3",
@@ -1102,7 +1120,8 @@
       "staffPosition": 2,
       "tick": 3360,
       "durationTicks": 6720,
-      "label": "half rest, measure 1"
+      "label": "half rest, measure 1",
+      "eventId": "m0.s0.e3"
     },
     "m0.s0.e4": {
       "id": "m0.s0.e4",
@@ -1123,7 +1142,8 @@
       "staffPosition": 2,
       "tick": 10080,
       "durationTicks": 3360,
-      "label": "quarter rest, measure 1"
+      "label": "quarter rest, measure 1",
+      "eventId": "m0.s0.e4"
     },
     "m1.s0.e0": {
       "id": "m1.s0.e0",
@@ -1144,7 +1164,13 @@
       "staffPosition": 5,
       "tick": 13440,
       "durationTicks": 2240,
-      "label": "C 4, quarter note, measure 2"
+      "label": "C 4, quarter note, measure 2",
+      "eventId": "m1.s0.e0",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m1.s0.e1": {
       "id": "m1.s0.e1",
@@ -1165,7 +1191,13 @@
       "staffPosition": 4.5,
       "tick": 15680,
       "durationTicks": 2240,
-      "label": "D 4, quarter note, measure 2"
+      "label": "D 4, quarter note, measure 2",
+      "eventId": "m1.s0.e1",
+      "pitch": {
+        "step": 1,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m1.s0.e2": {
       "id": "m1.s0.e2",
@@ -1186,7 +1218,13 @@
       "staffPosition": 4,
       "tick": 17920,
       "durationTicks": 2240,
-      "label": "E 4, quarter note, measure 2"
+      "label": "E 4, quarter note, measure 2",
+      "eventId": "m1.s0.e2",
+      "pitch": {
+        "step": 2,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m1.s0.e3": {
       "id": "m1.s0.e3",
@@ -1207,7 +1245,13 @@
       "staffPosition": 3.5,
       "tick": 20160,
       "durationTicks": 3360,
-      "label": "F 4, quarter note, measure 2"
+      "label": "F 4, quarter note, measure 2",
+      "eventId": "m1.s0.e3",
+      "pitch": {
+        "step": 3,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m1.s0.e4": {
       "id": "m1.s0.e4",
@@ -1228,7 +1272,13 @@
       "staffPosition": 3,
       "tick": 23520,
       "durationTicks": 3360,
-      "label": "G 4, quarter note, measure 2"
+      "label": "G 4, quarter note, measure 2",
+      "eventId": "m1.s0.e4",
+      "pitch": {
+        "step": 4,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m2.s0.e0": {
       "id": "m2.s0.e0",
@@ -1249,7 +1299,13 @@
       "staffPosition": 5,
       "tick": 26880,
       "durationTicks": 1120,
-      "label": "C 4, eighth note, measure 3"
+      "label": "C 4, eighth note, measure 3",
+      "eventId": "m2.s0.e0",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m2.s0.e1": {
       "id": "m2.s0.e1",
@@ -1270,7 +1326,8 @@
       "staffPosition": 2,
       "tick": 28000,
       "durationTicks": 1120,
-      "label": "eighth rest, measure 3"
+      "label": "eighth rest, measure 3",
+      "eventId": "m2.s0.e1"
     },
     "m2.s0.e2": {
       "id": "m2.s0.e2",
@@ -1291,7 +1348,13 @@
       "staffPosition": 4.5,
       "tick": 29120,
       "durationTicks": 1120,
-      "label": "D 4, eighth note, measure 3"
+      "label": "D 4, eighth note, measure 3",
+      "eventId": "m2.s0.e2",
+      "pitch": {
+        "step": 1,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m2.s0.e3": {
       "id": "m2.s0.e3",
@@ -1312,7 +1375,8 @@
       "staffPosition": 2,
       "tick": 30240,
       "durationTicks": 6720,
-      "label": "half rest, measure 3"
+      "label": "half rest, measure 3",
+      "eventId": "m2.s0.e3"
     },
     "m2.s0.e4": {
       "id": "m2.s0.e4",
@@ -1333,7 +1397,8 @@
       "staffPosition": 2,
       "tick": 36960,
       "durationTicks": 3360,
-      "label": "quarter rest, measure 3"
+      "label": "quarter rest, measure 3",
+      "eventId": "m2.s0.e4"
     },
     "pb1": {
       "id": "pb1",
@@ -1354,7 +1419,13 @@
       "staffPosition": 5,
       "tick": 40320,
       "durationTicks": 1120,
-      "label": "C 4, eighth note, measure 4"
+      "label": "C 4, eighth note, measure 4",
+      "eventId": "pb1",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "pb2": {
       "id": "pb2",
@@ -1375,7 +1446,13 @@
       "staffPosition": 4.5,
       "tick": 41440,
       "durationTicks": 1120,
-      "label": "D 4, eighth note, measure 4"
+      "label": "D 4, eighth note, measure 4",
+      "eventId": "pb2",
+      "pitch": {
+        "step": 1,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "pb3": {
       "id": "pb3",
@@ -1396,7 +1473,13 @@
       "staffPosition": 4,
       "tick": 42560,
       "durationTicks": 1120,
-      "label": "E 4, eighth note, measure 4"
+      "label": "E 4, eighth note, measure 4",
+      "eventId": "pb3",
+      "pitch": {
+        "step": 2,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m3.s0.e3": {
       "id": "m3.s0.e3",
@@ -1417,7 +1500,8 @@
       "staffPosition": 2,
       "tick": 43680,
       "durationTicks": 6720,
-      "label": "half rest, measure 4"
+      "label": "half rest, measure 4",
+      "eventId": "m3.s0.e3"
     },
     "m3.s0.e4": {
       "id": "m3.s0.e4",
@@ -1438,7 +1522,8 @@
       "staffPosition": 2,
       "tick": 50400,
       "durationTicks": 3360,
-      "label": "quarter rest, measure 4"
+      "label": "quarter rest, measure 4",
+      "eventId": "m3.s0.e4"
     },
     "m4.s0.e0": {
       "id": "m4.s0.e0",
@@ -1459,7 +1544,13 @@
       "staffPosition": 5,
       "tick": 53760,
       "durationTicks": 1120,
-      "label": "C 4, eighth note, measure 5"
+      "label": "C 4, eighth note, measure 5",
+      "eventId": "m4.s0.e0",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m4.s0.e1": {
       "id": "m4.s0.e1",
@@ -1480,7 +1571,13 @@
       "staffPosition": 4.5,
       "tick": 54880,
       "durationTicks": 1120,
-      "label": "D 4, eighth note, measure 5"
+      "label": "D 4, eighth note, measure 5",
+      "eventId": "m4.s0.e1",
+      "pitch": {
+        "step": 1,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m4.s0.e2": {
       "id": "m4.s0.e2",
@@ -1501,7 +1598,13 @@
       "staffPosition": 4,
       "tick": 56000,
       "durationTicks": 1120,
-      "label": "E 4, eighth note, measure 5"
+      "label": "E 4, eighth note, measure 5",
+      "eventId": "m4.s0.e2",
+      "pitch": {
+        "step": 2,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m4.s0.e3": {
       "id": "m4.s0.e3",
@@ -1522,7 +1625,8 @@
       "staffPosition": 2,
       "tick": 57120,
       "durationTicks": 6720,
-      "label": "half rest, measure 5"
+      "label": "half rest, measure 5",
+      "eventId": "m4.s0.e3"
     },
     "m4.s0.e4": {
       "id": "m4.s0.e4",
@@ -1543,7 +1647,8 @@
       "staffPosition": 2,
       "tick": 63840,
       "durationTicks": 3360,
-      "label": "quarter rest, measure 5"
+      "label": "quarter rest, measure 5",
+      "eventId": "m4.s0.e4"
     },
     "m5.s0.e0": {
       "id": "m5.s0.e0",
@@ -1564,7 +1669,13 @@
       "staffPosition": 5,
       "tick": 67200,
       "durationTicks": 2240,
-      "label": "C 4, quarter note, measure 6"
+      "label": "C 4, quarter note, measure 6",
+      "eventId": "m5.s0.e0",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m5.s0.e1": {
       "id": "m5.s0.e1",
@@ -1585,7 +1696,13 @@
       "staffPosition": 4.5,
       "tick": 69440,
       "durationTicks": 2240,
-      "label": "D 4, quarter note, measure 6"
+      "label": "D 4, quarter note, measure 6",
+      "eventId": "m5.s0.e1",
+      "pitch": {
+        "step": 1,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m5.s0.e2": {
       "id": "m5.s0.e2",
@@ -1606,7 +1723,13 @@
       "staffPosition": 4,
       "tick": 71680,
       "durationTicks": 2240,
-      "label": "E 4, quarter note, measure 6"
+      "label": "E 4, quarter note, measure 6",
+      "eventId": "m5.s0.e2",
+      "pitch": {
+        "step": 2,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m5.s0.e3": {
       "id": "m5.s0.e3",
@@ -1627,7 +1750,13 @@
       "staffPosition": 3.5,
       "tick": 73920,
       "durationTicks": 3360,
-      "label": "F 4, quarter note, measure 6"
+      "label": "F 4, quarter note, measure 6",
+      "eventId": "m5.s0.e3",
+      "pitch": {
+        "step": 3,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m5.s0.e4": {
       "id": "m5.s0.e4",
@@ -1648,7 +1777,13 @@
       "staffPosition": 3,
       "tick": 77280,
       "durationTicks": 3360,
-      "label": "G 4, quarter note, measure 6"
+      "label": "G 4, quarter note, measure 6",
+      "eventId": "m5.s0.e4",
+      "pitch": {
+        "step": 4,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m6.s0.e0": {
       "id": "m6.s0.e0",
@@ -1669,7 +1804,13 @@
       "staffPosition": 3,
       "tick": 80640,
       "durationTicks": 2240,
-      "label": "G 4, quarter note, measure 7"
+      "label": "G 4, quarter note, measure 7",
+      "eventId": "m6.s0.e0",
+      "pitch": {
+        "step": 4,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m6.s0.e1": {
       "id": "m6.s0.e1",
@@ -1690,7 +1831,13 @@
       "staffPosition": 2.5,
       "tick": 82880,
       "durationTicks": 2240,
-      "label": "A 4, quarter note, measure 7"
+      "label": "A 4, quarter note, measure 7",
+      "eventId": "m6.s0.e1",
+      "pitch": {
+        "step": 5,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m6.s0.e2": {
       "id": "m6.s0.e2",
@@ -1711,7 +1858,13 @@
       "staffPosition": 5,
       "tick": 85120,
       "durationTicks": 2240,
-      "label": "C 4, quarter note, measure 7"
+      "label": "C 4, quarter note, measure 7",
+      "eventId": "m6.s0.e2",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m6.s0.e3": {
       "id": "m6.s0.e3",
@@ -1732,7 +1885,13 @@
       "staffPosition": 2.5,
       "tick": 87360,
       "durationTicks": 3360,
-      "label": "A 4, quarter note, measure 7"
+      "label": "A 4, quarter note, measure 7",
+      "eventId": "m6.s0.e3",
+      "pitch": {
+        "step": 5,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m6.s0.e4": {
       "id": "m6.s0.e4",
@@ -1753,7 +1912,13 @@
       "staffPosition": 3,
       "tick": 90720,
       "durationTicks": 3360,
-      "label": "G 4, quarter note, measure 7"
+      "label": "G 4, quarter note, measure 7",
+      "eventId": "m6.s0.e4",
+      "pitch": {
+        "step": 4,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m7.s0.e0": {
       "id": "m7.s0.e0",
@@ -1774,7 +1939,13 @@
       "staffPosition": 1,
       "tick": 94080,
       "durationTicks": 2240,
-      "label": "D 5, quarter note, measure 8"
+      "label": "D 5, quarter note, measure 8",
+      "eventId": "m7.s0.e0",
+      "pitch": {
+        "step": 1,
+        "alter": 0,
+        "octave": 5
+      }
     },
     "m7.s0.e1": {
       "id": "m7.s0.e1",
@@ -1795,7 +1966,13 @@
       "staffPosition": 0.5,
       "tick": 96320,
       "durationTicks": 2240,
-      "label": "E 5, quarter note, measure 8"
+      "label": "E 5, quarter note, measure 8",
+      "eventId": "m7.s0.e1",
+      "pitch": {
+        "step": 2,
+        "alter": 0,
+        "octave": 5
+      }
     },
     "m7.s0.e2": {
       "id": "m7.s0.e2",
@@ -1816,7 +1993,13 @@
       "staffPosition": 0,
       "tick": 98560,
       "durationTicks": 2240,
-      "label": "F 5, quarter note, measure 8"
+      "label": "F 5, quarter note, measure 8",
+      "eventId": "m7.s0.e2",
+      "pitch": {
+        "step": 3,
+        "alter": 0,
+        "octave": 5
+      }
     },
     "m7.s0.e3": {
       "id": "m7.s0.e3",
@@ -1837,7 +2020,13 @@
       "staffPosition": 0.5,
       "tick": 100800,
       "durationTicks": 3360,
-      "label": "E 5, quarter note, measure 8"
+      "label": "E 5, quarter note, measure 8",
+      "eventId": "m7.s0.e3",
+      "pitch": {
+        "step": 2,
+        "alter": 0,
+        "octave": 5
+      }
     },
     "m7.s0.e4": {
       "id": "m7.s0.e4",
@@ -1858,10 +2047,579 @@
       "staffPosition": 1,
       "tick": 104160,
       "durationTicks": 3360,
-      "label": "D 5, quarter note, measure 8"
+      "label": "D 5, quarter note, measure 8",
+      "eventId": "m7.s0.e4",
+      "pitch": {
+        "step": 1,
+        "alter": 0,
+        "octave": 5
+      }
     }
   },
-  "slots": [],
+  "slots": [
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 0,
+      "x": 5.764,
+      "w": 1.928,
+      "eventId": "m0.s0.e0",
+      "elementIds": [
+        "m0.s0.e0"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 1120,
+      "x": 7.692,
+      "w": 1.928,
+      "eventId": "m0.s0.e1",
+      "elementIds": [
+        "m0.s0.e1"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 2240,
+      "x": 9.62,
+      "w": 1.928,
+      "eventId": "m0.s0.e2",
+      "elementIds": [
+        "m0.s0.e2"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 3360,
+      "x": 11.548,
+      "w": 5.157,
+      "eventId": "m0.s0.e3",
+      "elementIds": [
+        "m0.s0.e3"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 10080,
+      "x": 16.705,
+      "w": 3.524,
+      "eventId": "m0.s0.e4",
+      "elementIds": [
+        "m0.s0.e4"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 13440,
+      "x": 21.189,
+      "w": 2.82,
+      "eventId": "m1.s0.e0",
+      "elementIds": [
+        "m1.s0.e0"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 15680,
+      "x": 24.009,
+      "w": 2.82,
+      "eventId": "m1.s0.e1",
+      "elementIds": [
+        "m1.s0.e1"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 17920,
+      "x": 26.829,
+      "w": 2.82,
+      "eventId": "m1.s0.e2",
+      "elementIds": [
+        "m1.s0.e2"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 20160,
+      "x": 29.65,
+      "w": 3.524,
+      "eventId": "m1.s0.e3",
+      "elementIds": [
+        "m1.s0.e3"
+      ]
+    },
+    {
+      "measureIndex": 1,
+      "voice": 0,
+      "tick": 23520,
+      "x": 33.174,
+      "w": 3.524,
+      "eventId": "m1.s0.e4",
+      "elementIds": [
+        "m1.s0.e4"
+      ]
+    },
+    {
+      "measureIndex": 2,
+      "voice": 0,
+      "tick": 26880,
+      "x": 37.657,
+      "w": 1.928,
+      "eventId": "m2.s0.e0",
+      "elementIds": [
+        "m2.s0.e0"
+      ]
+    },
+    {
+      "measureIndex": 2,
+      "voice": 0,
+      "tick": 28000,
+      "x": 39.585,
+      "w": 1.928,
+      "eventId": "m2.s0.e1",
+      "elementIds": [
+        "m2.s0.e1"
+      ]
+    },
+    {
+      "measureIndex": 2,
+      "voice": 0,
+      "tick": 29120,
+      "x": 41.513,
+      "w": 1.928,
+      "eventId": "m2.s0.e2",
+      "elementIds": [
+        "m2.s0.e2"
+      ]
+    },
+    {
+      "measureIndex": 2,
+      "voice": 0,
+      "tick": 30240,
+      "x": 43.441,
+      "w": 5.157,
+      "eventId": "m2.s0.e3",
+      "elementIds": [
+        "m2.s0.e3"
+      ]
+    },
+    {
+      "measureIndex": 2,
+      "voice": 0,
+      "tick": 36960,
+      "x": 48.598,
+      "w": 3.524,
+      "eventId": "m2.s0.e4",
+      "elementIds": [
+        "m2.s0.e4"
+      ]
+    },
+    {
+      "measureIndex": 3,
+      "voice": 0,
+      "tick": 40320,
+      "x": 53.082,
+      "w": 1.928,
+      "eventId": "pb1",
+      "elementIds": [
+        "pb1"
+      ]
+    },
+    {
+      "measureIndex": 3,
+      "voice": 0,
+      "tick": 41440,
+      "x": 55.01,
+      "w": 1.928,
+      "eventId": "pb2",
+      "elementIds": [
+        "pb2"
+      ]
+    },
+    {
+      "measureIndex": 3,
+      "voice": 0,
+      "tick": 42560,
+      "x": 56.938,
+      "w": 1.928,
+      "eventId": "pb3",
+      "elementIds": [
+        "pb3"
+      ]
+    },
+    {
+      "measureIndex": 3,
+      "voice": 0,
+      "tick": 43680,
+      "x": 58.866,
+      "w": 5.157,
+      "eventId": "m3.s0.e3",
+      "elementIds": [
+        "m3.s0.e3"
+      ]
+    },
+    {
+      "measureIndex": 3,
+      "voice": 0,
+      "tick": 50400,
+      "x": 64.023,
+      "w": 3.524,
+      "eventId": "m3.s0.e4",
+      "elementIds": [
+        "m3.s0.e4"
+      ]
+    },
+    {
+      "measureIndex": 4,
+      "voice": 0,
+      "tick": 53760,
+      "x": 68.507,
+      "w": 1.928,
+      "eventId": "m4.s0.e0",
+      "elementIds": [
+        "m4.s0.e0"
+      ]
+    },
+    {
+      "measureIndex": 4,
+      "voice": 0,
+      "tick": 54880,
+      "x": 70.435,
+      "w": 1.928,
+      "eventId": "m4.s0.e1",
+      "elementIds": [
+        "m4.s0.e1"
+      ]
+    },
+    {
+      "measureIndex": 4,
+      "voice": 0,
+      "tick": 56000,
+      "x": 72.363,
+      "w": 1.928,
+      "eventId": "m4.s0.e2",
+      "elementIds": [
+        "m4.s0.e2"
+      ]
+    },
+    {
+      "measureIndex": 4,
+      "voice": 0,
+      "tick": 57120,
+      "x": 74.291,
+      "w": 5.157,
+      "eventId": "m4.s0.e3",
+      "elementIds": [
+        "m4.s0.e3"
+      ]
+    },
+    {
+      "measureIndex": 4,
+      "voice": 0,
+      "tick": 63840,
+      "x": 79.447,
+      "w": 3.524,
+      "eventId": "m4.s0.e4",
+      "elementIds": [
+        "m4.s0.e4"
+      ]
+    },
+    {
+      "measureIndex": 5,
+      "voice": 0,
+      "tick": 67200,
+      "x": 83.931,
+      "w": 2.82,
+      "eventId": "m5.s0.e0",
+      "elementIds": [
+        "m5.s0.e0"
+      ]
+    },
+    {
+      "measureIndex": 5,
+      "voice": 0,
+      "tick": 69440,
+      "x": 86.752,
+      "w": 2.82,
+      "eventId": "m5.s0.e1",
+      "elementIds": [
+        "m5.s0.e1"
+      ]
+    },
+    {
+      "measureIndex": 5,
+      "voice": 0,
+      "tick": 71680,
+      "x": 89.572,
+      "w": 2.82,
+      "eventId": "m5.s0.e2",
+      "elementIds": [
+        "m5.s0.e2"
+      ]
+    },
+    {
+      "measureIndex": 5,
+      "voice": 0,
+      "tick": 73920,
+      "x": 92.392,
+      "w": 3.524,
+      "eventId": "m5.s0.e3",
+      "elementIds": [
+        "m5.s0.e3"
+      ]
+    },
+    {
+      "measureIndex": 5,
+      "voice": 0,
+      "tick": 77280,
+      "x": 95.916,
+      "w": 3.524,
+      "eventId": "m5.s0.e4",
+      "elementIds": [
+        "m5.s0.e4"
+      ]
+    },
+    {
+      "measureIndex": 6,
+      "voice": 0,
+      "tick": 80640,
+      "x": 3.284,
+      "w": 5.396,
+      "eventId": "m6.s0.e0",
+      "elementIds": [
+        "m6.s0.e0"
+      ]
+    },
+    {
+      "measureIndex": 6,
+      "voice": 0,
+      "tick": 82880,
+      "x": 8.68,
+      "w": 5.396,
+      "eventId": "m6.s0.e1",
+      "elementIds": [
+        "m6.s0.e1"
+      ]
+    },
+    {
+      "measureIndex": 6,
+      "voice": 0,
+      "tick": 85120,
+      "x": 14.076,
+      "w": 5.396,
+      "eventId": "m6.s0.e2",
+      "elementIds": [
+        "m6.s0.e2"
+      ]
+    },
+    {
+      "measureIndex": 6,
+      "voice": 0,
+      "tick": 87360,
+      "x": 19.471,
+      "w": 6.73,
+      "eventId": "m6.s0.e3",
+      "elementIds": [
+        "m6.s0.e3"
+      ]
+    },
+    {
+      "measureIndex": 6,
+      "voice": 0,
+      "tick": 90720,
+      "x": 26.202,
+      "w": 6.73,
+      "eventId": "m6.s0.e4",
+      "elementIds": [
+        "m6.s0.e4"
+      ]
+    },
+    {
+      "measureIndex": 7,
+      "voice": 0,
+      "tick": 94080,
+      "x": 33.892,
+      "w": 5.396,
+      "eventId": "m7.s0.e0",
+      "elementIds": [
+        "m7.s0.e0"
+      ]
+    },
+    {
+      "measureIndex": 7,
+      "voice": 0,
+      "tick": 96320,
+      "x": 39.288,
+      "w": 5.396,
+      "eventId": "m7.s0.e1",
+      "elementIds": [
+        "m7.s0.e1"
+      ]
+    },
+    {
+      "measureIndex": 7,
+      "voice": 0,
+      "tick": 98560,
+      "x": 44.684,
+      "w": 5.396,
+      "eventId": "m7.s0.e2",
+      "elementIds": [
+        "m7.s0.e2"
+      ]
+    },
+    {
+      "measureIndex": 7,
+      "voice": 0,
+      "tick": 100800,
+      "x": 50.079,
+      "w": 6.73,
+      "eventId": "m7.s0.e3",
+      "elementIds": [
+        "m7.s0.e3"
+      ]
+    },
+    {
+      "measureIndex": 7,
+      "voice": 0,
+      "tick": 104160,
+      "x": 56.81,
+      "w": 6.73,
+      "eventId": "m7.s0.e4",
+      "elementIds": [
+        "m7.s0.e4"
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "index": 0,
+      "systemIndex": 0,
+      "x": 0,
+      "w": 20.789,
+      "contentX": 5.764,
+      "startTick": 0,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    },
+    {
+      "index": 1,
+      "systemIndex": 0,
+      "x": 20.789,
+      "w": 16.469,
+      "contentX": 21.189,
+      "startTick": 13440,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    },
+    {
+      "index": 2,
+      "systemIndex": 0,
+      "x": 37.257,
+      "w": 15.425,
+      "contentX": 37.657,
+      "startTick": 26880,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    },
+    {
+      "index": 3,
+      "systemIndex": 0,
+      "x": 52.682,
+      "w": 15.425,
+      "contentX": 53.082,
+      "startTick": 40320,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    },
+    {
+      "index": 4,
+      "systemIndex": 0,
+      "x": 68.107,
+      "w": 15.425,
+      "contentX": 68.507,
+      "startTick": 53760,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    },
+    {
+      "index": 5,
+      "systemIndex": 0,
+      "x": 83.531,
+      "w": 16.469,
+      "contentX": 83.931,
+      "startTick": 67200,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    },
+    {
+      "index": 6,
+      "systemIndex": 1,
+      "x": 0,
+      "w": 33.492,
+      "contentX": 3.284,
+      "startTick": 80640,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    },
+    {
+      "index": 7,
+      "systemIndex": 1,
+      "x": 33.492,
+      "w": 31.508,
+      "contentX": 33.892,
+      "startTick": 94080,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    }
+  ],
   "diagnostics": [],
   "timemap": {
     "divisions": 3360,

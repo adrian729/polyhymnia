@@ -60,10 +60,11 @@ Note values: `breve`, `whole`, `half`, `quarter`, `eighth`, `16th`, `32nd`, `64t
 - More than one `scores[]` entry (only the first score's layout is used)
 - A synthesized positional id that collides with an id already in use (disambiguated with a `~2`, `~3`, … suffix, diagnostic `id-collision`); an explicit id reused on more than one laid-out element (diagnostic `id-collision`, first occurrence wins)
 
-Two constructs the engine reads but doesn't yet lay out are downstream of `normalize`, not gated through the same `unsupported()` helper, so they get their own diagnostic codes instead of `mnx-unsupported`:
+One construct the engine reads but doesn't yet lay out is downstream of `normalize`, not gated through the same `unsupported()` helper, so it gets its own diagnostic code instead of `mnx-unsupported`:
 
-- A 2nd voice (`sequences[1]`) is parsed and carried through `temporal`, but `layout/vertical.ts` only lays out voice 0 today — diagnostic `voice-1-not-yet-supported` (warning), one per measure that has one.
 - Anything past 2 sequences never reaches `temporal` at all — diagnostic `too-many-voices` (warning), from `normalize.ts`, listing how many were dropped.
+
+A 2nd voice (`sequences[1]`) is parsed, carried through `temporal`, and laid out by `layout/vertical.ts` (`engraving.md` "Two voices").
 
 ## Beams
 
@@ -95,6 +96,8 @@ Beam id = the MNX `beams[].id` when given, otherwise `{firstElementId}.beam` via
 
 Every element the engine lays out gets an id: the MNX `id` when the document supplies one, otherwise a deterministic positional id. Content an app references — playback highlight, quiz lookups, click targets — **must** carry a real MNX `id`; a positional id is stable only until the document is edited.
 
+Id synthesis is a single shared implementation, `elementIds(doc)` in `notation-model` (`@polyhymnia/notation-model`'s `elementIds`/`ElementIds`/`NoteId`). It walks `parts[0]`'s staff-1 sequences once, in the same order and with the same rules the engine used to apply inline, and hands back an identity-keyed lookup (`idOf(node)`/`nodeOf(id)`) plus `mint(candidate)`/`resolve(explicit, candidate)` for ids assigned outside that walk (beams). `notation-engine`'s `normalize.ts` no longer synthesizes ids itself; it only looks up what `elementIds` already computed.
+
 Positional id shapes (measure `m`, sequence `s`, event index `k` within its voice):
 
 | Element | Positional id |
@@ -106,7 +109,9 @@ Positional id shapes (measure `m`, sequence `s`, event index `k` within its voic
 | A synthetic padding rest (underfull measure) | `m{measure}.v{voice}.pad{k}` |
 | A beam | the MNX `beams[].id`, or `{firstElementId}.beam` |
 
-Every explicit `id` in the document is scanned up front, so a positional id is never silently assigned to two different elements: if a synthesized candidate collides with an id already in use (explicit or previously synthesized), it gets a deterministic `~2`, `~3`, … suffix instead, plus diagnostic `id-collision`. Two elements that explicitly share the same `id` also get `id-collision`; the first occurrence keeps the id, the rest are unaddressable by it.
+`k` is advanced by every event *and* by every child of a `grace` or `tremolo` container, even though those children are never themselves laid out or given an id — so an unlabeled event after a grace group or a tremolo gets the index it would have had if those children had been ordinary events.
+
+Every explicit `id` in the document is scanned up front, so a positional id is never silently assigned to two different elements: if a synthesized candidate collides with an id already in use (explicit or previously synthesized), it gets a deterministic `~2`, `~3`, … suffix instead, plus diagnostic `id-collision`. Two elements that explicitly share the same `id` also get `id-collision`; the first occurrence keeps the id, the rest are unaddressable by it. All `id-collision` diagnostics — element/tuplet/event ones from the model's own id pass, then any from beam id resolution — are appended after every other diagnostic, so they always land at the end of `NormalizedScore.diagnostics`.
 
 ## Time: rationals internally, integer ticks at the boundary
 
@@ -159,15 +164,16 @@ Codes actually produced today (verify against `normalize.ts`/`temporal.ts`/`vert
 | `invalid-duration` | warning | `normalize` | An event's `duration` has no readable `base`; the event is skipped |
 | `invalid-pitch` | warning | `normalize` | A note's `pitch` is missing `step`/`octave`; drawn as C4 |
 | `tie-target-unresolved` | warning | `normalize` | `tie.target` doesn't resolve to a laid-out note id; the tie is ignored |
+| `tie-target-not-adjacent` | warning | `normalize` | `tie.target` doesn't resolve to the next event of the same voice; drawn anyway |
 | `system-measure-unresolved` | warning | `normalize` | A `systems[].measure` id doesn't resolve to a global measure; ignored |
 | `id-collision` | warning | `normalize`, `temporal` | A synthesized positional id collided with an id already in use (disambiguated with a `~n` suffix), or the same explicit id was assigned to more than one laid-out element (first occurrence wins) |
 | `zero-length-element` | warning | `temporal` | An event's resolved duration is zero (or negative); skipped |
 | `measure-underfull` | warning | `temporal` | A non-pickup measure doesn't fill its capacity; padded |
 | `measure-overfull` | error | `temporal` | A measure exceeds its capacity; truncated at the barline |
-| `voice-1-not-yet-supported` | warning | `vertical` | A measure has a 2nd sequence, parsed but not yet laid out |
 | `beam-invalid` | warning | `normalize` | A `beams[]` entry references an unknown/cross-measure/cross-voice/non-beamable event, has fewer than two notes (after deduplicating repeated ids and dropping members at or past the measure's capacity), or reuses an event another beam already claimed; dropped |
 | `beam-grouping-invalid` | warning | `normalize` | `options.beaming.beatGrouping[meter]` doesn't sum to the bar; falls back to the default table (`engraving.md`), once per meter |
 | `mnx-unsupported` ("mixed stem directions in a beam") | warning | `vertical` | Two notes in the same beam group carry conflicting explicit `stemDirection`; the first one wins |
+| `tie-unplaced` | warning | `curves` | A resolved tie's `from`/`to` note wasn't laid out (dropped upstream); no curve drawn |
 
 ## Pinned schema, examples, and updating
 
@@ -191,6 +197,6 @@ which re-downloads the schema and examples at that commit, regenerates the types
 ## Testing
 
 - **Schema test** (`notation-engine/test/schema.test.ts`): every fixture in `notation-engine/test/fixtures/` validates against the pinned `mnx-schema.json` with Ajv (devDependency only — never in a runtime bundle, `AGENTS.md`).
-- **Conformance test** (`notation-engine/test/conformance.test.ts`): runs all 52 vendored official examples through `layoutScore()`. Every one must lay out without throwing; each is asserted against an exact expected diagnostic-code list (`EXPECTED_CODES` in that file) — most produce `[]` or `['mnx-unsupported']`, a few hit `no-measures`/`system-measure-unresolved`/`voice-1-not-yet-supported`/`measure-underfull`/`measure-count-mismatch`/`beam-invalid` for constructs described above. This is what actually proves the mapping table in this file, not the table itself — re-run it after any `normalize.ts`/`temporal.ts` change.
+- **Conformance test** (`notation-engine/test/conformance.test.ts`): runs all 52 vendored official examples through `layoutScore()`. Every one must lay out without throwing; each is asserted against an exact expected diagnostic-code list (`EXPECTED_CODES` in that file) — most produce `[]` or `['mnx-unsupported']`, a few hit `no-measures`/`system-measure-unresolved`/`measure-underfull`/`measure-count-mismatch`/`beam-invalid` for constructs described above. This is what actually proves the mapping table in this file, not the table itself — re-run it after any `normalize.ts`/`temporal.ts` change.
 - **MNX↔engine mapping test** (`notation-engine/test/mnx-mapping.test.ts`): targeted cases for individual mapping rules (clef resolution, tie resolution, tuplet ratios, barline types, beam resolution/auto-beaming, …).
 - **Pipeline test** (`notation-engine/test/pipeline.test.ts`) keeps its malformed-input cases as malformed MNX — feeding `normalize`/`temporal` documents missing fields, invalid divisions, too many voices, etc., and asserting the diagnostic degrade path rather than a throw.

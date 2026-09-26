@@ -20,8 +20,11 @@ import {
 } from './records.js';
 import type { NotationOptions } from '../options.js';
 import type { BeamsResult } from './beams.js';
+import type { CurvesResult } from './curves.js';
 import type { TupletsResult } from './tuplets.js';
 import { buildTimeMap, type MeasureTime, type Placement } from '../query/timemap.js';
+import { buildMeasureBox } from '../query/measures.js';
+import { measureSlots } from '../query/slots.js';
 import {
   KEY_GAP,
   cancelledAccidentals,
@@ -36,8 +39,10 @@ import type {
   ElementBox,
   GlyphRun,
   LayoutResult,
+  MeasureBox,
   PathShape,
   RectShape,
+  Slot,
   SystemBox,
 } from './types.js';
 import { stemX, type NoteheadLayout, type VerticalElement } from './vertical.js';
@@ -56,6 +61,7 @@ export interface EmitInput {
   diagnostics: readonly Diagnostic[];
   beams: BeamsResult;
   tuplets: TupletsResult;
+  curves: CurvesResult;
 }
 
 export function emit(input: EmitInput, _options?: NotationOptions): LayoutResult {
@@ -65,10 +71,12 @@ export function emit(input: EmitInput, _options?: NotationOptions): LayoutResult
   const elements: Record<string, ElementBox> = {};
   const systems: SystemBox[] = [];
   const measureTimes: MeasureTime[] = [];
+  const measures: MeasureBox[] = [];
+  const slots: Slot[] = [];
   const placement = new Map<NoteId, Placement>();
 
   const width = Math.max(input.justified.width, 1);
-  const { above, below } = contentMargins(input.justified, input.beams, input.tuplets);
+  const { above, below } = contentMargins(input.justified, input.beams, input.tuplets, input.curves);
   const topMargin = Math.max(TOP_MARGIN, above);
   const bottomMargin = Math.max(BOTTOM_MARGIN, below);
   const systemGap = Math.max(SYSTEM_GAP, above + below);
@@ -94,6 +102,9 @@ export function emit(input: EmitInput, _options?: NotationOptions): LayoutResult
         x: measure.x,
         w: measure.width,
       });
+
+      measures.push(buildMeasureBox(measure, system.index));
+      slots.push(...measureSlots(measure));
 
       const contentRight = measure.x + measure.width - measure.chrome.endBarlineWidth;
       measure.columns.forEach((column, i) => {
@@ -142,6 +153,10 @@ export function emit(input: EmitInput, _options?: NotationOptions): LayoutResult
     const staffTop = staffTopOf.get(numeral.systemIndex) ?? 0;
     glyphs.push(glyph(numeral.name, numeral.x, staffTop + numeral.y, 'tuplet-number', numeral.el));
   }
+  for (const curve of input.curves.shapes) {
+    const staffTop = staffTopOf.get(curve.systemIndex) ?? 0;
+    paths.push({ d: offsetPathY(curve.d, staffTop), cls: curve.cls, el: curve.el });
+  }
 
   const height =
     topMargin +
@@ -152,9 +167,7 @@ export function emit(input: EmitInput, _options?: NotationOptions): LayoutResult
   const timemap = buildTimeMap({
     divisions: input.divisions,
     tempo: input.tempo,
-    elements: input.temporal.elements.filter(
-      (e) => e.voice === 0 && e.staffIndex === 0,
-    ),
+    elements: input.temporal.elements.filter((e) => e.staffIndex === 0),
     placement,
     measures: measureTimes,
     systems,
@@ -168,9 +181,8 @@ export function emit(input: EmitInput, _options?: NotationOptions): LayoutResult
     rects,
     paths, // beams (stage 9); ties and slurs are stage 10, not in this slice
     elements,
-    // TODO(interaction.md): `query/slots.ts` generates the slot bands from the column
-    // x-ranges this stage already knows; until it lands there are no slots.
-    slots: [],
+    slots,
+    measures,
     timemap,
     diagnostics: input.diagnostics,
   };
@@ -476,6 +488,7 @@ function emitRest(element: VerticalElement, ctx: ElementContext): void {
     tick: element.tick,
     durationTicks: element.durationTicks,
     label: restLabel(element, rest.wholeBar),
+    eventId: element.id,
   };
   ctx.placement.set(element.id, { systemIndex: ctx.systemIndex, x, y });
 }
@@ -504,6 +517,8 @@ function noteBox(
     tick: element.tick,
     durationTicks: element.durationTicks,
     label: `${describePitch(head.pitch)}, ${describeDuration(element.duration, 'note')}, measure ${element.measureIndex + 1}`,
+    eventId: element.id,
+    pitch: head.pitch,
   };
 }
 
@@ -539,6 +554,7 @@ function contentMargins(
   justified: JustifiedScore,
   beamsResult: BeamsResult,
   tupletsResult: TupletsResult,
+  curvesResult: CurvesResult,
 ): { above: number; below: number } {
   let minY = 0;
   let maxY = STAFF_HEIGHT;
@@ -584,10 +600,35 @@ function contentMargins(
     maxY = Math.max(maxY, numeral.y - bbox.bBoxSW[1]);
   }
 
+  for (const curve of curvesResult.shapes) {
+    const [curveMin, curveMax] = pathYExtent(curve.d);
+    minY = Math.min(minY, curveMin);
+    maxY = Math.max(maxY, curveMax);
+  }
+
   return {
     above: Math.max(0, -minY) + CONTENT_PAD,
     below: Math.max(0, maxY - STAFF_HEIGHT) + CONTENT_PAD,
   };
+}
+
+function pathYExtent(d: string): [number, number] {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const match of d.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)) {
+    const y = Number(match[2]);
+    min = Math.min(min, y);
+    max = Math.max(max, y);
+  }
+  return [Number.isFinite(min) ? min : 0, Number.isFinite(max) ? max : 0];
+}
+
+function offsetPathY(d: string, dy: number): string {
+  if (dy === 0) return d;
+  return d.replace(
+    /(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g,
+    (_match, x: string, y: string) => `${x},${(Number(y) + dy).toFixed(3)}`,
+  );
 }
 
 function pathFrom(points: readonly (readonly [number, number])[], staffTop: number): string {

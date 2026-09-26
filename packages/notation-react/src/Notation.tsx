@@ -6,18 +6,31 @@
 // the component is SSR-safe.
 
 import { Children, isValidElement, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
-import type { CSSProperties, JSX, ReactNode, Ref } from 'react';
-import { layoutScore } from '@polyhymnia/notation-engine';
+import type {
+  CSSProperties,
+  JSX,
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+  ReactNode,
+  Ref,
+} from 'react';
+import { HIT_STAFF_MARGIN, hitTest, layoutScore, previewShapes } from '@polyhymnia/notation-engine';
 import type {
   ElementBox,
   GlyphRun,
+  HitResult,
   LayoutResult,
   NotationOptions,
   RectShape,
   TimeMap,
   ViewBox,
 } from '@polyhymnia/notation-engine';
-import type { MnxDocument } from '@polyhymnia/notation-model';
+import type { MnxDocument, NoteId } from '@polyhymnia/notation-model';
+import { InteractionChild, clientToLayoutPoint, hitIdentity, resolveHitOptions } from './Interaction.js';
+import type { NotationInteractionProps, NotationIntent } from './Interaction.js';
+import { MarksChild } from './Marks.js';
+import type { NotationMarksProps } from './Marks.js';
 
 export type PlaybackView =
   | { mode: 'off' }
@@ -43,12 +56,10 @@ export interface NotationHandle {
   getTimeMap(): TimeMap;
   /** Serializes the mounted `<svg>`, standalone (xmlns added), for export or snapshots. */
   exportSVG(): string;
-  /** @throws always — no engine `hitTest` yet (roadmap.md Phase 3+). */
-  hitTest(point: { x: number; y: number }): never;
+  hitTest(point: { x: number; y: number }, opts?: Parameters<typeof hitTest>[2]): HitResult | null;
   setPlaybackTick(tick: number): void;
   animateCursor(span: unknown): never;
-  /** @throws always — needs the per-element focus targets interaction.md adds. */
-  focus(id: string): never;
+  focus(id: NoteId): void;
 }
 
 export interface NotationProps {
@@ -78,7 +89,11 @@ export function Notation({
   const layout = useMemo(() => layoutScore(score, options), [score, options]);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const elementRefs = useRef(new Map<string, SVGGElement>());
+  const lastHoverRef = useRef<string | null>(null);
   const playbackView = extractPlaybackView(children);
+  const interaction = extractInteraction(children);
+  const marks = extractMarks(children);
+  const targets = interaction?.targets ?? EMPTY_TARGETS;
 
   useEffect(() => {
     onLayout?.(layout);
@@ -89,19 +104,70 @@ export function Notation({
     else if (playbackView === undefined || playbackView.mode === 'off') setPlaying(elementRefs.current, EMPTY_IDS);
   }, [playbackView, layout]);
 
+  useEffect(() => {
+    setStates(elementRefs.current, marks?.states);
+    setSelection(elementRefs.current, marks?.selection);
+  }, [marks?.states, marks?.selection, layout]);
+
+  useEffect(() => {
+    if (lastHoverRef.current === null) return;
+    lastHoverRef.current = null;
+    interaction?.onIntent?.({ type: 'hover', target: null }, { layout, nativeEvent: new MouseEvent('pointerleave') });
+  }, [layout]);
+
   useImperativeHandle(
     ref,
     (): NotationHandle => ({
       getLayout: () => layout,
       getTimeMap: () => layout.timemap,
       exportSVG: () => serialize(svgRef.current),
-      hitTest: () => notYet('hitTest'),
+      hitTest: (point, opts) => hitTest(layout, point, opts),
       setPlaybackTick: (tick) => setPlaying(elementRefs.current, new Set(layout.timemap.activeAt(tick))),
       animateCursor: () => notYet('animateCursor'),
-      focus: () => notYet('focus'),
+      focus: (id) => elementRefs.current.get(id)?.focus(),
     }),
     [layout],
   );
+
+  const handleClick = (event: ReactMouseEvent<SVGSVGElement>): void => {
+    if (!interaction?.onIntent || targets.length === 0 || !svgRef.current) return;
+    const point = clientToLayoutPoint(svgRef.current, event.clientX, event.clientY);
+    if (!point) return;
+    const hit = hitTest(layout, point, resolveHitOptions(interaction, options));
+    if (hit) {
+      interaction.onIntent({ type: 'activate', target: hit }, { layout, nativeEvent: event.nativeEvent });
+    }
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    if (!interaction?.onIntent || targets.length === 0 || !svgRef.current) return;
+    const point = clientToLayoutPoint(svgRef.current, event.clientX, event.clientY);
+    const hit = point ? hitTest(layout, point, resolveHitOptions(interaction, options)) : null;
+    const identity = hit ? hitIdentity(hit) : null;
+    if (identity === lastHoverRef.current) return;
+    lastHoverRef.current = identity;
+    interaction.onIntent({ type: 'hover', target: hit }, { layout, nativeEvent: event.nativeEvent });
+  };
+
+  const handlePointerLeave = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    if (!interaction?.onIntent || lastHoverRef.current === null) return;
+    lastHoverRef.current = null;
+    interaction.onIntent({ type: 'hover', target: null }, { layout, nativeEvent: event.nativeEvent });
+  };
+
+  const isElementKeyboardTarget = (id: string): boolean =>
+    targets.includes('element') && (interaction?.voice === undefined || layout.elements[id]?.voice === interaction.voice);
+
+  const handleElementKeyDown = (id: NoteId) => (event: ReactKeyboardEvent<SVGGElement>): void => {
+    if (!interaction?.onIntent || !isElementKeyboardTarget(id)) return;
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const box = layout.elements[id];
+    if (!box) return;
+    event.preventDefault();
+    const center = { x: box.hitBox.x + box.hitBox.w / 2, y: box.hitBox.y + box.hitBox.h / 2 };
+    const hit = hitTest(layout, center, { ...resolveHitOptions(interaction, options), kinds: ['element'] });
+    if (hit) interaction.onIntent({ type: 'activate', target: hit }, { layout, nativeEvent: event.nativeEvent });
+  };
 
   return (
     <svg
@@ -111,12 +177,31 @@ export function Notation({
       viewBox={viewBoxAttr(layout.viewBox)}
       role="img"
       aria-label={describeScore(layout)}
+      onClick={handleClick}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
     >
       <g data-pn="rules">
         {layout.rects.map((r, i) => (
           <Rect key={`r${i}`} shape={r} />
         ))}
       </g>
+      {targets.length > 0 && (
+        <g data-pn="hit-overlays">
+          {layout.systems.map((s) => (
+            <rect
+              key={`hit-${s.index}`}
+              data-pn="hit-overlay"
+              x={s.x}
+              y={s.y - HIT_STAFF_MARGIN}
+              width={s.w}
+              height={s.h + HIT_STAFF_MARGIN * 2}
+              fill="transparent"
+              pointerEvents="all"
+            />
+          ))}
+        </g>
+      )}
       {/* Beams (stage 9) render here now; ties and slurs are stage 10 and still empty.
           One layer for every `PathShape`, so their arrival is a map over data, not a
           change of DOM shape. */}
@@ -137,16 +222,15 @@ export function Notation({
           group.el === undefined ? (
             group.glyphs.map((g, j) => <Glyph key={`g${i}-${j}`} glyph={g} />)
           ) : (
-            // One `<g role="img">` per element, labelled from `ElementBox.label`
-            // (interaction.md "## Accessibility"). No tabIndex/role="button": those
-            // belong to insert/select mode, which does not exist yet.
             <g
               key={`g${i}`}
               ref={elementRef(elementRefs.current, group.el)}
-              role="img"
+              role={isElementKeyboardTarget(group.el) ? 'button' : 'img'}
+              tabIndex={isElementKeyboardTarget(group.el) ? 0 : undefined}
               aria-label={layout.elements[group.el]?.label ?? group.el}
               data-pn="element"
               data-pn-el={group.el}
+              onKeyDown={isElementKeyboardTarget(group.el) ? handleElementKeyDown(group.el) : undefined}
             >
               {group.glyphs.map((g, j) => (
                 <Glyph key={`g${i}-${j}`} glyph={g} />
@@ -155,6 +239,7 @@ export function Notation({
           ),
         )}
       </g>
+      {marks?.preview != null && <PreviewGroup layout={layout} preview={marks.preview} />}
       {children}
     </svg>
   );
@@ -162,6 +247,22 @@ export function Notation({
 
 export namespace Notation {
   export const Playback = PlaybackChild;
+  export const Interaction = InteractionChild;
+  export const Marks = MarksChild;
+}
+
+function PreviewGroup({ layout, preview }: { layout: LayoutResult; preview: NonNullable<NotationMarksProps['preview']> }): JSX.Element {
+  const { glyphs, rects } = previewShapes(layout, preview);
+  return (
+    <g data-pn="preview" fontSize={GLYPH_FONT_SIZE}>
+      {rects.map((r, i) => (
+        <Rect key={`pr${i}`} shape={r} />
+      ))}
+      {glyphs.map((g, i) => (
+        <Glyph key={`pg${i}`} glyph={g} />
+      ))}
+    </g>
+  );
 }
 
 function Rect({ shape }: { shape: RectShape }): JSX.Element {
@@ -239,6 +340,7 @@ function classNames(...parts: (string | undefined)[]): string {
 }
 
 const EMPTY_IDS: ReadonlySet<string> = new Set();
+const EMPTY_TARGETS: readonly [] = [];
 
 function extractPlaybackView(children: ReactNode): PlaybackView | undefined {
   let view: PlaybackView | undefined;
@@ -246,6 +348,38 @@ function extractPlaybackView(children: ReactNode): PlaybackView | undefined {
     if (isValidElement<NotationPlaybackProps>(child) && child.type === PlaybackChild) view = child.props.view;
   });
   return view;
+}
+
+function extractInteraction(children: ReactNode): NotationInteractionProps | undefined {
+  let props: NotationInteractionProps | undefined;
+  Children.forEach(children, (child) => {
+    if (isValidElement<NotationInteractionProps>(child) && child.type === InteractionChild) props = child.props;
+  });
+  return props;
+}
+
+function extractMarks(children: ReactNode): NotationMarksProps | undefined {
+  let props: NotationMarksProps | undefined;
+  Children.forEach(children, (child) => {
+    if (isValidElement<NotationMarksProps>(child) && child.type === MarksChild) props = child.props;
+  });
+  return props;
+}
+
+function setStates(refs: Map<string, SVGGElement>, states: NotationMarksProps['states'] | undefined): void {
+  for (const [id, el] of refs) {
+    const value = states?.[id];
+    if (value !== undefined) el.setAttribute('data-pn-state', value);
+    else el.removeAttribute('data-pn-state');
+  }
+}
+
+function setSelection(refs: Map<string, SVGGElement>, selection: NotationMarksProps['selection'] | undefined): void {
+  const set = selection ? new Set(selection) : EMPTY_IDS;
+  for (const [id, el] of refs) {
+    if (set.has(id)) el.setAttribute('data-pn-selected', 'true');
+    else el.removeAttribute('data-pn-selected');
+  }
 }
 
 function elementRef(refs: Map<string, SVGGElement>, id: string) {

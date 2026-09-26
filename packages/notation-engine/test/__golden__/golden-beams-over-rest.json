@@ -165,7 +165,13 @@
       "staffPosition": 5,
       "tick": 0,
       "durationTicks": 1680,
-      "label": "C 4, eighth note, measure 1"
+      "label": "C 4, eighth note, measure 1",
+      "eventId": "a",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "r": {
       "id": "r",
@@ -186,7 +192,8 @@
       "staffPosition": 2,
       "tick": 1680,
       "durationTicks": 1680,
-      "label": "eighth rest, measure 1"
+      "label": "eighth rest, measure 1",
+      "eventId": "r"
     },
     "b": {
       "id": "b",
@@ -207,7 +214,13 @@
       "staffPosition": 4.5,
       "tick": 3360,
       "durationTicks": 1680,
-      "label": "D 4, eighth note, measure 1"
+      "label": "D 4, eighth note, measure 1",
+      "eventId": "b",
+      "pitch": {
+        "step": 1,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m0.s0.e3": {
       "id": "m0.s0.e3",
@@ -228,10 +241,73 @@
       "staffPosition": 2,
       "tick": 5040,
       "durationTicks": 6720,
-      "label": "half rest, measure 1"
+      "label": "half rest, measure 1",
+      "eventId": "m0.s0.e3"
     }
   },
-  "slots": [],
+  "slots": [
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 0,
+      "x": 5.764,
+      "w": 11.278,
+      "eventId": "a",
+      "elementIds": [
+        "a"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 1680,
+      "x": 17.042,
+      "w": 11.278,
+      "eventId": "r",
+      "elementIds": [
+        "r"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 3360,
+      "x": 28.32,
+      "w": 11.278,
+      "eventId": "b",
+      "elementIds": [
+        "b"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 5040,
+      "x": 39.598,
+      "w": 23.942,
+      "eventId": "m0.s0.e3",
+      "elementIds": [
+        "m0.s0.e3"
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "index": 0,
+      "systemIndex": 0,
+      "x": 0,
+      "w": 65,
+      "contentX": 5.764,
+      "startTick": 0,
+      "capacityTicks": 11760,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    }
+  ],
   "diagnostics": [],
   "timemap": {
     "divisions": 3360,

@@ -1,12 +1,10 @@
 # Interaction
 
-Not implemented yet — hit-testing, slots, and `applyIntent` exist only as this design (`roadmap.md`'s testing/phase notes). Written against MNX throughout, since that's the only score format there is to design against (`AGENTS.md`).
+Hit-testing, slots, `MeasureBox`, `<Notation.Interaction>`/`<Notation.Marks>`, and `applyIntent`'s one intent (`setPitches`) are all implemented (`query/hitTest.ts`, `query/slots.ts`, `query/preview.ts` in `notation-engine`; `Interaction.tsx`, `Marks.tsx` in `notation-react`; `edit/apply.ts` in `notation-model`). Everything under "Deferred editor features" below is design-only and out of scope until an exercise actually needs it. Written against MNX throughout, since that's the only score format there is to design against (`AGENTS.md`).
 
 ## Hit-testing
 
-Hybrid: per-element `<g>` for existing elements (exact) + one overlay `<rect>` per system for empty space, both resolved through one engine `hitTest()` function — pure, no DOM geometry, runs in Node (entered only via the real function signature, `roadmap.md`).
-
-Rejected: an invisible `<rect>` per (slot × staff position) — a 4-measure 16th grid with ±4 ledger positions is ≈1,700 nodes: DOM bloat, reconciliation cost, and the rects fight real elements for pointer events.
+Hybrid: per-element `<g>` for existing elements (exact) + one overlay `<rect>` per system for empty space, both resolved through one engine `hitTest()` function — pure, no DOM geometry, runs in Node.
 
 ```ts
 // pointer -> sp coords: the only geometry the React layer performs
@@ -14,138 +12,136 @@ const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
 const { x, y } = pt.matrixTransform(svg.getScreenCTM()!.inverse());
 
 function hitTest(layout: LayoutResult, p: {x:number;y:number}, opts?: HitOptions): HitResult | null;
-interface HitOptions { voice?: 0|1; includeChrome?: boolean; radius?: number }   // radius: sp tolerance, default 0.5
+
+type HitKind = 'element' | 'slot' | 'point';
+interface HitOptions { kinds?: readonly HitKind[]; voice?: 0|1; radius?: number; insertAlteration?: 'key'|'natural' }
+// kinds default: ['element', 'slot', 'point'], tried in that order. radius: sp tolerance, default 0.5.
+// insertAlteration default 'key'.
 type HitResult =
-  | { kind:'element'; id:NoteId; part:'notehead'|'stem'|'flag'|'accidental'|'dot'|'rest'; box:ElementBox; staffPosition:number }
-  | { kind:'slot'; slot:SlotRef; staffPosition:number; pitch:Pitch }
-  | { kind:'chrome'; part:'clef'|'key'|'time'|'barline'; measureIndex:number };
+  | { kind:'element'; id:NoteId; part:'notehead'|'rest'; box:ElementBox; staffPosition:number; pitch:Pitch|null }
+  | { kind:'slot'; slot:Slot; staffPosition:number; pitch:Pitch }
+  | { kind:'point'; measureIndex:number; systemIndex:number; x:number; tick:number; staffPosition:number; pitch:Pitch };
 ```
 
-`NoteId` is a plain string — the MNX id when the document supplies one, else the engine's deterministic positional id (`mnx.md`'s ID rule). `Pitch` here is MNX's pitch shape, `{ step: 'A'..'G'; alter?: number; octave: number }` (`notation-model`'s `types.ts`), the same shape `parsePitch('C#4')` produces.
+`NoteId` is a plain string — the MNX id when the document supplies one, else the engine's deterministic positional id (`mnx.md`'s ID rule). `Pitch` here is MNX's pitch shape, `{ step: 'A'..'G'; alter?: number; octave: number }` (`notation-model`'s `types.ts`), the same shape `parsePitch('C#4')` produces — `hitTest` omits `alter` when it's 0.
+
+Resolution: a system is found first from `p.y` (staff band ±4 sp, a ledger-line allowance — a point further off-staff than that misses every kind and `hitTest` returns `null`); `element` is tried against every `ElementBox` in that system regardless of measure (its own padded `hitBox`, expanded by `opts.radius`); a chord's several member boxes at the same x resolve to the member whose `staffPosition` is nearest the click. `slot`/`point` then need a `MeasureBox` found from `p.x` within that system — no matching measure means both miss. `element`'s `pitch` is `null` for a rest, otherwise the same key-relative derivation as `slot`/`point` (below) from the box's own `staffPosition`, not the note's true written accidental — `ElementBox` doesn't carry the written `Pitch`, only position.
 
 ## Slot model
 
-Addressable insertion points, emitted by the layout pipeline's `emit` stage (only it knows column x-ranges — `architecture.md`).
+Addressable insertion points, emitted by the layout pipeline's `emit` stage (only it knows column x-ranges — `architecture.md`), one slot per existing event onset per voice.
 
 ```ts
 interface SlotRef { measureIndex: number; voice: 0|1; tick: number }
 interface Slot extends SlotRef {
   x: number; w: number;              // horizontal band, bands tile the measure with no gaps
-  occupiedBy?: NoteId;
-  gridTicks: number;
+  eventId: NoteId;                    // the event-level id — Slot.eventId/ElementBox.eventId
+  elementIds: readonly NoteId[];      // that event's ElementBox ids: one id, or one per chord member
 }
 ```
 
-Generation, per measure/voice: union of (a) existing element onsets and (b) a regular grid at `options.insertGrid` resolution (an MNX note value, default: the beat subdivision implied by the meter, e.g. an eighth in 4/4), **excluding grid ticks that fall inside an existing note's span** (between its onset and onset+duration, exclusive of the onset itself) — a note is atomic, so no slot may target a tick a `spliceVoice` call would have to reject. Ticks inside a *rest*'s span stay included: splitting a rest into `insertGrid`-sized pieces is exactly what `fillRests` already does. Each slot's x-band = midpoint-to-midpoint tiling.
+Generation, per measure/voice: one slot per column's element at that voice (`query/slots.ts`) — no grid subdivision. A whole-bar (`fullMeasure`) rest gets one slot spanning the whole measure's content band (`MeasureBox.contentX` to the measure's right edge) instead of a column band; its `eventId` is the same id `isFullMeasureRest` checks in `notation-model`, so a dictation `setPitches` against it correctly no-ops with `intent-target-unsupported` (below) rather than editing something that isn't a real event. Non-whole-bar slots tile the measure column-to-column: each column's band runs from its own x to the next column's x (or the measure's content-right edge for the last column), so bands are contiguous with no gaps or overlaps.
 
-`staffPosition = round(y*2)/2`. `pitch` = invert the pitch→y formula (`architecture.md`) + current key signature's alteration for that step, expressed as an MNX pitch — clicking the F line in D major yields F♯, not F♮ (`options.accidentals.insertAlteration: 'key' | 'natural'` switches this).
+`staffPosition = round(y*2)/2`. `pitch` = invert the pitch→y formula (`architecture.md`) + current key signature's alteration for that step, expressed as an MNX pitch — clicking the F line in D major yields F♯, not F♮ (`opts.insertAlteration: 'key' | 'natural'` switches this; `'natural'` always yields `alter: 0`).
+
+## `MeasureBox` and preview
+
+```ts
+interface MeasureBox {
+  index: number; systemIndex: number;
+  x: number; w: number; contentX: number;
+  startTick: number; capacityTicks: number;
+  clef: ClefSpec; key: KeySpec;
+}
+```
+
+`LayoutResult.measures` carries one `MeasureBox` per `HorizontalMeasure`, so `hitTest` and `previewShapes` can look up a measure's clef/key at call time without re-running layout. `contentX` is the first column's `xStart` (the content band's left edge, chrome excluded); an empty measure with no columns falls back to the content-right edge, giving it a zero-width band.
+
+```ts
+interface PreviewNote { measureIndex: number; x: number; pitch: Pitch; voice?: 0|1 }
+function previewShapes(layout: LayoutResult, preview: PreviewNote): { glyphs: readonly GlyphRun[]; rects: readonly RectShape[] };
+```
+
+Pure, no layout re-run: looks up `preview.measureIndex`'s `MeasureBox` (clef/key) and its system (y), places one notehead glyph (`cls: 'preview-notehead'`, no `el` — not an element), ledger-line rects (`cls: 'preview-ledger'`) as needed, and an accidental glyph (`cls: 'preview-accidental'`) only when `preview.pitch`'s alteration differs from the key's alteration for that step. Used for a drag ghost or an insert-mode cursor once those land; nothing in the renderer calls it yet.
 
 ## Intents
 
-One channel, not a callback per action:
+The renderer emits only pointer intents — what an `activate`/`hover` means (play a sound, check an answer, edit the document) is entirely the app's call, never the renderer's (`AGENTS.md`):
 
 ```ts
 type NotationIntent =
-  | { type:'insertNote'; at:SlotRef; pitch:Pitch; duration:NoteValue }
-  | { type:'activate'; target:HitResult }
-  | { type:'selectElements'; ids:readonly NoteId[]; mode:'replace'|'toggle'|'range' }
-  | { type:'modifyPitch'; ids:readonly NoteId[]; by:{diatonic:number}|{chromatic:number}|{pitch:Pitch} }
-  | { type:'modifyDuration'; ids:readonly NoteId[]; duration:NoteValue }
-  | { type:'modifyAccidental'; ids:readonly NoteId[]; policy:AccidentalPolicy }   // AccidentalPolicy — mnx.md
-  | { type:'deleteElements'; ids:readonly NoteId[] }
-  | { type:'moveElements'; ids:readonly NoteId[]; to:SlotRef; pitchDelta?:number }
-  | { type:'navigate'; from:NoteId|null; direction:'next'|'prev'|'up'|'down'|'measureStart'|'measureEnd' }
-  | { type:'contextMenu'; target:HitResult; client:{x:number;y:number} }
-  | { type:'hover'; target:HitResult|null };
+  | { type: 'activate'; target: HitResult }
+  | { type: 'hover'; target: HitResult | null };
 
-interface IntentContext { layout:LayoutResult; hit:HitResult|null; nativeEvent:PointerEvent|KeyboardEvent; preventDefault():void }
+interface IntentContext { layout: LayoutResult; nativeEvent: MouseEvent | KeyboardEvent }
 
-interface NotationInteraction {
-  mode: 'view' | 'select' | 'insert';
-  insertDefaults?: { duration: NoteValue; voice?: 0|1 };   // NoteValue — interface.md's NotationOptions.insertGrid
-  selection?: readonly NoteId[];              // controlled
+interface NotationInteractionProps {
+  targets: readonly HitKind[];       // hitTest's HitKind — which kinds this child resolves against
+  voice?: 0 | 1;
   onIntent?: (intent: NotationIntent, ctx: IntentContext) => void;
 }
 ```
 
-`Pitch`/`NoteValue`/`AccidentalPolicy` are MNX shapes throughout — an intent is a small, serializable edit description over the same vocabulary the document itself uses, not a parallel type system.
+`<Notation.Interaction targets={['slot','element']} onIntent={...} />` is a compound child (`interface.md`), rendering nothing itself. With no `Interaction` child, or `targets: []`, `<Notation>` renders exactly what it always did — no overlay `<rect>`s, no `role="button"`/`tabIndex` on element `<g>`s, no pointer handlers doing anything.
 
-Rules:
+Behavior:
 
-- Renderer holds no edit state — no selection, no draft note, no undo stack. `score` in, intents out, fully controlled. Testable without a DOM, StrictMode-safe by construction.
-- `nativeEvent` stays out of the intent type — keyboard-driven insertion, MIDI-driven insertion, and a programmatic test all produce the same intent.
-- Adding a feature is a new union member, not a new prop — a `switch (intent.type) { … default: return }` consumer is forward-compatible.
+- `<svg>` gets `onClick` (→ `activate` when a hit resolves) and `onPointerMove`/`onPointerLeave` (→ `hover`). The client→sp conversion (`svg.getScreenCTM().inverse()`) is the only geometry `notation-react` performs; the result feeds straight into `hitTest(layout, point, { kinds: targets, voice, insertAlteration })`.
+- Hover is deduped by hit identity (element id, slot's `eventId`, or point's `(measureIndex, staffPosition)`) — a hover handler and a following preview ghost fire once per target change, not once per pixel of pointer movement; `hover: null` fires once on pointer leave.
+- When `'element'` is in `targets`, every element `<g>` additionally gets `role="button"` + `tabIndex={0}`; Enter/Space on a focused one produces the same `activate` a click on that notehead would.
+- One channel covers every exercise: the app turns an `activate` on a slot into `applyIntent({ type: 'setPitches', ... })` for a dictation answer, or just into a "check the answer" comparison for click-what-you-heard and error-detection exercises — the renderer doesn't know which.
 
-Phase 1: `mode:'insert'`, handle `insertNote`, ignore everything else. Every other row is additive:
+The same `<activate|hover>` pair also carries every future pointer-driven feature (drag, caret entry, etc., see "Deferred editor features" below) — a richer app behavior is a new `onIntent` handler branch, not a new renderer intent type.
 
-| Feature | What changes |
-| --- | --- |
-| Pitch/duration/accidental edit | New intent members; a menu or keyboard handler produces them |
-| Delete | `deleteElements` intent |
-| Multi-select | `selection` prop + `selectElements` intent; render `[data-pn-selected]`, CSS does the rest |
-| Drag | pointerdown → track → pointermove resolves a live `hitTest` → `moveElements` on pointerup; needs a `ghost?: {pitch, slot}` preview prop, no layout re-run |
-| Keyboard nav | `navigate` intent + `focusedId` prop + `tabIndex` on element `<g>`s |
-| Context menu | `contextMenu` intent carries client coords; app renders its own menu |
-| MIDI input | app converts MIDI to `insertNote`, applies it — renderer uninvolved |
-| Caret-style entry | `caret?: SlotRef` prop rendered as a cursor; `navigate` moves it |
+## Marks
+
+`<Notation.Marks>` is the counterpart compound child for state the app wants drawn without triggering a re-layout:
+
+```ts
+interface NotationMarksProps {
+  states?: Readonly<Record<NoteId, string>>;   // opaque app state → data-pn-state, architecture.md theming
+  selection?: readonly NoteId[];               // → data-pn-selected
+  preview?: PreviewNote | null;                 // → previewShapes, rendered as a ghost group
+}
+```
+
+`states[id]` and `selection` are written imperatively onto the existing element `<g>` ref map in an effect — the same mechanism `setPlaybackTick`'s `data-pn-playing` already uses — so changing exercise state (given/locked/correct/incorrect) never re-runs `layoutScore` and never disturbs element identity. `preview` renders a `<g data-pn="preview">` from `previewShapes(layout, preview)`, React-owned nodes, removed when `preview` is `null`.
+
+Exercise state itself — which ids are given, which is currently being asked, whether an answer was right — is app state keyed by `NoteId`, passed in through `states`/`selection` fully controlled; it never lives in MNX, in `LayoutResult`, or anywhere inside `notation-engine`/`notation-model` (`AGENTS.md`).
 
 ## Applying intents
 
-`applyIntent` ships as a separate `notation-engine` export, not wired into `<Notation>` — the quiz layer can reject an edit (wrong answer, locked measure) without fighting the renderer. It is a pure **MNX → MNX** function: everything in the document it doesn't touch — other measures, other parts, layout hints, ids — passes through unchanged (`AGENTS.md`).
+`applyIntent` ships from `notation-model` (`@polyhymnia/notation-model`), not `notation-engine` — edits are document surgery, not layout, and the model already owns id synthesis (`mnx.md` "ID rule") that an edit has to stay consistent with. It's not wired into `<Notation>`: the quiz layer can reject an edit (wrong answer, locked measure) without fighting the renderer. It is a pure **MNX → MNX** function: everything in the document it doesn't touch passes through `===` unchanged (`AGENTS.md`).
 
 ```ts
-interface ApplyOptions { allowMeasureGrowth?: boolean }   // default false — see spliceVoice step 6
-function applyIntent(doc: MnxDocument, intent: NotationIntent, opts?: ApplyOptions):
-  { doc: MnxDocument; inverse: NotationIntent | null; diagnostics: Diagnostic[] };   // Diagnostic — mnx.md
+type EditIntent = { type: 'setPitches'; event: NoteId; pitches: readonly Pitch[] };
+interface ApplyResult { doc: MnxDocument; changed: readonly NoteId[]; diagnostics: Diagnostic[] };   // Diagnostic — mnx.md
+function applyIntent(doc: MnxDocument, intent: EditIntent): ApplyResult;
 ```
 
-`applyIntent` resolves the target measure's capacity (from its effective `TimeSpec`, inheriting forward same as `normalize`, `architecture.md`) and threads it into `spliceVoice` as `measureCapacityTicks` — the one piece of context `spliceVoice` itself can't derive from the sequence's content alone.
+`setPitches` is the only intent so far — the smallest general method that covers dictation set, re-pitch, clear, and chord answers, because rhythm never changes: the event keeps its `duration`, tuplet membership, and every other field, so no positional id anywhere else in the document shifts (`mnx.md`).
 
-`inverse` makes undo one line: push it, pop and reapply for redo.
+- `event` is the event-level id — a rest's id, a single note's element id, or a chord's event id — exposed as `Slot.eventId`/`ElementBox.eventId` (below), resolved via `elementIds(doc).nodeOf`.
+- `pitches: []` turns the event into a rest (`rest: {}`, `notes` removed); one pitch makes it a single note; several make it a chord.
+- The touched event's id is written explicitly if it was positional (materialization, so the id stays the same across the next layout). A note that keeps its old slot's explicit id keeps it across a re-pitch; a note born from a rest stays id-less if the result is a single note (its element id is then the event's own id, same as the rest it replaced); a chord materializes an id on every member that doesn't already have one, `{eventId}.n{k}`-shaped, minted against the document's used-id set so a later edit can't renumber them.
+- Old note fields (`ties`, `accidentalDisplay`, …) are dropped for any note whose pitch changed. Cleanup then removes any `ties[]` entry anywhere else in the part that targets a note id that vanished or was re-pitched, and any `slurs[]` whose `target`/`startNote`/`endNote` does likewise. Beams reference events, which persist, so `beams[]` is untouched.
+- Unknown id, an id belonging to a grace/tremolo child (never addressable — `mnx.md`), or a non-event id leaves `doc` as the same reference, `changed: []`, one `intent-target-missing` warning. A whole-bar (`fullMeasure`) rest's id is addressable but not a real event with a rewritable `duration`/`notes`, so it gets the same no-op result with a distinct `intent-target-unsupported` warning instead — a dictation score should give its rhythm as real rest events, not a `fullMeasure` shorthand, if it needs to be answerable. Requesting the pitches already there is a no-op the same way, with no diagnostic.
+- `changed` lists the touched event's id plus every note id added or removed, so an app can drop per-id state (exercise "given"/"correct" flags, `AGENTS.md`) for ids that no longer exist.
+- Structural sharing: only the path from the document root to the touched part-measure, and any other part-measure cleanup actually touched, is copied; everything else — `global`, other parts, untouched measures — is `===` the input.
 
-**Rule: a voice's total duration per measure never changes.** Every mutation reduces to one primitive, operating on one MNX `Sequence`'s `content` array (`SequenceContent` — MNX `Event`/`Tuplet`/`Space`/`Grace`/`MultiNoteTremolo` items, `mnx.md`):
-
-```ts
-/** Replace [tick, tick+ticks) in one sequence with `insert`, re-padding the remainder with
- *  rests so total duration is unchanged. `measureCapacityTicks`: the containing measure's
- *  resolved capacity — needed because a `fullMeasure` rest's ticks can't be read off its note
- *  value (mnx.md's "Whole-bar rests"). */
-function spliceVoice(content: SequenceContent, tick: number, ticks: number,
-                      insert: SequenceContent, divisions: number, measureCapacityTicks: number):
-  { content: SequenceContent } | { diagnostic: Diagnostic } {
-  // 1. walk cumulative duration to find what covers [tick, tick+ticks), each item's ticks
-  //    via itemTicks(item): the normal note-value->ticks formula (mnx.md), EXCEPT the
-  //    sequence's own `fullMeasure` rest, whose ticks are always `measureCapacityTicks`
-  //    (never derived from its note value, which is pinned to 'whole' for rendering
-  //    regardless of meter — mnx.md).
-  //    notes are atomic (can't start/end mid-note); only a REST event may split at either
-  //    boundary.
-  // 2. if [tick, tick+ticks) is not item-boundary-aligned and any covered item is a NOTE
-  //    event (not a rest) -> reject, diagnostic 'splice-crosses-note'. Slot generation
-  //    already excludes these ticks (above), so this only fires on a hand-built/out-of-band
-  //    call.
-  // 3. remove the covered range.  4. splice in `insert`.
-  // 5. insert-duration < ticks removed -> fillRests() the remainder, splice in alongside.
-  //    a remainder that reconsumes the FULL remaining capacity re-collapses to one
-  //    `fullMeasure` rest instead of fillRests' normal decomposition — the two mechanisms
-  //    don't overlap otherwise: fillRests never emits a `fullMeasure` rest.
-  // 6. insert-duration > ticks removed -> reject, diagnostic 'measure-overfull', unless
-  //    opts.allowMeasureGrowth (ApplyOptions, above) -> extend the measure's capacity instead.
-}
-
-/** Decompose a tick length into the fewest notatable rest events. Rests aren't tied
- *  (unlike notes), so 5 sixteenths -> a quarter rest + a 16th rest, not one glyph.
- *  Greedy: largest power-of-two note value that fits, up to 2 dots (the engine's own
- *  cap, mnx.md), recurse the remainder. Terminates for any positive tick count. */
-function fillRests(ticks: number, divisions: number): Event[];   // each a rest event: { duration, rest: {} }
-```
-
-- `insertNote` = `spliceVoice(content, slot.tick, durationTicks(duration), [event], divisions, measureCapacityTicks)` — consumes exactly the note's duration out of whatever rest occupies that time.
-- `deleteElements` = `spliceVoice(content, tick, ticks, [], divisions, measureCapacityTicks)` — empty `insert` always triggers step 4, so the deleted note becomes rest event(s) of equal duration, not a hole and not a shift.
-- `moveElements` = a delete-at-old + insert-at-new composed as one intent, one inverse — two `spliceVoice` calls, each with its own measure's `measureCapacityTicks` (the source and target measures may differ; `SlotRef` doesn't constrain a move to stay within one).
-
-Why this is necessary, not decorative: the naive implementation (`content.filter(e => e.id !== id)`) silently shifts every later element's *derived* onset earlier by the deleted duration — the measure still sums correctly while sounding and rendering wrong (`mnx.md`).
+There's no `inverse` and no history knowledge; undo is deferred (`undo-design.md`, Q1). A richer set of intents — inserting/deleting/moving elements, which have to renumber positional ids and repad a voice's rests to keep its total duration fixed — is future work once slot-based insertion lands (`roadmap.md`).
 
 ## Accessibility
 
-Every note `<g>`: `role="img"` + `aria-label={box.label}` ("E flat 4, quarter note, measure 2"). `insert`/`select` mode adds `role="button"` + `tabIndex`. `<svg>` root: `aria-label` summarizing the score. Always render the answer as text alongside the notation — `ElementBox.label` exists so the app builds that text without re-deriving it.
+Every note `<g>`: `aria-label={box.label}` ("E flat 4, quarter note, measure 2"), `role="img"` by default. With `'element'` in `<Notation.Interaction>`'s `targets`, that becomes `role="button"` + `tabIndex={0}`, and Enter/Space activates it (above). `<svg>` root: `aria-label` summarizing the score. Always render the answer as text alongside the notation — `ElementBox.label` exists so the app builds that text without re-deriving it.
+
+## Deferred editor features
+
+Recorded here so they don't leak into I2/I3 or later exercise work:
+
+- Rhythm-changing edits: `insertNote` with rest splicing, `deleteElements` with rest replacement, `modifyDuration`, `moveElements`, grid slots (`options.insertGrid`), measure growth.
+- Editor gestures: drag to change pitch, on-canvas duration palette, caret entry, `navigate`, `contextMenu`, keyboard note entry.
+- Free multi-voice entry (creating a voice-1 sequence), measure/meter/key/clef edits, copy/paste.
+- Undo/redo history (`undo-design.md`, Q1) and semantic inverse intents (only needed for collaboration).
+- `modifyAccidental`/`AccidentalPolicy` edits beyond what `setPitches` expresses.
+- A rhythm edit intent (`setRhythm` or similar). Rhythm dictation itself needs none: the app keeps its own duration list and regenerates MNX; the notation only needs to expose `point.tick` (already in `hitTest`'s `point` kind, above).

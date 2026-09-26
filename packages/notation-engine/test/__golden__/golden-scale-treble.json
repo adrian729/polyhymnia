@@ -175,7 +175,13 @@
       "staffPosition": 5,
       "tick": 0,
       "durationTicks": 3360,
-      "label": "C 4, quarter note, measure 1"
+      "label": "C 4, quarter note, measure 1",
+      "eventId": "m0.s0.e0",
+      "pitch": {
+        "step": 0,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m0.s0.e1": {
       "id": "m0.s0.e1",
@@ -196,7 +202,13 @@
       "staffPosition": 4.5,
       "tick": 3360,
       "durationTicks": 3360,
-      "label": "D 4, quarter note, measure 1"
+      "label": "D 4, quarter note, measure 1",
+      "eventId": "m0.s0.e1",
+      "pitch": {
+        "step": 1,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m0.s0.e2": {
       "id": "m0.s0.e2",
@@ -217,7 +229,13 @@
       "staffPosition": 4,
       "tick": 6720,
       "durationTicks": 3360,
-      "label": "E 4, quarter note, measure 1"
+      "label": "E 4, quarter note, measure 1",
+      "eventId": "m0.s0.e2",
+      "pitch": {
+        "step": 2,
+        "alter": 0,
+        "octave": 4
+      }
     },
     "m0.s0.e3": {
       "id": "m0.s0.e3",
@@ -238,10 +256,78 @@
       "staffPosition": 3.5,
       "tick": 10080,
       "durationTicks": 3360,
-      "label": "F 4, quarter note, measure 1"
+      "label": "F 4, quarter note, measure 1",
+      "eventId": "m0.s0.e3",
+      "pitch": {
+        "step": 3,
+        "alter": 0,
+        "octave": 4
+      }
     }
   },
-  "slots": [],
+  "slots": [
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 0,
+      "x": 5.764,
+      "w": 14.444,
+      "eventId": "m0.s0.e0",
+      "elementIds": [
+        "m0.s0.e0"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 3360,
+      "x": 20.208,
+      "w": 14.444,
+      "eventId": "m0.s0.e1",
+      "elementIds": [
+        "m0.s0.e1"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 6720,
+      "x": 34.652,
+      "w": 14.444,
+      "eventId": "m0.s0.e2",
+      "elementIds": [
+        "m0.s0.e2"
+      ]
+    },
+    {
+      "measureIndex": 0,
+      "voice": 0,
+      "tick": 10080,
+      "x": 49.096,
+      "w": 14.444,
+      "eventId": "m0.s0.e3",
+      "elementIds": [
+        "m0.s0.e3"
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "index": 0,
+      "systemIndex": 0,
+      "x": 0,
+      "w": 65,
+      "contentX": 5.764,
+      "startTick": 0,
+      "capacityTicks": 13440,
+      "clef": {
+        "kind": "treble"
+      },
+      "key": {
+        "fifths": 0
+      }
+    }
+  ],
   "diagnostics": [],
   "timemap": {
     "divisions": 3360,

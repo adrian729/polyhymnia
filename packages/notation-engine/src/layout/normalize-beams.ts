@@ -307,7 +307,7 @@ function autoBeamVoice(
   return groups.map((group) => {
     const noteSpan = group.map((id) => byId.get(id)!);
     return {
-      id: synthId(`${group[0]}.beam`, reader, measureIndex),
+      id: synthId(`${group[0]}.beam`, reader),
       measureIndex,
       voice: voice.index,
       elements: group,

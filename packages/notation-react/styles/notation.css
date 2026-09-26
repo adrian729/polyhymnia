@@ -36,3 +36,6 @@
   fill: var(--pn-cursor, #0969da);
   opacity: var(--pn-cursor-opacity, 0.25);
 }
+.pn-notation [data-pn='preview'] {
+  opacity: var(--pn-preview-opacity, 0.45);
+}

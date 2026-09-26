@@ -9,19 +9,28 @@
 
 export { Notation, describeScore, viewBoxAttr } from './Notation.js';
 export type { NotationProps, NotationHandle, NotationPlaybackProps, PlaybackView } from './Notation.js';
+export type { NotationInteractionProps, NotationIntent, IntentContext } from './Interaction.js';
+export type { NotationMarksProps } from './Marks.js';
 
 // Layout: the pure entry point and the shapes a consumer of `onLayout` / `getLayout()`
 // reads.
-export { layoutScore, DEFAULT_OPTIONS } from '@polyhymnia/notation-engine';
+export { layoutScore, DEFAULT_OPTIONS, hitTest, previewShapes, midiOf } from '@polyhymnia/notation-engine';
 export type {
   ClefSpec,
   ElementBox,
   GlyphRun,
+  HitKind,
+  HitOptions,
+  HitResult,
   KeySpec,
   LayoutResult,
+  MeasureBox,
   NotationOptions,
   PathShape,
+  PreviewNote,
   RectShape,
+  Slot,
+  SlotRef,
   SystemBox,
   TimeMap,
   TimeMapEntry,
@@ -31,5 +40,5 @@ export type {
 
 // The score format (AGENTS.md "Score format" — MNX only). `parsePitch` is the one
 // piece of content authoring apps genuinely need: pitch props stay `'C4'` strings.
-export { parsePitch } from '@polyhymnia/notation-model';
-export type { Diagnostic, MnxDocument, NoteValue, Pitch } from '@polyhymnia/notation-model';
+export { parsePitch, applyIntent, elementIds } from '@polyhymnia/notation-model';
+export type { Diagnostic, EditIntent, ApplyResult, MnxDocument, NoteId, NoteValue, Pitch } from '@polyhymnia/notation-model';
